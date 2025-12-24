@@ -22,6 +22,8 @@ function App() {
   const [editingProgress, setEditingProgress] = useState<StudyProgress | null>(null);
   const [health, setHealth] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [prevTab, setPrevTab] = useState<string>('dashboard');
+  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
   const tabs = [
     { id: 'dashboard', label: 'ダッシュボード' },
@@ -196,7 +198,14 @@ function App() {
           </div>
         </header>
 
-        <Tabs activeTab={activeTab} onTabChange={setActiveTab} tabs={tabs} />
+        <Tabs activeTab={activeTab} onTabChange={(tab) => {
+          const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'settings'];
+          const currentIndex = tabOrder.indexOf(activeTab);
+          const newIndex = tabOrder.indexOf(tab);
+          setSlideDirection(newIndex > currentIndex ? 'right' : 'left');
+          setPrevTab(activeTab);
+          setActiveTab(tab);
+        }} tabs={tabs} />
 
         {isLoading ? (
           <div className="text-center py-12">
@@ -204,13 +213,18 @@ function App() {
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
         ) : (
-          <>
+          <div className={slideDirection === 'right' ? 'slide-in-right' : 'slide-in-left'}>
             {activeTab === 'dashboard' && (
               <SummaryCards
                 totalHours={totalHours}
                 totalTodos={totalTodos}
                 completedTodos={completedTodos}
                 todayDueTodos={todayDueTodos}
+                onReminderCardClick={() => {
+                  setSlideDirection('right');
+                  setPrevTab(activeTab);
+                  setActiveTab('todo');
+                }}
               />
             )}
 
@@ -245,7 +259,7 @@ function App() {
                 />
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
     </div>

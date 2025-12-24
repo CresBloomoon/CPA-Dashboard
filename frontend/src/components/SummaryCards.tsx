@@ -3,9 +3,10 @@ interface SummaryCardsProps {
   totalTodos: number;
   completedTodos: number;
   todayDueTodos: number;
+  onReminderCardClick?: () => void;
 }
 
-export default function SummaryCards({ totalHours, totalTodos, completedTodos, todayDueTodos }: SummaryCardsProps) {
+export default function SummaryCards({ totalHours, totalTodos, completedTodos, todayDueTodos, onReminderCardClick }: SummaryCardsProps) {
   return (
     <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
       <div className="md:col-span-1 bg-white rounded-lg shadow-lg p-6">
@@ -23,7 +24,14 @@ export default function SummaryCards({ totalHours, totalTodos, completedTodos, t
         </div>
       </div>
 
-      <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
+      <div 
+        className={`md:col-span-2 bg-white rounded-lg shadow-lg p-6 ${
+          onReminderCardClick 
+            ? 'cursor-pointer hover:bg-blue-50 active:scale-[0.99] transition-all duration-300' 
+            : ''
+        }`}
+        onClick={onReminderCardClick}
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">リマインダ</h3>

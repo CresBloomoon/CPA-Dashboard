@@ -495,6 +495,19 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
               >
                 復習セットリスト
               </button>
+              <button
+                onClick={() => {
+                  setActiveMenu('google-calendar');
+                  loadSettings();
+                }}
+                className={`w-full text-left px-6 py-4 rounded-lg transition-colors text-lg ${
+                  activeMenu === 'google-calendar'
+                    ? 'bg-blue-500 text-white font-semibold shadow-md'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                Googleカレンダー連携
+              </button>
               {/* 今後追加する設定項目はここに追加 */}
             </nav>
         </div>
