@@ -1,0 +1,17 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# パッケージファイルをコピーして依存関係をインストール
+COPY package*.json ./
+RUN npm install
+
+# アプリケーションコードをコピー
+COPY . .
+
+# ポートの公開
+EXPOSE 5173
+
+# デフォルトコマンド（docker-composeで上書きされる）
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+
