@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
 
@@ -14,6 +15,17 @@ class StudyProgress(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(500), nullable=False)  # プロジェクト名（例：租税法レギュラー答練1回目）
+    subject = Column(String(100), nullable=True)  # 科目
+    due_date = Column(DateTime(timezone=True), nullable=True)  # プロジェクトの期限日
+    description = Column(Text, nullable=True)  # 説明
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
 class Todo(Base):
     __tablename__ = "todos"
 
@@ -21,9 +33,13 @@ class Todo(Base):
     title = Column(String(500), nullable=False)  # ToDoのタイトル
     subject = Column(String(100), nullable=True)  # 科目（財務会計、管理会計など）
     due_date = Column(DateTime(timezone=True), nullable=True)  # 日時
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)  # プロジェクトID
     completed = Column(Boolean, default=False)  # 完了/未完了
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    # リレーションシップ
+    project = relationship("Project", backref="todos")
 
 class Settings(Base):
     __tablename__ = "settings"

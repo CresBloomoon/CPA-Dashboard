@@ -10,6 +10,7 @@ import TodoList from './components/TodoList';
 import CalendarView from './components/CalendarView';
 import SettingsView from './components/SettingsView';
 import GanttChart from './components/GanttChart';
+import Heatmap from './components/Heatmap';
 import Tabs from './components/Tabs';
 
 function App() {
@@ -240,17 +241,20 @@ function App() {
         ) : (
           <div className={slideDirection === 'right' ? 'slide-in-right' : 'slide-in-left'}>
             {activeTab === 'dashboard' && (
-              <SummaryCards
-                totalHours={totalHours}
-                totalTodos={totalTodos}
-                completedTodos={completedTodos}
-                todayDueTodos={todayDueTodos}
-                onReminderCardClick={() => {
-                  setSlideDirection('right');
-                  setPrevTab(activeTab);
-                  setActiveTab('todo');
-                }}
-              />
+              <div className="space-y-6">
+                <SummaryCards
+                  totalHours={totalHours}
+                  totalTodos={totalTodos}
+                  completedTodos={completedTodos}
+                  todayDueTodos={todayDueTodos}
+                  onReminderCardClick={() => {
+                    setSlideDirection('right');
+                    setPrevTab(activeTab);
+                    setActiveTab('todo');
+                  }}
+                />
+                <Heatmap progressList={progressList} todos={todos} />
+              </div>
             )}
 
             {activeTab === 'timer' && (

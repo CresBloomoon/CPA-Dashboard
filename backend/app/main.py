@@ -165,3 +165,42 @@ async def update_subject_name(
     updated_count = crud.update_subject_name(db, request.old_name, request.new_name)
     return schemas.SubjectUpdateResponse(updated_count=updated_count)
 
+# プロジェクトのCRUDエンドポイント
+@app.get("/api/projects", response_model=List[schemas.ProjectResponse])
+async def get_all_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    """すべてのプロジェクトを取得"""
+    return crud.get_all_projects(db, skip=skip, limit=limit)
+
+@app.get("/api/projects/{project_id}", response_model=schemas.ProjectResponse)
+async def get_project(project_id: int, db: Session = Depends(get_db)):
+    """IDでプロジェクトを取得"""
+    project = crud.get_project(db, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="プロジェクトが見つかりません")
+    return project
+
+@app.post("/api/projects", response_model=schemas.ProjectResponse, status_code=201)
+async def create_project(project: schemas.ProjectCreate, db: Session = Depends(get_db)):
+    """新しいプロジェクトを作成"""
+    return crud.create_project(db, project)
+
+@app.put("/api/projects/{project_id}", response_model=schemas.ProjectResponse)
+async def update_project(
+    project_id: int,
+    project_update: schemas.ProjectUpdate,
+    db: Session = Depends(get_db)
+):
+    """プロジェクトを更新"""
+    project = crud.update_project(db, project_id, project_update)
+    if project is None:
+        raise HTTPException(status_code=404, detail="プロジェクトが見つかりません")
+    return project
+
+@app.delete("/api/projects/{project_id}", status_code=204)
+async def delete_project(project_id: int, db: Session = Depends(get_db)):
+    """プロジェクトを削除"""
+    project = crud.delete_project(db, project_id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="プロジェクトが見つかりません")
+    return None
+

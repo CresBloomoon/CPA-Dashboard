@@ -84,6 +84,7 @@ def create_todo(db: Session, todo: schemas.TodoCreate, sync_to_google_calendar: 
         title=todo.title,
         subject=todo.subject,
         due_date=todo.due_date,
+        project_id=todo.project_id,
         completed=False
     )
     db.add(db_todo)
@@ -166,6 +167,60 @@ def update_subject_name(db: Session, old_name: str, new_name: str):
     for progress in progress_list:
         progress.subject = new_name
     
+    # Projectの科目名を更新
+    projects = db.query(models.Project).filter(models.Project.subject == old_name).all()
+    for project in projects:
+        project.subject = new_name
+    
     db.commit()
-    return len(todos) + len(progress_list)
+    return len(todos) + len(progress_list) + len(projects)
+
+# プロジェクトCRUD操作
+def get_project(db: Session, project_id: int):
+    """IDでプロジェクトを取得"""
+    return db.query(models.Project).filter(models.Project.id == project_id).first()
+
+def get_all_projects(db: Session, skip: int = 0, limit: int = 100):
+    """すべてのプロジェクトを取得（期限日の昇順）"""
+    return db.query(models.Project).order_by(
+        models.Project.due_date.asc().nulls_last(),
+        models.Project.created_at.desc()
+    ).offset(skip).limit(limit).all()
+
+def create_project(db: Session, project: schemas.ProjectCreate):
+    """新しいプロジェクトを作成"""
+    db_project = models.Project(**project.dict())
+    db.add(db_project)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+def update_project(db: Session, project_id: int, project_update: schemas.ProjectUpdate):
+    """プロジェクトを更新"""
+    db_project = get_project(db, project_id)
+    if db_project is None:
+        return None
+    
+    update_data = project_update.dict(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_project, field, value)
+    
+    db.commit()
+    db.refresh(db_project)
+    return db_project
+
+def delete_project(db: Session, project_id: int):
+    """プロジェクトを削除（関連するToDoのproject_idをnullに設定）"""
+    db_project = get_project(db, project_id)
+    if db_project is None:
+        return None
+    
+    # 関連するToDoのproject_idをnullに設定
+    todos = db.query(models.Todo).filter(models.Todo.project_id == project_id).all()
+    for todo in todos:
+        todo.project_id = None
+    
+    db.delete(db_project)
+    db.commit()
+    return db_project
 

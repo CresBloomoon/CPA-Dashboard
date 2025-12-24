@@ -27,22 +27,49 @@ class StudyProgressResponse(StudyProgressBase):
     class Config:
         from_attributes = True
 
+# プロジェクトスキーマ
+class ProjectBase(BaseModel):
+    name: str = Field(..., description="プロジェクト名")
+    subject: Optional[str] = Field(None, description="科目")
+    due_date: Optional[datetime] = Field(None, description="プロジェクトの期限日")
+    description: Optional[str] = Field(None, description="説明")
+
+class ProjectCreate(ProjectBase):
+    pass
+
+class ProjectUpdate(BaseModel):
+    name: Optional[str] = None
+    subject: Optional[str] = None
+    due_date: Optional[datetime] = None
+    description: Optional[str] = None
+
+class ProjectResponse(ProjectBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
 # ToDoスキーマ
 class TodoBase(BaseModel):
     title: str = Field(..., description="ToDoのタイトル")
     subject: Optional[str] = Field(None, description="科目")
     due_date: datetime = Field(..., description="期限（日付）")
+    project_id: Optional[int] = Field(None, description="プロジェクトID")
     completed: bool = Field(False, description="完了/未完了")
 
 class TodoCreate(BaseModel):
     title: str = Field(..., description="ToDoのタイトル")
     subject: Optional[str] = Field(None, description="科目")
     due_date: datetime = Field(..., description="期限（日付）")
+    project_id: Optional[int] = Field(None, description="プロジェクトID")
 
 class TodoUpdate(BaseModel):
     title: Optional[str] = None
     subject: Optional[str] = None
     due_date: Optional[datetime] = None
+    project_id: Optional[int] = None
     completed: Optional[bool] = None
 
 class TodoResponse(TodoBase):
