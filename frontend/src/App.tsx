@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { studyProgressApi, todoApi, settingsApi } from './api';
-import type { StudyProgress, StudyProgressCreate, SubjectSummary, Todo, Subject } from './types';
+import { studyProgressApi, todoApi, settingsApi, projectApi } from './api';
+import type { StudyProgress, StudyProgressCreate, SubjectSummary, Todo, Subject, Project } from './types';
 import ProgressList from './components/ProgressList';
 import ProgressForm from './components/ProgressForm';
 import SummaryCards from './components/SummaryCards';
@@ -9,12 +9,14 @@ import StudyTimer from './components/StudyTimer';
 import TodoList from './components/TodoList';
 import CalendarView from './components/CalendarView';
 import SettingsView from './components/SettingsView';
+import GanttChart from './components/GanttChart';
 import Tabs from './components/Tabs';
 
 function App() {
   const [progressList, setProgressList] = useState<StudyProgress[]>([]);
   const [summary, setSummary] = useState<SubjectSummary[]>([]);
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [subjects, setSubjects] = useState<string[]>(['財計', '財理', '管計', '管理', '企業法', '監査論', '租税法', '経営学']);
   const [subjectsWithColors, setSubjectsWithColors] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -30,6 +32,7 @@ function App() {
     { id: 'timer', label: '時間記録' },
     { id: 'todo', label: 'リマインダ' },
     { id: 'calendar', label: 'カレンダー' },
+    { id: 'gantt', label: 'ガントチャート' },
     { id: 'settings', label: '設定' },
   ];
 
@@ -37,17 +40,39 @@ function App() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [progress, summaryData, todosData] = await Promise.all([
-        studyProgressApi.getAll(),
-        studyProgressApi.getSummary(),
-        todoApi.getAll(),
-      ]);
-      setProgressList(progress);
-      setSummary(summaryData);
-      setTodos(todosData);
+      
+      // 各APIを個別に呼び出してエラーハンドリング
+      try {
+        const progress = await studyProgressApi.getAll();
+        setProgressList(progress);
+      } catch (error) {
+        console.error('Error fetching progress:', error);
+      }
+      
+      try {
+        const summaryData = await studyProgressApi.getSummary();
+        setSummary(summaryData);
+      } catch (error) {
+        console.error('Error fetching summary:', error);
+      }
+      
+      try {
+        const todosData = await todoApi.getAll();
+        setTodos(todosData);
+      } catch (error) {
+        console.error('Error fetching todos:', error);
+      }
+      
+      try {
+        const projectsData = await projectApi.getAll();
+        setProjects(projectsData);
+      } catch (error) {
+        console.error('Error fetching projects:', error);
+        // プロジェクト取得に失敗した場合は空配列を設定
+        setProjects([]);
+      }
     } catch (error) {
       console.error('Error fetching data:', error);
-      alert('データの取得に失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -199,7 +224,7 @@ function App() {
         </header>
 
         <Tabs activeTab={activeTab} onTabChange={(tab) => {
-          const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'settings'];
+          const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'gantt', 'settings'];
           const currentIndex = tabOrder.indexOf(activeTab);
           const newIndex = tabOrder.indexOf(tab);
           setSlideDirection(newIndex > currentIndex ? 'right' : 'left');
@@ -243,6 +268,18 @@ function App() {
             {activeTab === 'calendar' && (
               <div className="max-w-6xl mx-auto">
                 <CalendarView todos={todos} onUpdate={fetchTodos} subjectsWithColors={subjectsWithColors} />
+              </div>
+            )}
+
+            {activeTab === 'gantt' && (
+              <div className="max-w-full mx-auto">
+                <GanttChart 
+                  todos={todos} 
+                  projects={projects} 
+                  subjectsWithColors={subjectsWithColors}
+                  onProjectsUpdate={fetchData}
+                  subjects={subjects}
+                />
               </div>
             )}
 

@@ -29,6 +29,7 @@ export interface Todo {
   title: string;
   subject?: string;
   due_date?: string;
+  project_id?: number;
   completed: boolean;
   created_at: string;
   updated_at?: string;
@@ -38,6 +39,7 @@ export interface TodoCreate {
   title: string;
   subject?: string;
   due_date?: string;
+  project_id?: number;
 }
 
 export interface Settings {
@@ -63,4 +65,21 @@ export interface ReviewTiming {
   subject_id: number;
   subject_name: string;
   review_days: number[]; // 復習日数（開始日からの日数）例: [1, 3, 7, 14] → 1日後、3日後、7日後、14日後
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  subject?: string;
+  due_date?: string;
+  description?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface ProjectCreate {
+  name: string;
+  subject?: string;
+  due_date?: string;
+  description?: string;
 }

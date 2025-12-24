@@ -23,7 +23,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [manualMinutes, setManualMinutes] = useState(5); // 分（5分刻み）
   const [mode, setMode] = useState<'stopwatch' | 'manual'>('stopwatch');
   const [topic, setTopic] = useState<string>('');
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
 
   // ストップウォッチのタイマー処理

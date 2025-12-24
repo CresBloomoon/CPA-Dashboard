@@ -69,6 +69,12 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
     }
   };
 
+  // 通知を表示
+  const showNotification = (message: string, type: 'success' | 'error') => {
+    setNotification({ message, type });
+    setTimeout(() => setNotification(null), 3000);
+  };
+
   // 復習リマインダを一括作成（セットリストから）
   const handleCreateReviewSet = async (timing: ReviewTiming, title: string) => {
     if (!timing || timing.review_days.length === 0) {
@@ -491,14 +497,10 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
                                 newTodoSubject === subject ? 'bg-blue-50' : ''
                               }`}
                             >
-                              {color ? (
-                                <span
-                                  className="w-3 h-3 rounded-full flex-shrink-0"
-                                  style={{ backgroundColor: color }}
-                                />
-                              ) : (
-                                <span className="w-3 h-3 flex-shrink-0" />
-                              )}
+                              <span
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: color || '#9ca3af' }}
+                              />
                               <span>{subject}</span>
                             </button>
                           );
@@ -599,10 +601,33 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
               >
                 <button
                   onClick={() => handleToggle(todo)}
-                  className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-gray-300 hover:border-blue-500 transition-colors flex items-center justify-center"
+                  className="flex-shrink-0 w-6 h-6 rounded-full border-2 transition-colors flex items-center justify-center"
+                  style={{
+                    borderColor: todo.completed 
+                      ? (getSubjectColor(todo.subject) || '#3b82f6')
+                      : '#d1d5db',
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!todo.completed) {
+                      e.currentTarget.style.borderColor = getSubjectColor(todo.subject) || '#3b82f6';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!todo.completed) {
+                      e.currentTarget.style.borderColor = '#d1d5db';
+                    }
+                  }}
                 >
                   {todo.completed && (
-                    <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg 
+                      className="w-4 h-4" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      viewBox="0 0 24 24"
+                      style={{
+                        color: getSubjectColor(todo.subject) || '#3b82f6',
+                      }}
+                    >
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
@@ -655,7 +680,11 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
                 >
                   <button
                     onClick={() => handleToggle(todo)}
-                    className="flex-shrink-0 w-6 h-6 rounded-full border-2 border-blue-500 bg-blue-500 flex items-center justify-center"
+                    className="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center"
+                    style={{
+                      backgroundColor: getSubjectColor(todo.subject) || '#3b82f6',
+                      borderColor: getSubjectColor(todo.subject) || '#3b82f6',
+                    }}
                   >
                     <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

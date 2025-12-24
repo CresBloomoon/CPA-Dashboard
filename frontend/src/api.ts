@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { StudyProgress, StudyProgressCreate, SubjectSummary, Todo, TodoCreate, Settings, SettingsCreate } from './types';
+import type { StudyProgress, StudyProgressCreate, SubjectSummary, Todo, TodoCreate, Settings, SettingsCreate, Project, ProjectCreate } from './types';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
@@ -110,6 +110,37 @@ export const settingsApi = {
       new_name: newName,
     });
     return response.data;
+  },
+};
+
+export const projectApi = {
+  // すべてのプロジェクトを取得
+  getAll: async (): Promise<Project[]> => {
+    const response = await api.get<Project[]>('/projects');
+    return response.data;
+  },
+
+  // IDでプロジェクトを取得
+  getById: async (id: number): Promise<Project> => {
+    const response = await api.get<Project>(`/projects/${id}`);
+    return response.data;
+  },
+
+  // 新しいプロジェクトを作成
+  create: async (data: ProjectCreate): Promise<Project> => {
+    const response = await api.post<Project>('/projects', data);
+    return response.data;
+  },
+
+  // プロジェクトを更新
+  update: async (id: number, data: Partial<ProjectCreate>): Promise<Project> => {
+    const response = await api.put<Project>(`/projects/${id}`, data);
+    return response.data;
+  },
+
+  // プロジェクトを削除
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/projects/${id}`);
   },
 };
 
