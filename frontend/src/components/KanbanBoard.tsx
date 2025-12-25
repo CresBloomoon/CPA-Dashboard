@@ -21,6 +21,7 @@ import type { Todo, Project, ProjectCreate, Subject } from '../types';
 import { projectApi, todoApi } from '../api';
 import TodoCreateModal from './TodoCreateModal';
 import ProjectCreateModal from './ProjectCreateModal';
+import AnimatedCheckbox from './AnimatedCheckbox';
 
 registerLocale('ja', ja);
 
@@ -37,13 +38,13 @@ interface KanbanBoardProps {
 function DraggableTodoCard({ 
   todo, 
   getSubjectColor,
-  onToggle,
+  onUpdate,
   onDelete,
   subjectsWithColors = []
 }: { 
   todo: Todo; 
   getSubjectColor: (subject: string | null) => string;
-  onToggle: (todo: Todo) => void;
+  onUpdate: () => void;
   onDelete: (todo: Todo) => void;
   subjectsWithColors?: Subject[];
 }) {
@@ -122,58 +123,14 @@ function DraggableTodoCard({
       onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex items-start gap-2">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onToggle(todo);
-          }}
-          key={`${todo.id}-${todo.completed}`}
-          className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-            todo.completed ? 'animate-checkmark-circle' : ''
-          }`}
-          style={{
-            borderColor: todo.completed 
-              ? todoColor
-              : '#d1d5db',
-            backgroundColor: todo.completed 
-              ? todoColor
-              : 'transparent',
-            transition: 'all 0.3s ease',
-          }}
-          onMouseEnter={(e) => {
-            if (!todo.completed) {
-              e.currentTarget.style.borderColor = todoColor;
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!todo.completed) {
-              e.currentTarget.style.borderColor = '#d1d5db';
-            }
-          }}
-        >
-          {todo.completed && (
-            <svg 
-              className="w-3 h-3 animate-checkmark" 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-              style={{
-                color: '#ffffff',
-              }}
-            >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={3.5} 
-                d="M5 13l4 4L19 7"
-                className="animate-draw-check"
-                style={{
-                  filter: 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.5))',
-                }}
-              />
-            </svg>
-          )}
-        </button>
+        <div onClick={(e) => e.stopPropagation()}>
+          <AnimatedCheckbox
+            todo={todo}
+            subjectColor={todoColor}
+            onUpdate={onUpdate}
+            size="sm"
+          />
+        </div>
         {todo.subject && (
           <span
             className="w-2 h-2 rounded-full flex-shrink-0 mt-1"
@@ -221,7 +178,7 @@ function DroppableProjectColumn({
   handleDeleteProject,
   onAddTodoClick,
   getSubjectColor,
-  onToggleTodo,
+  onUpdateTodos,
   onDeleteTodo,
   subjectsWithColors = [],
 }: { 
@@ -234,7 +191,7 @@ function DroppableProjectColumn({
   handleDeleteProject: (id: number) => void;
   onAddTodoClick: (projectId: number | 'unassigned') => void;
   getSubjectColor: (subject: string | null) => string;
-  onToggleTodo: (todo: Todo) => void;
+  onUpdateTodos: () => void;
   onDeleteTodo: (todo: Todo) => void;
   subjectsWithColors?: Subject[];
 }) {
@@ -362,9 +319,9 @@ function DroppableProjectColumn({
                   <DraggableTodoCard 
                     key={todo.id} 
                     todo={todo} 
-                    getSubjectColor={getSubjectColor}
-                    onToggle={onToggleTodo}
-                    onDelete={onDeleteTodo}
+                  getSubjectColor={getSubjectColor}
+                  onUpdate={onUpdateTodos}
+                  onDelete={onDeleteTodo}
                     subjectsWithColors={subjectsWithColors}
                   />
         ))}
@@ -749,7 +706,7 @@ export default function KanbanBoard({
                   handleDeleteProject={handleDeleteProject}
                   onAddTodoClick={openTodoModal}
                   getSubjectColor={getSubjectColor}
-                  onToggleTodo={handleToggleTodo}
+                  onUpdateTodos={onTodosUpdate}
                   onDeleteTodo={handleDeleteTodo}
                   onToggleProject={handleToggleProject}
                   subjectsWithColors={subjectsWithColors}

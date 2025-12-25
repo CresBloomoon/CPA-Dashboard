@@ -16,6 +16,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSam
 import { ja } from 'date-fns/locale';
 import { todoApi } from '../api';
 import type { Todo, Subject } from '../types';
+import AnimatedCheckbox from './AnimatedCheckbox';
 
 interface CalendarViewProps {
   todos: Todo[];
@@ -28,12 +29,12 @@ function DraggableTodoCard({
   todo, 
   getSubjectColor, 
   getTextColor, 
-  onToggle 
+  onUpdate
 }: { 
   todo: Todo; 
   getSubjectColor: (subject?: string) => string | undefined;
   getTextColor: (bgColor?: string) => string;
-  onToggle: (e: React.MouseEvent, todo: Todo) => void;
+  onUpdate: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: todo.id,
@@ -53,8 +54,7 @@ function DraggableTodoCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      onClick={(e) => onToggle(e, todo)}
-      className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer transition-colors flex items-center gap-1 ${
+      className={`text-xs px-1 py-0.5 rounded truncate cursor-move transition-colors flex items-center gap-1 ${
         isDragging ? 'opacity-50' : ''
       }`}
       style={{
@@ -70,21 +70,14 @@ function DraggableTodoCard({
       }}
       title={todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}
     >
-      <div 
-        className="flex-shrink-0 w-3 h-3 rounded-full border flex items-center justify-center"
-        style={borderColor ? { borderColor: borderColor } : { borderColor: '#2563eb' }}
-      >
-        {todo.completed && subjectColor && (
-          <svg 
-            className="w-2 h-2" 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24" 
-            style={{ color: getTextColor(subjectColor) }}
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-          </svg>
-        )}
+      <div onClick={(e) => e.stopPropagation()}>
+        <AnimatedCheckbox
+          todo={todo}
+          subjectColor={subjectColor || '#3b82f6'}
+          onUpdate={onUpdate}
+          size="sm"
+          className="scale-75"
+        />
       </div>
       <span className="truncate">
         {todo.subject ? `【${todo.subject}】` : ''}
@@ -99,13 +92,13 @@ function DraggableCompletedTodoCard({
   todo, 
   getSubjectColor, 
   getTextColor, 
-  onToggle,
+  onUpdate,
   incompleteCount
 }: { 
   todo: Todo; 
   getSubjectColor: (subject?: string) => string | undefined;
   getTextColor: (bgColor?: string) => string;
-  onToggle: (e: React.MouseEvent, todo: Todo) => void;
+  onUpdate: () => void;
   incompleteCount: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -125,40 +118,27 @@ function DraggableCompletedTodoCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      onClick={(e) => onToggle(e, todo)}
-      className={`text-xs line-through cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded transition-colors flex items-center gap-1 ${
+      className={`text-xs cursor-move hover:bg-gray-100 px-1 py-0.5 rounded transition-colors flex items-center gap-1 ${
         isDragging ? 'opacity-50' : ''
-      }`}
+      } ${todo.completed ? 'opacity-60' : ''}`}
       style={{
         ...style,
         ...(subjectColor ? {
           backgroundColor: `${subjectColor}20`,
           color: textColor,
-          opacity: 0.7
         } : {
           color: '#9ca3af'
         }),
       }}
     >
-      <div 
-        className="flex-shrink-0 w-3 h-3 rounded-full border flex items-center justify-center"
-        style={subjectColor ? { 
-          borderColor: subjectColor, 
-          backgroundColor: subjectColor 
-        } : {
-          borderColor: '#9ca3af',
-          backgroundColor: '#9ca3af'
-        }}
-      >
-        <svg 
-          className="w-2 h-2" 
-          fill="none" 
-          stroke="currentColor" 
-          viewBox="0 0 24 24"
-          style={{ color: subjectColor ? getTextColor(subjectColor) : '#ffffff' }}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-        </svg>
+      <div onClick={(e) => e.stopPropagation()}>
+        <AnimatedCheckbox
+          todo={todo}
+          subjectColor={subjectColor || '#3b82f6'}
+          onUpdate={onUpdate}
+          size="sm"
+          className="scale-75"
+        />
       </div>
       <span className="truncate" title={displayText}>
         {displayText.length > 8 
@@ -180,7 +160,7 @@ function DroppableDateCell({
   isDragOver,
   getSubjectColor,
   getTextColor,
-  onToggleTodo,
+  onUpdateTodos,
   getTodosForDate
 }: { 
   date: Date;
@@ -192,7 +172,7 @@ function DroppableDateCell({
   isDragOver: boolean;
   getSubjectColor: (subject?: string) => string | undefined;
   getTextColor: (bgColor?: string) => string;
-  onToggleTodo: (e: React.MouseEvent, todo: Todo) => void;
+  onUpdateTodos: () => void;
   getTodosForDate: (date: Date) => Todo[];
 }) {
   const { setNodeRef, isOver } = useDroppable({
@@ -226,7 +206,7 @@ function DroppableDateCell({
             todo={todo}
             getSubjectColor={getSubjectColor}
             getTextColor={getTextColor}
-            onToggle={onToggleTodo}
+            onUpdate={onUpdateTodos}
           />
         ))}
         {incompleteTodos.length > 4 && (
@@ -242,7 +222,7 @@ function DroppableDateCell({
                 todo={todo}
                 getSubjectColor={getSubjectColor}
                 getTextColor={getTextColor}
-                onToggle={onToggleTodo}
+                onUpdate={onUpdateTodos}
                 incompleteCount={incompleteTodos.length}
               />
             ))}
@@ -340,15 +320,9 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
     });
   };
 
-  // ToDoの完了状態を切り替え
-  const handleToggleTodo = async (e: React.MouseEvent, todo: Todo) => {
-    e.stopPropagation(); // 日付セルのクリックイベントを防ぐ
-    try {
-      await todoApi.update(todo.id, { completed: !todo.completed });
-      onUpdate();
-    } catch (error) {
-      console.error('Error updating todo:', error);
-    }
+  // ToDoの完了状態を切り替え（AnimatedCheckboxから呼ばれる）
+  const handleUpdateTodos = () => {
+    onUpdate();
   };
 
   // dnd-kitのドラッグ開始
@@ -507,7 +481,7 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
                 isDragOver={isDragOver}
                 getSubjectColor={getSubjectColor}
                 getTextColor={getTextColor}
-                onToggleTodo={handleToggleTodo}
+                onUpdateTodos={handleUpdateTodos}
                 getTodosForDate={getTodosForDate}
               />
             );

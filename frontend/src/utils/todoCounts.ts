@@ -32,3 +32,4 @@ export function calculateTodoCounts(todos: Todo[]): TodoCounts {
   return { today, all, completed };
 }
 
+

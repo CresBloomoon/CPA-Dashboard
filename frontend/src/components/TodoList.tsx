@@ -5,6 +5,7 @@ import type { Todo, Subject, Project } from '../types';
 import TodoCreateModal from './TodoCreateModal';
 import Sidebar, { type SidebarItem } from './Sidebar';
 import { calculateTodoCounts } from '../utils/todoCounts';
+import AnimatedCheckbox from './AnimatedCheckbox';
 
 interface TodoListProps {
   todos: Todo[];
@@ -16,6 +17,9 @@ interface TodoListProps {
 }
 
 export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors = [], projects = [], initialFilterType = 'today' }: TodoListProps) {
+  // 複数選択の猶予時間（ミリ秒）- この値を調整して猶予時間を変更できます
+  const BATCH_COMPLETION_DELAY = 1500; // デフォルト: 1秒
+  
   // 科目名から色を取得
   const getSubjectColor = (subjectName?: string): string | undefined => {
     if (!subjectName) return undefined;
@@ -51,16 +55,6 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
   useEffect(() => {
     setFilterType(initialFilterType);
   }, [initialFilterType]);
-
-  // ToDoの完了状態を切り替え
-  const handleToggle = async (todo: Todo) => {
-    try {
-      await todoApi.update(todo.id, { completed: !todo.completed });
-      onUpdate();
-    } catch (error) {
-      console.error('Error updating todo:', error);
-    }
-  };
 
   // ToDoを削除
   const handleDelete = async (id: number) => {
@@ -99,17 +93,20 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
 
   // フィルタリング（今日、すべて、完了）
   const dateFilteredTodos = useMemo(() => {
-    if (filterType === 'all') {
-      return todos;
-    }
-    
     if (filterType === 'completed') {
       return todos.filter(todo => todo.completed);
     }
     
-    // 「今日」フィルター：期限が今日までのリマインダ（期限切れ含む）
+    // 「今日」と「すべて」は未完了のみを表示
+    const incompleteTodos = todos.filter(todo => !todo.completed);
+    
+    if (filterType === 'all') {
+      return incompleteTodos;
+    }
+    
+    // 「今日」フィルター：期限が今日までのリマインダ（期限切れ含む、未完了のみ）
     const today = startOfDay(new Date());
-    return todos.filter(todo => {
+    return incompleteTodos.filter(todo => {
       if (!todo.due_date) return false;
       const dueDate = startOfDay(new Date(todo.due_date));
       return isSameDay(dueDate, today) || isBefore(dueDate, today);
@@ -134,10 +131,6 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
       });
     });
   }, [dateFilteredTodos, searchTags]);
-
-  // 未完了と完了で分ける
-  const incompleteTodos = filteredTodos.filter(t => !t.completed);
-  const completedTodos = filteredTodos.filter(t => t.completed);
 
   // モーダルを閉じる
   const closeModal = () => {
@@ -235,65 +228,33 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
               minHeight: 'calc(9.5 * 5rem + 9 * 0.5rem)',
             }}
           >
-            {/* 未完了のリマインダ */}
-            {incompleteTodos.length > 0 && (
+            {/* リマインダ一覧 */}
+            {filteredTodos.length > 0 && (
               <div className="space-y-2">
-                {incompleteTodos.map((todo) => (
+                {filteredTodos.map((todo) => {
+                  return (
                   <div
                     key={todo.id}
-                    className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group"
+                    onClick={(e) => {
+                      // 削除ボタンやチェックボックスがクリックされた場合は完了処理を実行しない
+                      const target = e.target as HTMLElement;
+                      if (target.closest('button[data-action="delete"]') || target.closest('.checkbox-wrapper')) {
+                        return;
+                      }
+                    }}
+                    className={`flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-all duration-300 group cursor-pointer ${
+                      todo.completed ? 'opacity-60' : ''
+                    }`}
                   >
-                <button
-                  onClick={() => handleToggle(todo)}
-                  key={`${todo.id}-${todo.completed}`}
-                  className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center ${
-                    todo.completed ? 'animate-checkmark-circle' : ''
-                  }`}
-                  style={{
-                    borderColor: todo.completed 
-                      ? (getSubjectColor(todo.subject) || '#3b82f6')
-                      : '#d1d5db',
-                    backgroundColor: todo.completed 
-                      ? (getSubjectColor(todo.subject) || '#3b82f6')
-                      : 'transparent',
-                    transition: 'all 0.3s ease',
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!todo.completed) {
-                      e.currentTarget.style.borderColor = getSubjectColor(todo.subject) || '#3b82f6';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!todo.completed) {
-                      e.currentTarget.style.borderColor = '#d1d5db';
-                    }
-                  }}
-                >
-                  {todo.completed && (
-                    <svg 
-                      className="w-4 h-4 animate-checkmark" 
-                      fill="none" 
-                      stroke="currentColor" 
-                      viewBox="0 0 24 24"
-                      style={{
-                        color: '#ffffff',
-                      }}
-                    >
-                      <path 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round" 
-                        strokeWidth={3.5} 
-                        d="M5 13l4 4L19 7"
-                        className="animate-draw-check"
-                        style={{
-                          filter: 'drop-shadow(0 0 2px rgba(255, 255, 255, 0.5))',
-                        }}
-                      />
-                    </svg>
-                  )}
-                </button>
+                <AnimatedCheckbox
+                  todo={todo}
+                  subjectColor={getSubjectColor(todo.subject) || '#3b82f6'}
+                  onUpdate={onUpdate}
+                  batchCompletionDelay={BATCH_COMPLETION_DELAY}
+                  size="md"
+                />
                 <div className="flex-1">
-                  <div className="text-gray-800 flex items-center gap-2">
+                  <div className={`flex items-center gap-2 ${todo.completed ? 'text-gray-600' : 'text-gray-800'}`}>
                     {todo.subject && (
                       <span
                         className="inline-block w-3 h-3 rounded-full flex-shrink-0"
@@ -337,95 +298,20 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
                   </div>
                 </div>
                 <button
-                  onClick={() => handleDelete(todo.id)}
-                  className="opacity-0 group-hover:opacity-100 px-2 py-1 text-red-500 hover:text-red-700 transition-opacity"
+                  data-action="delete"
+                  onClick={(e) => {
+                    e.stopPropagation(); // 親要素のクリックイベントを防ぐ
+                    handleDelete(todo.id);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 px-4 py-2 text-red-500 hover:text-red-700 hover:bg-red-50 transition-all rounded-lg"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                   </svg>
                 </button>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* 完了したリマインダ */}
-            {completedTodos.length > 0 && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <h3 className="text-sm font-medium text-gray-500 mb-3">完了済み</h3>
-                <div className="space-y-2">
-                  {completedTodos.map((todo) => (
-                <div
-                  key={todo.id}
-                  className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group opacity-60"
-                >
-                  <button
-                    onClick={() => handleToggle(todo)}
-                    className="flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center"
-                    style={{
-                      backgroundColor: getSubjectColor(todo.subject) || '#3b82f6',
-                      borderColor: getSubjectColor(todo.subject) || '#3b82f6',
-                    }}
-                  >
-                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </button>
-                  <div className="flex-1">
-                    <div className="text-gray-600 line-through flex items-center gap-2">
-                      {todo.subject && (
-                        <span
-                          className="inline-block w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: getSubjectColor(todo.subject) }}
-                          title={todo.subject}
-                        />
-                      )}
-                      <span>{todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}</span>
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 text-sm">
-                      {todo.due_date && (() => {
-                        const dueDate = new Date(todo.due_date);
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        dueDate.setHours(0, 0, 0, 0);
-                        
-                        const diffTime = dueDate.getTime() - today.getTime();
-                        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-                        
-                        const dueDateText = `${dueDate.getFullYear()}/${String(dueDate.getMonth() + 1).padStart(2, '0')}/${String(dueDate.getDate()).padStart(2, '0')}`;
-                        
-                        let textColorClass = 'text-gray-700'; // デフォルト（明日以降）
-                        
-                        if (diffDays < 0) {
-                          // 期限超（前日以前）- 赤文字
-                          textColorClass = 'text-red-600';
-                        } else if (diffDays === 0) {
-                          // 当日 - 青文字
-                          textColorClass = 'text-blue-600';
-                        }
-                        
-                        return (
-                          <span className={`px-2 py-1 bg-gray-100 rounded-md text-sm opacity-60 ${textColorClass}`}>
-                            {dueDateText}
-                          </span>
-                        );
-                      })()}
-                      <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-sm opacity-60">
-                        {getProjectName(todo.project_id) || '未分類'}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleDelete(todo.id)}
-                    className="opacity-0 group-hover:opacity-100 px-2 py-1 text-red-500 hover:text-red-700 transition-opacity"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
-                  ))}
-                </div>
+                );
+                })}
               </div>
             )}
 
