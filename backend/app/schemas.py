@@ -30,7 +30,6 @@ class StudyProgressResponse(StudyProgressBase):
 # プロジェクトスキーマ
 class ProjectBase(BaseModel):
     name: str = Field(..., description="プロジェクト名")
-    subject: Optional[str] = Field(None, description="科目")
     due_date: Optional[datetime] = Field(None, description="プロジェクトの期限日")
     description: Optional[str] = Field(None, description="説明")
 
@@ -39,7 +38,6 @@ class ProjectCreate(ProjectBase):
 
 class ProjectUpdate(BaseModel):
     name: Optional[str] = None
-    subject: Optional[str] = None
     due_date: Optional[datetime] = None
     description: Optional[str] = None
 

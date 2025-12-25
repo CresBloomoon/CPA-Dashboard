@@ -20,7 +20,6 @@ class Project(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(500), nullable=False)  # プロジェクト名（例：租税法レギュラー答練1回目）
-    subject = Column(String(100), nullable=True)  # 科目
     due_date = Column(DateTime(timezone=True), nullable=True)  # プロジェクトの期限日
     description = Column(Text, nullable=True)  # 説明
     created_at = Column(DateTime(timezone=True), server_default=func.now())

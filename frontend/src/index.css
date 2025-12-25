@@ -2,35 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
-/* 画面遷移アニメーション */
-@keyframes slideInRight {
+/* 画面遷移アニメーション - 統一されたフェードインのみ */
+@keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateX(30px);
   }
   to {
     opacity: 1;
-    transform: translateX(0);
   }
 }
 
-@keyframes slideInLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.slide-in-right {
-  animation: slideInRight 0.3s ease-out;
-}
-
+.slide-in-right,
 .slide-in-left {
-  animation: slideInLeft 0.3s ease-out;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* モーダルアニメーション - 統一されたフェードイン/アウト */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.modal-overlay {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-overlay.closing {
+  animation: modalFadeOut 0.2s ease-out;
+}
+
+.modal-content {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-content.closing {
+  animation: modalFadeOut 0.2s ease-out;
+}
+
+/* プロジェクトカードのスクロールバー - ホバー時のみ表示 */
+.project-column-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.project-column-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.project-column-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.project-column:hover .project-column-scroll::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+.project-column:hover .project-column-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
+
+/* Firefox用 */
+.project-column-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.project-column:hover .project-column-scroll {
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
 }
 
 body {
@@ -46,8 +97,8 @@ body {
   min-height: 100vh;
 }
 
-/* 通知アニメーション */
-@keyframes slideIn {
+/* トースト通知アニメーション */
+@keyframes slideInRight {
   from {
     transform: translateX(100%);
     opacity: 0;
@@ -56,6 +107,10 @@ body {
     transform: translateX(0);
     opacity: 1;
   }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
 }
 
 /* react-datepicker カスタマイズ */
@@ -145,5 +200,59 @@ body {
   ring: 2px;
   ring-color: #3b82f6;
   border-color: transparent;
+}
+
+/* リマインダ完了アニメーション */
+@keyframes checkmarkPop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes drawCheck {
+  0% {
+    stroke-dashoffset: 24;
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: 0;
+    opacity: 1;
+  }
+}
+
+@keyframes checkmarkCircle {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-checkmark {
+  animation: checkmarkPop 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55) !important;
+}
+
+.animate-draw-check {
+  stroke-dasharray: 24 !important;
+  stroke-dashoffset: 24 !important;
+  animation: drawCheck 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.1s forwards !important;
+}
+
+.animate-checkmark-circle {
+  animation: checkmarkCircle 0.3s ease-out !important;
 }
 

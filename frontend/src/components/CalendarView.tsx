@@ -1,4 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+  useDraggable,
+  useDroppable,
+} from '@dnd-kit/core';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { todoApi } from '../api';
@@ -8,6 +21,241 @@ interface CalendarViewProps {
   todos: Todo[];
   onUpdate: () => void;
   subjectsWithColors?: Subject[];
+}
+
+// ドラッグ可能なリマインダカードコンポーネント（カレンダー用）
+function DraggableTodoCard({ 
+  todo, 
+  getSubjectColor, 
+  getTextColor, 
+  onToggle 
+}: { 
+  todo: Todo; 
+  getSubjectColor: (subject?: string) => string | undefined;
+  getTextColor: (bgColor?: string) => string;
+  onToggle: (e: React.MouseEvent, todo: Todo) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: todo.id,
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  const subjectColor = getSubjectColor(todo.subject);
+  const bgColor = subjectColor ? `${subjectColor}20` : undefined;
+  const textColor = subjectColor ? getTextColor(subjectColor) : undefined;
+  const borderColor = subjectColor ? subjectColor : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => onToggle(e, todo)}
+      className={`text-xs px-1 py-0.5 rounded truncate cursor-pointer transition-colors flex items-center gap-1 ${
+        isDragging ? 'opacity-50' : ''
+      }`}
+      style={{
+        ...style,
+        ...(subjectColor ? { 
+          backgroundColor: `${subjectColor}20`, 
+          color: textColor,
+          borderColor: borderColor 
+        } : {
+          backgroundColor: '#dbeafe',
+          color: '#1e40af'
+        }),
+      }}
+      title={todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}
+    >
+      <div 
+        className="flex-shrink-0 w-3 h-3 rounded-full border flex items-center justify-center"
+        style={borderColor ? { borderColor: borderColor } : { borderColor: '#2563eb' }}
+      >
+        {todo.completed && subjectColor && (
+          <svg 
+            className="w-2 h-2" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24" 
+            style={{ color: getTextColor(subjectColor) }}
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+          </svg>
+        )}
+      </div>
+      <span className="truncate">
+        {todo.subject ? `【${todo.subject}】` : ''}
+        {todo.title.length > 8 ? `${todo.title.substring(0, 8)}...` : todo.title}
+      </span>
+    </div>
+  );
+}
+
+// 完了済みリマインダカード（カレンダー用）
+function DraggableCompletedTodoCard({ 
+  todo, 
+  getSubjectColor, 
+  getTextColor, 
+  onToggle,
+  incompleteCount
+}: { 
+  todo: Todo; 
+  getSubjectColor: (subject?: string) => string | undefined;
+  getTextColor: (bgColor?: string) => string;
+  onToggle: (e: React.MouseEvent, todo: Todo) => void;
+  incompleteCount: number;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: todo.id,
+  });
+
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
+  const subjectColor = getSubjectColor(todo.subject);
+  const displayText = todo.subject ? `【${todo.subject}】${todo.title}` : todo.title;
+  const textColor = subjectColor ? getTextColor(subjectColor) : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
+      onClick={(e) => onToggle(e, todo)}
+      className={`text-xs line-through cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded transition-colors flex items-center gap-1 ${
+        isDragging ? 'opacity-50' : ''
+      }`}
+      style={{
+        ...style,
+        ...(subjectColor ? {
+          backgroundColor: `${subjectColor}20`,
+          color: textColor,
+          opacity: 0.7
+        } : {
+          color: '#9ca3af'
+        }),
+      }}
+    >
+      <div 
+        className="flex-shrink-0 w-3 h-3 rounded-full border flex items-center justify-center"
+        style={subjectColor ? { 
+          borderColor: subjectColor, 
+          backgroundColor: subjectColor 
+        } : {
+          borderColor: '#9ca3af',
+          backgroundColor: '#9ca3af'
+        }}
+      >
+        <svg 
+          className="w-2 h-2" 
+          fill="none" 
+          stroke="currentColor" 
+          viewBox="0 0 24 24"
+          style={{ color: subjectColor ? getTextColor(subjectColor) : '#ffffff' }}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+        </svg>
+      </div>
+      <span className="truncate" title={displayText}>
+        {displayText.length > 8 
+          ? `${displayText.substring(0, 8)}...` 
+          : displayText}
+      </span>
+    </div>
+  );
+}
+
+// ドロップ可能な日付セルコンポーネント
+function DroppableDateCell({ 
+  date, 
+  dateTodos, 
+  incompleteTodos, 
+  completedTodos,
+  isCurrentMonth,
+  isToday,
+  isDragOver,
+  getSubjectColor,
+  getTextColor,
+  onToggleTodo,
+  getTodosForDate
+}: { 
+  date: Date;
+  dateTodos: Todo[];
+  incompleteTodos: Todo[];
+  completedTodos: Todo[];
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isDragOver: boolean;
+  getSubjectColor: (subject?: string) => string | undefined;
+  getTextColor: (bgColor?: string) => string;
+  onToggleTodo: (e: React.MouseEvent, todo: Todo) => void;
+  getTodosForDate: (date: Date) => Todo[];
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: format(date, 'yyyy-MM-dd'),
+  });
+
+  const baseClass = "min-h-32 p-2 border border-gray-200 hover:bg-gray-50 transition-colors";
+  let classes = baseClass;
+  if (!isCurrentMonth) {
+    classes += " bg-gray-50 text-gray-400";
+  }
+  if (isToday) {
+    classes += " bg-blue-50 border-blue-300";
+  }
+  if (isDragOver || isOver) {
+    classes += " bg-green-100 border-green-400 border-2";
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={classes}
+    >
+      <div className="text-sm font-medium mb-1">
+        {format(date, 'd')}
+      </div>
+      <div className="space-y-1">
+        {incompleteTodos.slice(0, 4).map((todo) => (
+          <DraggableTodoCard
+            key={todo.id}
+            todo={todo}
+            getSubjectColor={getSubjectColor}
+            getTextColor={getTextColor}
+            onToggle={onToggleTodo}
+          />
+        ))}
+        {incompleteTodos.length > 4 && (
+          <div className="text-xs text-gray-500">
+            +{incompleteTodos.length - 4}件
+          </div>
+        )}
+        {completedTodos.length > 0 && incompleteTodos.length <= 4 && (
+          <>
+            {completedTodos.slice(0, incompleteTodos.length === 0 ? 4 : 1).map((todo) => (
+              <DraggableCompletedTodoCard
+                key={todo.id}
+                todo={todo}
+                getSubjectColor={getSubjectColor}
+                getTextColor={getTextColor}
+                onToggle={onToggleTodo}
+                incompleteCount={incompleteTodos.length}
+              />
+            ))}
+            {completedTodos.length > (incompleteTodos.length === 0 ? 4 : 1) && (
+              <div className="text-xs text-gray-500">
+                +{completedTodos.length - (incompleteTodos.length === 0 ? 4 : 1)}件
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] }: CalendarViewProps) {
@@ -40,10 +288,36 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
     return bgColor; // 元の色をそのまま使用（透明度20%の背景上では見やすくなる）
   };
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-  const [selectedTodos, setSelectedTodos] = useState<Todo[]>([]);
-  const [draggedTodo, setDraggedTodo] = useState<Todo | null>(null);
-  const [dragOverDate, setDragOverDate] = useState<Date | null>(null);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [overDateId, setOverDateId] = useState<string | null>(null);
+  
+  // 楽観的更新用のローカル状態
+  const [optimisticTodos, setOptimisticTodos] = useState<Todo[]>(todos);
+  
+  // todosが更新されたら楽観的状態も更新
+  useEffect(() => {
+    setOptimisticTodos(todos);
+  }, [todos]);
+  
+  // dnd-kitのセンサー設定
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px移動したらドラッグ開始（誤操作防止）
+      },
+    }),
+    useSensor(KeyboardSensor)
+  );
+  
+  // 日付をID文字列に変換
+  const dateToId = (date: Date): string => {
+    return format(date, 'yyyy-MM-dd');
+  };
+  
+  // ID文字列を日付に変換
+  const idToDate = (id: string): Date => {
+    return new Date(id);
+  };
 
   // 月の開始日と終了日を取得
   const monthStart = startOfMonth(currentDate);
@@ -54,9 +328,9 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
   // カレンダーに表示するすべての日付
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  // 特定の日付のToDoを取得
+  // 特定の日付のToDoを取得（楽観的状態を使用）
   const getTodosForDate = (date: Date): Todo[] => {
-    return todos.filter(todo => {
+    return optimisticTodos.filter(todo => {
       if (!todo.due_date) return false;
       const todoDate = new Date(todo.due_date);
       // 日付のみを比較（時刻を無視）
@@ -66,96 +340,87 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
     });
   };
 
-  // 日付セルをクリック
-  const handleDateClick = (date: Date) => {
-    setSelectedDate(date);
-    const dateTodos = getTodosForDate(date);
-    setSelectedTodos(dateTodos);
-  };
-
   // ToDoの完了状態を切り替え
   const handleToggleTodo = async (e: React.MouseEvent, todo: Todo) => {
     e.stopPropagation(); // 日付セルのクリックイベントを防ぐ
     try {
       await todoApi.update(todo.id, { completed: !todo.completed });
       onUpdate();
-      // 選択した日付のToDoリストも更新
-      if (selectedDate) {
-        const dateTodos = getTodosForDate(selectedDate);
-        setSelectedTodos(dateTodos);
-      }
     } catch (error) {
       console.error('Error updating todo:', error);
       alert('ToDoの更新に失敗しました');
     }
   };
 
-  // ドラッグ開始
-  const handleDragStart = (e: React.DragEvent, todo: Todo) => {
-    e.stopPropagation();
-    setDraggedTodo(todo);
-    e.dataTransfer.effectAllowed = 'move';
+  // dnd-kitのドラッグ開始
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as number);
   };
 
-  // ドラッグオーバー
-  const handleDragOver = (e: React.DragEvent, date: Date) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = 'move';
-    setDragOverDate(date);
+  // dnd-kitのドラッグオーバー
+  const handleDragOver = (event: DragOverEvent) => {
+    const { over } = event;
+    if (over && typeof over.id === 'string') {
+      setOverDateId(over.id);
+    } else {
+      setOverDateId(null);
+    }
   };
 
-  // ドラッグリーブ
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOverDate(null);
-  };
-
-  // ドロップ
-  const handleDrop = async (e: React.DragEvent, targetDate: Date) => {
-    e.preventDefault();
-    e.stopPropagation();
+  // dnd-kitのドロップ
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
     
-    if (!draggedTodo) return;
+    setActiveId(null);
+    setOverDateId(null);
+    
+    if (!over || typeof over.id !== 'string') {
+      return;
+    }
 
-    // ローカル時間で日付を構築（時刻は00:00:00）
+    const todoId = active.id as number;
+    const targetDateId = over.id;
+    const targetDate = idToDate(targetDateId);
+
+    // 同じ日付への移動は無視
+    const todo = optimisticTodos.find(t => t.id === todoId);
+    if (!todo || !todo.due_date) {
+      return;
+    }
+
+    const currentDateStr = format(new Date(todo.due_date), 'yyyy-MM-dd');
+    if (currentDateStr === targetDateId) {
+      return;
+    }
+
+    // 楽観的更新：即座にUIを更新
     const year = targetDate.getFullYear();
     const month = targetDate.getMonth();
     const day = targetDate.getDate();
     const localDate = new Date(year, month, day, 0, 0, 0, 0);
-    
-    // タイムゾーンオフセットを取得（分単位）
     const timezoneOffset = localDate.getTimezoneOffset();
-    // UTC時間に変換（オフセットを加算）
     const utcDate = new Date(localDate.getTime() - timezoneOffset * 60 * 1000);
     const isoString = utcDate.toISOString();
+    
+    setOptimisticTodos(prevTodos => 
+      prevTodos.map(t => 
+        t.id === todoId ? { ...t, due_date: isoString } : t
+      )
+    );
 
     try {
-      await todoApi.update(draggedTodo.id, {
+      // API呼び出し
+      await todoApi.update(todoId, {
         due_date: isoString,
       });
+      // サーバーから最新データを取得
       onUpdate();
-      setDraggedTodo(null);
-      setDragOverDate(null);
-      
-      // 選択した日付のToDoリストも更新
-      if (selectedDate) {
-        const dateTodos = getTodosForDate(selectedDate);
-        setSelectedTodos(dateTodos);
-      }
     } catch (error) {
       console.error('Error moving todo:', error);
+      // エラー時は楽観的更新を元に戻す
+      setOptimisticTodos(todos);
       alert('ToDoの移動に失敗しました');
-      setDraggedTodo(null);
-      setDragOverDate(null);
     }
-  };
-
-  // ドラッグ終了
-  const handleDragEnd = () => {
-    setDraggedTodo(null);
-    setDragOverDate(null);
   };
 
   // 月を変更
@@ -171,34 +436,9 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
     setCurrentDate(new Date());
   };
 
-  // 日付セルのスタイル
-  const getDateCellClass = (date: Date) => {
-    const baseClass = "min-h-32 p-2 border border-gray-200 hover:bg-gray-50 transition-colors cursor-pointer";
-    const isCurrentMonth = isSameMonth(date, currentDate);
-    const isToday = isSameDay(date, new Date());
-    const isSelected = selectedDate && isSameDay(date, selectedDate);
-    const isDragOver = dragOverDate && isSameDay(date, dragOverDate);
-    
-    let classes = baseClass;
-    if (!isCurrentMonth) {
-      classes += " bg-gray-50 text-gray-400";
-    }
-    if (isToday) {
-      classes += " bg-blue-50 border-blue-300";
-    }
-    if (isSelected) {
-      classes += " bg-blue-100 border-blue-500";
-    }
-    if (isDragOver) {
-      classes += " bg-green-100 border-green-400 border-2";
-    }
-    return classes;
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-semibold text-gray-700 mb-6">カレンダー</h2>
-
       {/* カレンダーヘッダー */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
@@ -230,214 +470,79 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
         </button>
       </div>
 
-      <div className="grid grid-cols-7 gap-0 border border-gray-200 rounded-lg overflow-hidden">
-        {/* 曜日ヘッダー */}
-        {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
-          <div
-            key={day}
-            className={`p-2 text-center font-semibold text-sm ${
-              index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-700'
-            } bg-gray-100`}
-          >
-            {day}
-          </div>
-        ))}
-
-        {/* カレンダー日付セル */}
-        {calendarDays.map((date, index) => {
-          const dateTodos = getTodosForDate(date);
-          const incompleteTodos = dateTodos.filter(t => !t.completed);
-          const completedTodos = dateTodos.filter(t => t.completed);
-
-          return (
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="grid grid-cols-7 gap-0 border border-gray-200 rounded-lg overflow-hidden">
+          {/* 曜日ヘッダー */}
+          {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
             <div
-              key={index}
-              onClick={() => handleDateClick(date)}
-              onDragOver={(e) => handleDragOver(e, date)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, date)}
-              className={getDateCellClass(date)}
+              key={day}
+              className={`p-2 text-center font-semibold text-sm ${
+                index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-700'
+              } bg-gray-100`}
             >
-              <div className="text-sm font-medium mb-1">
-                {format(date, 'd')}
-              </div>
-              <div className="space-y-1">
-                {incompleteTodos.slice(0, 4).map((todo) => {
-                  const subjectColor = getSubjectColor(todo.subject);
-                  const bgColor = subjectColor ? `${subjectColor}20` : undefined;
-                  const textColor = subjectColor ? getTextColor(subjectColor) : undefined;
-                  const borderColor = subjectColor ? subjectColor : undefined;
-                  return (
-                  <div
-                    key={todo.id}
-                    draggable
-                    onDragStart={(e) => handleDragStart(e, todo)}
-                    onDragEnd={handleDragEnd}
-                    onClick={(e) => handleToggleTodo(e, todo)}
-                    className="text-xs px-1 py-0.5 rounded truncate cursor-pointer transition-colors flex items-center gap-1"
-                    style={subjectColor ? { 
-                      backgroundColor: `${subjectColor}20`, 
-                      color: textColor,
-                      borderColor: borderColor 
-                    } : {
-                      backgroundColor: '#dbeafe',
-                      color: '#1e40af'
-                    }}
-                    title={todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}
-                  >
-                    <div 
-                      className="flex-shrink-0 w-3 h-3 rounded-full border flex items-center justify-center"
-                      style={borderColor ? { borderColor: borderColor } : { borderColor: '#2563eb' }}
-                    >
-                      {todo.completed && subjectColor && (
-                        <svg 
-                          className="w-2 h-2" 
-                          fill="none" 
-                          stroke="currentColor" 
-                          viewBox="0 0 24 24" 
-                          style={{ color: getTextColor(subjectColor) }}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <span className="truncate">
-                      {todo.subject ? `【${todo.subject}】` : ''}
-                      {todo.title.length > 8 ? `${todo.title.substring(0, 8)}...` : todo.title}
-                    </span>
-                  </div>
-                  );
-                })}
-                {incompleteTodos.length > 4 && (
-                  <div className="text-xs text-gray-500">
-                    +{incompleteTodos.length - 4}件
-                  </div>
-                )}
-                {/* 完了したToDoを表示（未完了が4個以下の場合、または未完了が0個の場合） */}
-                {completedTodos.length > 0 && incompleteTodos.length <= 4 && (
-                  <>
-                    {completedTodos.slice(0, incompleteTodos.length === 0 ? 4 : 1).map((todo) => {
-                      const subjectColor = getSubjectColor(todo.subject);
-                      const displayText = todo.subject ? `【${todo.subject}】${todo.title}` : todo.title;
-                      const textColor = subjectColor ? getTextColor(subjectColor) : undefined;
-                      return (
-                        <div
-                          key={todo.id}
-                          draggable
-                          onDragStart={(e) => handleDragStart(e, todo)}
-                          onDragEnd={handleDragEnd}
-                          onClick={(e) => handleToggleTodo(e, todo)}
-                          className="text-xs line-through cursor-pointer hover:bg-gray-100 px-1 py-0.5 rounded transition-colors flex items-center gap-1"
-                          style={subjectColor ? {
-                            backgroundColor: `${subjectColor}20`,
-                            color: textColor,
-                            opacity: 0.7
-                          } : {
-                            color: '#9ca3af'
-                          }}
-                        >
-                          <div 
-                            className="flex-shrink-0 w-3 h-3 rounded-full border flex items-center justify-center"
-                            style={subjectColor ? { 
-                              borderColor: subjectColor, 
-                              backgroundColor: subjectColor 
-                            } : {
-                              borderColor: '#9ca3af',
-                              backgroundColor: '#9ca3af'
-                            }}
-                          >
-                            <svg 
-                              className="w-2 h-2" 
-                              fill="none" 
-                              stroke="currentColor" 
-                              viewBox="0 0 24 24"
-                              style={{ color: subjectColor ? getTextColor(subjectColor) : '#ffffff' }}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                          <span className="truncate" title={displayText}>
-                            {displayText.length > 8 
-                              ? `${displayText.substring(0, 8)}...` 
-                              : displayText}
-                          </span>
-                        </div>
-                      );
-                    })}
-                    {completedTodos.length > (incompleteTodos.length === 0 ? 4 : 1) && (
-                      <div className="text-xs text-gray-500">
-                        +{completedTodos.length - (incompleteTodos.length === 0 ? 4 : 1)}件
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+              {day}
             </div>
-          );
-        })}
-      </div>
+          ))}
 
-      {/* 選択した日付のToDo詳細 */}
-      {selectedDate && (
-        <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-          <h3 className="text-lg font-semibold text-gray-700 mb-3">
-            {format(selectedDate, 'yyyy年MM月dd日', { locale: ja })}
-          </h3>
-          {selectedTodos.length === 0 ? (
-            <p className="text-gray-500 text-sm">この日のリマインダはありません</p>
-          ) : (
-            <div className="space-y-2">
-              {selectedTodos.map((todo) => {
-                const subjectColor = getSubjectColor(todo.subject);
-                return (
-                <div
-                  key={todo.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, todo)}
-                  onDragEnd={handleDragEnd}
-                  onClick={(e) => handleToggleTodo(e, todo)}
-                  className={`p-3 bg-white rounded-lg border cursor-pointer hover:bg-gray-50 transition-colors ${
-                    todo.completed ? 'opacity-60' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-2">
-                    {todo.subject && subjectColor && (
-                      <span
-                        className="inline-block w-4 h-4 rounded-full flex-shrink-0 mt-1"
-                        style={{ backgroundColor: subjectColor }}
-                        title={todo.subject}
-                      />
-                    )}
-                    <div 
-                      className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-colors ${
-                        todo.completed
-                          ? subjectColor ? '' : 'border-blue-500 bg-blue-500'
-                          : subjectColor ? '' : 'border-gray-300 hover:border-blue-500'
-                      }`}
-                      style={subjectColor ? {
-                        borderColor: subjectColor,
-                        backgroundColor: todo.completed ? subjectColor : 'transparent'
-                      } : {}}
-                    >
-                      {todo.completed && (
-                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className={`${todo.completed ? 'line-through text-gray-500' : 'text-gray-800'}`}>
-                        {todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                );
-              })}
-            </div>
-          )}
+          {/* カレンダー日付セル */}
+          {calendarDays.map((date, index) => {
+            const dateTodos = getTodosForDate(date);
+            const incompleteTodos = dateTodos.filter(t => !t.completed);
+            const completedTodos = dateTodos.filter(t => t.completed);
+            const dateId = dateToId(date);
+            const isDragOver = overDateId === dateId;
+
+            return (
+              <DroppableDateCell
+                key={index}
+                date={date}
+                dateTodos={dateTodos}
+                incompleteTodos={incompleteTodos}
+                completedTodos={completedTodos}
+                isCurrentMonth={isSameMonth(date, currentDate)}
+                isToday={isSameDay(date, new Date())}
+                isDragOver={isDragOver}
+                getSubjectColor={getSubjectColor}
+                getTextColor={getTextColor}
+                onToggleTodo={handleToggleTodo}
+                getTodosForDate={getTodosForDate}
+              />
+            );
+          })}
         </div>
-      )}
+        <DragOverlay>
+          {activeId ? (() => {
+            const todo = optimisticTodos.find(t => t.id === activeId);
+            if (!todo) return null;
+            const subjectColor = getSubjectColor(todo.subject);
+            const bgColor = subjectColor ? `${subjectColor}20` : '#dbeafe';
+            const textColor = subjectColor ? getTextColor(subjectColor) : '#1e40af';
+            return (
+              <div
+                className="text-xs px-1 py-0.5 rounded truncate flex items-center gap-1 opacity-90"
+                style={{
+                  backgroundColor: bgColor,
+                  color: textColor,
+                }}
+              >
+                <div 
+                  className="flex-shrink-0 w-3 h-3 rounded-full border"
+                  style={{ borderColor: subjectColor || '#2563eb' }}
+                />
+                <span className="truncate">
+                  {todo.subject ? `【${todo.subject}】` : ''}
+                  {todo.title.length > 8 ? `${todo.title.substring(0, 8)}...` : todo.title}
+                </span>
+              </div>
+            );
+          })() : null}
+        </DragOverlay>
+      </DndContext>
     </div>
   );
 }

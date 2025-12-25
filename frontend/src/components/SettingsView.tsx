@@ -41,6 +41,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   const [colorPickerIndex, setColorPickerIndex] = useState<number | null>(null);
   const [colorPickerPosition, setColorPickerPosition] = useState<{ top: number; left: number } | null>(null);
   const colorButtonRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({});
+  const subjectNameRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
   const [reviewTimings, setReviewTimings] = useState<ReviewTiming[]>([]);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<number>>(new Set());
 
@@ -365,24 +366,15 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
 
   const handleColorButtonClick = (e: React.MouseEvent, index: number) => {
     e.stopPropagation();
-    const button = colorButtonRefs.current[index];
-    if (button) {
-      const rect = button.getBoundingClientRect();
-      // 右側に表示（画面幅を考慮して、右側にスペースがない場合は左側に表示）
+    const subjectNameElement = subjectNameRefs.current[index];
+    if (subjectNameElement) {
+      const rect = subjectNameElement.getBoundingClientRect();
       const popupWidth = 200; // カラーピッカーの幅（おおよそ）
-      const spaceOnRight = window.innerWidth - rect.right;
-      const spaceOnLeft = rect.left;
-      
-      if (spaceOnRight >= popupWidth) {
-        // 右側に表示
-        setColorPickerPosition({ top: rect.top, left: rect.right + 8 });
-      } else if (spaceOnLeft >= popupWidth) {
-        // 左側に表示
-        setColorPickerPosition({ top: rect.top, left: rect.left - popupWidth - 8 });
-      } else {
-        // 下に表示（デフォルト）
-        setColorPickerPosition({ top: rect.bottom + 8, left: rect.left });
-      }
+      // 科目名の左側に表示
+      setColorPickerPosition({ 
+        top: rect.top, 
+        left: rect.left - popupWidth - 8 
+      });
     }
     setColorPickerIndex(colorPickerIndex === index ? null : index);
   };
@@ -672,6 +664,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                       </>
                     )}
                     <div 
+                      ref={(el) => { subjectNameRefs.current[index] = el; }}
                       className="flex-1 px-3 py-2 bg-white rounded border border-gray-200 cursor-text hover:border-blue-300 transition-colors"
                       onClick={() => handleStartEdit(index)}
                       title="クリックして編集"

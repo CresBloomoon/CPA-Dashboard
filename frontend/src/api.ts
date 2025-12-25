@@ -10,6 +10,35 @@ const api = axios.create({
   },
 });
 
+// リクエストインターセプター: デバッグ用
+api.interceptors.request.use(
+  (config) => {
+    if (config.method === 'put' && config.url?.includes('/todos/')) {
+      console.log('API Request:', config.method, config.url, 'data:', config.data);
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// レスポンスインターセプター: デバッグ用
+api.interceptors.response.use(
+  (response) => {
+    if (response.config.method === 'put' && response.config.url?.includes('/todos/')) {
+      console.log('API Response:', response.status, response.data);
+    }
+    return response;
+  },
+  (error) => {
+    if (error.config?.method === 'put' && error.config?.url?.includes('/todos/')) {
+      console.error('API Error:', error.response?.status, error.response?.data, error.message);
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const studyProgressApi = {
   // すべての進捗を取得
   getAll: async (): Promise<StudyProgress[]> => {
@@ -73,7 +102,7 @@ export const todoApi = {
   },
 
   // ToDoを更新
-  update: async (id: number, data: Partial<TodoCreate & { completed: boolean }>): Promise<Todo> => {
+  update: async (id: number, data: Partial<TodoCreate & { completed: boolean; project_id?: number | null }>): Promise<Todo> => {
     const response = await api.put<Todo>(`/todos/${id}`, data);
     return response.data;
   },

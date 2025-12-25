@@ -2,9 +2,14 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
+import logging
 
 from .database import engine, get_db, Base
 from . import models, schemas, crud
+
+# ロギング設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # データベーステーブルの作成
 Base.metadata.create_all(bind=engine)
@@ -121,6 +126,20 @@ async def update_todo(
     db: Session = Depends(get_db)
 ):
     """ToDoを更新"""
+    # デバッグ: リクエストボディの内容をログ出力
+    try:
+        # Pydantic v2対応
+        if hasattr(todo_update, 'model_dump'):
+            all_data = todo_update.model_dump(exclude_unset=False)
+            fields_set = getattr(todo_update, 'model_fields_set', set())
+        else:
+            all_data = todo_update.dict(exclude_unset=False)
+            fields_set = getattr(todo_update, '__fields_set__', set())
+        
+        logger.info(f"Update todo {todo_id}: all_data={all_data}, fields_set={fields_set}, project_id in all_data={'project_id' in all_data}, project_id in fields_set={'project_id' in fields_set}, project_id value={all_data.get('project_id')}")
+    except Exception as e:
+        logger.error(f"Error logging update request: {e}")
+    
     todo = crud.update_todo(db, todo_id, todo_update)
     if todo is None:
         raise HTTPException(status_code=404, detail="ToDoが見つかりません")

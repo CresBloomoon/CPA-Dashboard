@@ -1,5 +1,8 @@
 from sqlalchemy.orm import Session
+import logging
 from . import models, schemas
+
+logger = logging.getLogger(__name__)
 
 def get_study_progress(db: Session, progress_id: int):
     """IDで進捗を取得"""
@@ -113,12 +116,48 @@ def update_todo(db: Session, todo_id: int, todo_update: schemas.TodoUpdate):
     if db_todo is None:
         return None
     
-    update_data = todo_update.dict(exclude_unset=True)
+    # Pydantic v2対応: model_dump()を使用
+    try:
+        if hasattr(todo_update, 'model_dump'):
+            # Pydantic v2
+            update_data = todo_update.model_dump(exclude_unset=True)
+            all_data = todo_update.model_dump(exclude_unset=False)
+            fields_set = getattr(todo_update, 'model_fields_set', set())
+        else:
+            # Pydantic v1
+            update_data = todo_update.dict(exclude_unset=True)
+            all_data = todo_update.dict(exclude_unset=False)
+            fields_set = getattr(todo_update, '__fields_set__', set())
+    except Exception as e:
+        logger.error(f"Error getting update data: {e}")
+        # フォールバック: dict()を使用
+        update_data = todo_update.dict(exclude_unset=True) if hasattr(todo_update, 'dict') else {}
+        all_data = todo_update.dict(exclude_unset=False) if hasattr(todo_update, 'dict') else {}
+        fields_set = set()
+    
+    logger.info(f"update_todo: todo_id={todo_id}, update_data before={update_data}, all_data={all_data}, fields_set={fields_set}, project_id in update_data={'project_id' in update_data}, project_id in all_data={'project_id' in all_data}, project_id in fields_set={'project_id' in fields_set}")
+    
+    # project_idがリクエストに明示的に含まれている場合のみ更新する
+    # fields_setに含まれている場合のみ、project_idがリクエストに含まれていることを意味する
+    # all_dataには、リクエストに含まれていないフィールドもNoneとして含まれるため、使用しない
+    if 'project_id' in fields_set:
+        # fields_setに含まれている場合は必ず更新（Noneでも）
+        update_data['project_id'] = todo_update.project_id
+        logger.info(f"Setting project_id from fields_set to: {todo_update.project_id}")
+    elif 'project_id' in update_data:
+        # update_dataに既に含まれている場合（exclude_unset=Trueでも含まれる場合）
+        # これは、リクエストにproject_idが含まれていることを意味する
+        logger.info(f"project_id already in update_data: {update_data['project_id']}")
+    # all_dataから取得する処理は削除（リクエストに含まれていないフィールドもNoneとして含まれるため）
+    
+    logger.info(f"update_todo: final update_data={update_data}")
+    
     for field, value in update_data.items():
         setattr(db_todo, field, value)
     
     db.commit()
     db.refresh(db_todo)
+    logger.info(f"update_todo: after update, db_todo.project_id={db_todo.project_id}")
     return db_todo
 
 def delete_todo(db: Session, todo_id: int):

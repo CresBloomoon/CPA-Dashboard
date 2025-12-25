@@ -1,10 +1,7 @@
-import { useState, useMemo } from 'react';
-import type { Todo, Subject, Project, ProjectCreate } from '../types';
+import { useMemo } from 'react';
+import type { Todo, Subject, Project } from '../types';
 import { format, startOfWeek, endOfWeek, eachDayOfInterval, addWeeks, subWeeks, isSameDay, startOfMonth, endOfMonth, getDay } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { projectApi } from '../api';
-import DatePicker from 'react-datepicker';
-import 'react-datepicker/dist/react-datepicker.css';
 
 interface GanttChartProps {
   todos: Todo[];
@@ -20,13 +17,6 @@ interface ProjectWithTodos {
 }
 
 export default function GanttChart({ todos, projects, subjectsWithColors = [], onProjectsUpdate, subjects }: GanttChartProps) {
-  const [isAddingProject, setIsAddingProject] = useState(false);
-  const [newProjectName, setNewProjectName] = useState('');
-  const [newProjectSubject, setNewProjectSubject] = useState<string>('');
-  const [newProjectDueDate, setNewProjectDueDate] = useState<Date | null>(null);
-  const [newProjectDescription, setNewProjectDescription] = useState('');
-  const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   // 科目の色を取得する関数
   const getSubjectColor = (subjectName: string | null): string => {
     if (!subjectName) return '#9ca3af'; // デフォルトのグレー
@@ -168,199 +158,10 @@ export default function GanttChart({ todos, projects, subjectsWithColors = [], o
     };
   };
 
-  // 通知を表示
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    setNotification({ message, type });
-    setTimeout(() => setNotification(null), 3000);
-  };
-
-  // プロジェクト作成
-  const handleAddProject = async () => {
-    if (!newProjectName.trim()) {
-      showNotification('プロジェクト名を入力してください', 'error');
-      return;
-    }
-
-    try {
-      const projectData: ProjectCreate = {
-        name: newProjectName.trim(),
-        subject: newProjectSubject || undefined,
-        due_date: newProjectDueDate ? newProjectDueDate.toISOString() : undefined,
-        description: newProjectDescription.trim() || undefined,
-      };
-
-      await projectApi.create(projectData);
-      showNotification('プロジェクトを作成しました', 'success');
-      
-      // フォームをリセット
-      setNewProjectName('');
-      setNewProjectSubject('');
-      setNewProjectDueDate(null);
-      setNewProjectDescription('');
-      setIsAddingProject(false);
-      
-      // プロジェクトリストを更新
-      onProjectsUpdate();
-    } catch (error) {
-      console.error('Error creating project:', error);
-      showNotification('プロジェクトの作成に失敗しました', 'error');
-    }
-  };
 
   return (
     <div className="bg-white rounded-lg shadow-lg p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-700">ガントチャート</h2>
-        <button
-          onClick={() => setIsAddingProject(!isAddingProject)}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-        >
-          {isAddingProject ? 'キャンセル' : '+ プロジェクト追加'}
-        </button>
-      </div>
-
-      {/* 通知 */}
-      {notification && (
-        <div
-          className={`mb-4 p-3 rounded-lg ${
-            notification.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-          }`}
-        >
-          {notification.message}
-        </div>
-      )}
-
-      {/* プロジェクト追加フォーム */}
-      {isAddingProject && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-700 mb-4">新規プロジェクト</h3>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                プロジェクト名 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="例: 租税法レギュラー答練1回目"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">科目</label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setIsSubjectDropdownOpen(!isSubjectDropdownOpen)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-left focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center justify-between"
-                  >
-                    <span className={newProjectSubject ? 'text-gray-900' : 'text-gray-500'}>
-                      {newProjectSubject || '科目を選択'}
-                    </span>
-                    {newProjectSubject && (
-                      <span
-                        className="w-4 h-4 rounded-full ml-2 flex-shrink-0"
-                        style={{ backgroundColor: getSubjectColor(newProjectSubject) }}
-                      />
-                    )}
-                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </button>
-                  {isSubjectDropdownOpen && (
-                    <>
-                      <div
-                        className="fixed inset-0 z-10"
-                        onClick={() => setIsSubjectDropdownOpen(false)}
-                      />
-                      <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-auto">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setNewProjectSubject('');
-                            setIsSubjectDropdownOpen(false);
-                          }}
-                          className="w-full px-3 py-2 text-left hover:bg-gray-100 text-gray-500"
-                        >
-                          なし
-                        </button>
-                        {subjects.map((subject) => {
-                          const subjectColor = getSubjectColor(subject);
-                          return (
-                            <button
-                              key={subject}
-                              type="button"
-                              onClick={() => {
-                                setNewProjectSubject(subject);
-                                setIsSubjectDropdownOpen(false);
-                              }}
-                              className="w-full px-3 py-2 text-left hover:bg-gray-100 flex items-center gap-2"
-                            >
-                              <span
-                                className="w-3 h-3 rounded-full flex-shrink-0"
-                                style={{ backgroundColor: subjectColor }}
-                              />
-                              <span>{subject}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">期限日</label>
-                <DatePicker
-                  selected={newProjectDueDate}
-                  onChange={(date: Date | null) => setNewProjectDueDate(date)}
-                  dateFormat="yyyy年MM月dd日"
-                  locale="ja"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholderText="期限日を選択"
-                  isClearable
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>
-              <textarea
-                value={newProjectDescription}
-                onChange={(e) => setNewProjectDescription(e.target.value)}
-                placeholder="プロジェクトの説明（任意）"
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => {
-                  setIsAddingProject(false);
-                  setNewProjectName('');
-                  setNewProjectSubject('');
-                  setNewProjectDueDate(null);
-                  setNewProjectDescription('');
-                }}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleAddProject}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
-              >
-                作成
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <h2 className="text-2xl font-semibold text-gray-700 mb-6">ガントチャート</h2>
 
       {projectsWithTodos.length === 0 ? (
         <div className="text-center py-12 text-gray-500">
@@ -459,7 +260,7 @@ export default function GanttChart({ todos, projects, subjectsWithColors = [], o
           <div className="relative" style={{ minHeight: `${projectsWithTodos.length * 80}px` }}>
             {projectsWithTodos.map((projectWithTodos, index) => {
               const { project, todos: projectTodos } = projectWithTodos;
-              const projectColor = project ? getSubjectColor(project.subject || null) : '#9ca3af';
+              const projectColor = '#9ca3af'; // プロジェクトは科目を持たないため、デフォルトのグレー
               const projectName = project ? project.name : '未分類';
 
               return (
@@ -467,12 +268,6 @@ export default function GanttChart({ todos, projects, subjectsWithColors = [], o
                   {/* プロジェクトラベル */}
                   <div className="absolute left-0 top-0 w-48 h-14 bg-gray-100 border-r border-gray-200 flex items-center justify-between px-3 z-20">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
-                      {project && project.subject && (
-                        <span
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: projectColor }}
-                        />
-                      )}
                       <span className="text-sm font-semibold text-gray-800 truncate" title={projectName}>
                         {projectName}
                       </span>

@@ -10,8 +10,10 @@ import TodoList from './components/TodoList';
 import CalendarView from './components/CalendarView';
 import SettingsView from './components/SettingsView';
 import GanttChart from './components/GanttChart';
+import KanbanBoard from './components/KanbanBoard';
 import Heatmap from './components/Heatmap';
 import Tabs from './components/Tabs';
+import { ToastProvider } from './components/Toast';
 
 function App() {
   const [progressList, setProgressList] = useState<StudyProgress[]>([]);
@@ -33,6 +35,7 @@ function App() {
     { id: 'timer', label: '時間記録' },
     { id: 'todo', label: 'リマインダ' },
     { id: 'calendar', label: 'カレンダー' },
+    { id: 'kanban', label: 'プロジェクト' },
     { id: 'gantt', label: 'ガントチャート' },
     { id: 'settings', label: '設定' },
   ];
@@ -205,8 +208,9 @@ function App() {
   }).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto px-4 py-8">
+    <ToastProvider>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="container mx-auto px-4 py-8">
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <div>
@@ -225,7 +229,7 @@ function App() {
         </header>
 
         <Tabs activeTab={activeTab} onTabChange={(tab) => {
-          const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'gantt', 'settings'];
+          const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'kanban', 'gantt', 'settings'];
           const currentIndex = tabOrder.indexOf(activeTab);
           const newIndex = tabOrder.indexOf(tab);
           setSlideDirection(newIndex > currentIndex ? 'right' : 'left');
@@ -239,7 +243,7 @@ function App() {
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
         ) : (
-          <div className={slideDirection === 'right' ? 'slide-in-right' : 'slide-in-left'}>
+          <div key={activeTab} className={slideDirection === 'right' ? 'slide-in-right' : 'slide-in-left'}>
             {activeTab === 'dashboard' && (
               <div className="space-y-6">
                 <SummaryCards
@@ -265,13 +269,26 @@ function App() {
 
             {activeTab === 'todo' && (
               <div className="max-w-7xl mx-auto">
-                <TodoList todos={todos} onUpdate={fetchTodos} subjects={subjects} subjectsWithColors={subjectsWithColors} />
+                <TodoList todos={todos} onUpdate={fetchTodos} subjects={subjects} subjectsWithColors={subjectsWithColors} projects={projects} />
               </div>
             )}
 
             {activeTab === 'calendar' && (
-              <div className="max-w-6xl mx-auto">
+              <div className="max-w-full mx-auto">
                 <CalendarView todos={todos} onUpdate={fetchTodos} subjectsWithColors={subjectsWithColors} />
+              </div>
+            )}
+
+            {activeTab === 'kanban' && (
+              <div className="max-w-full mx-auto">
+                <KanbanBoard 
+                  todos={todos} 
+                  projects={projects} 
+                  subjectsWithColors={subjectsWithColors}
+                  onProjectsUpdate={fetchData}
+                  onTodosUpdate={fetchTodos}
+                  subjects={subjects}
+                />
               </div>
             )}
 
@@ -302,8 +319,9 @@ function App() {
             )}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </ToastProvider>
   );
 }
 

@@ -39,7 +39,7 @@ export interface TodoCreate {
   title: string;
   subject?: string;
   due_date?: string;
-  project_id?: number;
+  project_id?: number | null;
 }
 
 export interface Settings {
@@ -70,7 +70,6 @@ export interface ReviewTiming {
 export interface Project {
   id: number;
   name: string;
-  subject?: string;
   due_date?: string;
   description?: string;
   created_at: string;
@@ -79,7 +78,6 @@ export interface Project {
 
 export interface ProjectCreate {
   name: string;
-  subject?: string;
   due_date?: string;
   description?: string;
 }

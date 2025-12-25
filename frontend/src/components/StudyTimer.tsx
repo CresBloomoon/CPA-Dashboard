@@ -50,7 +50,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   // ストップウォッチ開始
   const handleStart = () => {
     if (!selectedSubject) {
-      alert('科目を選択してください');
       return;
     }
     startTimeRef.current = Date.now() - elapsedTime * 1000;
@@ -72,14 +71,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   // 時間を記録
   const handleRecord = async () => {
     if (!selectedSubject) {
-      alert('科目を選択してください');
       return;
     }
 
     let hours = 0;
     if (mode === 'stopwatch') {
       if (elapsedTime === 0) {
-        alert('記録する時間がありません');
         return;
       }
       hours = elapsedTime / 3600; // 秒を時間に変換
@@ -88,7 +85,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     }
 
     if (hours === 0) {
-      alert('記録する時間がありません');
       return;
     }
 
@@ -125,10 +121,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
       setManualHours(0);
       setManualMinutes(5);
       onRecorded();
-      alert('時間を記録しました');
     } catch (error) {
       console.error('Error recording time:', error);
-      alert('記録に失敗しました');
     }
   };
 
