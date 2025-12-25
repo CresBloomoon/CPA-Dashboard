@@ -9,8 +9,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
-import { ja } from 'date-fns/locale';
+import { startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
 import type { StudyProgress, Subject } from '../types';
 
 ChartJS.register(
@@ -27,7 +26,9 @@ interface SummaryCardsProps {
   totalTodos: number;
   completedTodos: number;
   todayDueTodos: number;
-  onReminderCardClick?: () => void;
+  onTodayDueClick?: () => void;
+  onTotalTodosClick?: () => void;
+  onCompletedTodosClick?: () => void;
   progressList?: StudyProgress[];
   subjectsWithColors?: Subject[];
 }
@@ -37,7 +38,9 @@ export default function SummaryCards({
   totalTodos, 
   completedTodos, 
   todayDueTodos, 
-  onReminderCardClick,
+  onTodayDueClick,
+  onTotalTodosClick,
+  onCompletedTodosClick,
   progressList = [],
   subjectsWithColors = []
 }: SummaryCardsProps) {
@@ -50,13 +53,17 @@ export default function SummaryCards({
   // 1週間分のデータを集計
   const chartData = useMemo(() => {
     const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 1, locale: ja }); // 月曜日から
-    const weekEnd = endOfWeek(today, { weekStartsOn: 1, locale: ja });
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // 月曜日から
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
+    // 英語の曜日略語マッピング
+    const dayAbbreviations = ['Sun.', 'Mon.', 'Tue.', 'Wed.', 'Thu.', 'Fri.', 'Sat.'];
+    
     // 各日のデータを初期化
     const dailyData = days.map(day => {
-      const dayLabel = format(day, 'E', { locale: ja }); // 曜日
+      const dayOfWeek = day.getDay(); // 0 (Sunday) から 6 (Saturday)
+      const dayLabel = dayAbbreviations[dayOfWeek];
       return {
         label: dayLabel,
         dateObj: day,
@@ -93,6 +100,8 @@ export default function SummaryCards({
       label: subject,
       data: dailyData.map(day => day.subjects[subject] || 0),
       backgroundColor: getSubjectColor(subject),
+      borderRadius: 4, // 角を丸くする
+      borderSkipped: false, // すべての角を丸くする
     }));
 
     return {
@@ -111,7 +120,7 @@ export default function SummaryCards({
 
   const thisWeekHours = useMemo(() => {
     const today = new Date();
-    const weekStart = startOfWeek(today, { weekStartsOn: 1, locale: ja }); // 月曜日から
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // 月曜日から
     return progressList
       .filter(p => {
         const progressDate = new Date(p.created_at);
@@ -169,19 +178,19 @@ export default function SummaryCards({
         </div>
       </div>
 
-      <div 
-        className={`md:col-span-1 bg-white rounded-lg shadow-lg p-6 ${
-          onReminderCardClick 
-            ? 'cursor-pointer hover:bg-blue-50 active:scale-[0.99] transition-all duration-300' 
-            : ''
-        }`}
-        onClick={onReminderCardClick}
-      >
+      <div className="md:col-span-1 bg-white rounded-lg shadow-lg p-6">
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-gray-700 mb-4">リマインダ</h3>
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <div 
+                className={`flex items-center justify-between pb-3 border-b border-gray-200 ${
+                  onTodayDueClick 
+                    ? 'cursor-pointer hover:bg-orange-50 rounded-lg p-2 -m-2 transition-colors' 
+                    : ''
+                }`}
+                onClick={onTodayDueClick}
+              >
                 <div>
                   <p className="text-gray-600 text-sm mb-1">今日が期限</p>
                   <p className="text-2xl font-bold text-gray-800">{todayDueTodos}</p>
@@ -194,7 +203,14 @@ export default function SummaryCards({
                 </div>
               </div>
               
-              <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <div 
+                className={`flex items-center justify-between pb-3 border-b border-gray-200 ${
+                  onTotalTodosClick 
+                    ? 'cursor-pointer hover:bg-purple-50 rounded-lg p-2 -m-2 transition-colors' 
+                    : ''
+                }`}
+                onClick={onTotalTodosClick}
+              >
                 <div>
                   <p className="text-gray-600 text-sm mb-1">総リマインダ数</p>
                   <p className="text-2xl font-bold text-gray-800">{totalTodos}</p>
@@ -207,7 +223,14 @@ export default function SummaryCards({
                 </div>
               </div>
               
-              <div className="flex items-center justify-between">
+              <div 
+                className={`flex items-center justify-between ${
+                  onCompletedTodosClick 
+                    ? 'cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors' 
+                    : ''
+                }`}
+                onClick={onCompletedTodosClick}
+              >
                 <div>
                   <p className="text-gray-600 text-sm mb-1">完了リマインダ数</p>
                   <p className="text-2xl font-bold text-gray-800">{completedTodos}</p>

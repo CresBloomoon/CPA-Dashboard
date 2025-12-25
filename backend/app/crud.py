@@ -81,7 +81,7 @@ def get_all_todos(db: Session, skip: int = 0, limit: int = 100):
         models.Todo.created_at.desc()
     ).offset(skip).limit(limit).all()
 
-def create_todo(db: Session, todo: schemas.TodoCreate, sync_to_google_calendar: bool = False, calendar_id: str = 'primary'):
+def create_todo(db: Session, todo: schemas.TodoCreate):
     """新しいToDoを作成"""
     db_todo = models.Todo(
         title=todo.title,
@@ -93,21 +93,6 @@ def create_todo(db: Session, todo: schemas.TodoCreate, sync_to_google_calendar: 
     db.add(db_todo)
     db.commit()
     db.refresh(db_todo)
-    
-    # Googleカレンダーに同期する場合
-    if sync_to_google_calendar and todo.due_date:
-        try:
-            from . import google_calendar
-            google_calendar.create_calendar_event(
-                title=todo.title,
-                due_date=todo.due_date,
-                subject=todo.subject,
-                calendar_id=calendar_id
-            )
-        except Exception as e:
-            # Googleカレンダーへの同期に失敗しても、ToDoの作成は成功とする
-            print(f"Failed to sync to Google Calendar: {e}")
-    
     return db_todo
 
 def update_todo(db: Session, todo_id: int, todo_update: schemas.TodoUpdate):
@@ -195,7 +180,7 @@ def create_or_update_setting(db: Session, key: str, value: str):
         return db_setting
 
 def update_subject_name(db: Session, old_name: str, new_name: str):
-    """科目名を更新し、関連するToDoとStudyProgressも更新"""
+    """科目名を更新し、関連するToDo、StudyProgress、ReviewTimingも更新"""
     # ToDoの科目名を更新
     todos = db.query(models.Todo).filter(models.Todo.subject == old_name).all()
     for todo in todos:
@@ -206,13 +191,27 @@ def update_subject_name(db: Session, old_name: str, new_name: str):
     for progress in progress_list:
         progress.subject = new_name
     
-    # Projectの科目名を更新
-    projects = db.query(models.Project).filter(models.Project.subject == old_name).all()
-    for project in projects:
-        project.subject = new_name
+    # ReviewTiming設定の科目名を更新
+    import json
+    review_timing_setting = db.query(models.Settings).filter(models.Settings.key == 'review_timing').first()
+    if review_timing_setting:
+        try:
+            review_timings = json.loads(review_timing_setting.value)
+            if isinstance(review_timings, list):
+                updated = False
+                for timing in review_timings:
+                    if isinstance(timing, dict) and timing.get('subject_name') == old_name:
+                        timing['subject_name'] = new_name
+                        updated = True
+                if updated:
+                    review_timing_setting.value = json.dumps(review_timings)
+        except (json.JSONDecodeError, TypeError) as e:
+            print(f"Error parsing review_timing setting: {e}")
+    
+    # Projectにはsubject属性がないため、更新不要
     
     db.commit()
-    return len(todos) + len(progress_list) + len(projects)
+    return len(todos) + len(progress_list)
 
 # プロジェクトCRUD操作
 def get_project(db: Session, project_id: int):

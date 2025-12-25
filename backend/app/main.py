@@ -103,21 +103,7 @@ async def get_todo(todo_id: int, db: Session = Depends(get_db)):
 @app.post("/api/todos", response_model=schemas.TodoResponse, status_code=201)
 async def create_todo(todo: schemas.TodoCreate, db: Session = Depends(get_db)):
     """新しいToDoを作成"""
-    # Googleカレンダー連携の設定を確認
-    sync_to_google = False
-    calendar_id = 'primary'  # デフォルトはプライマリカレンダー
-    try:
-        google_calendar_setting = crud.get_setting(db, 'google_calendar_enabled')
-        if google_calendar_setting and google_calendar_setting.value.lower() == 'true':
-            sync_to_google = True
-            # カレンダーIDの設定を確認
-            calendar_id_setting = crud.get_setting(db, 'google_calendar_id')
-            if calendar_id_setting and calendar_id_setting.value:
-                calendar_id = calendar_id_setting.value
-    except Exception:
-        pass
-    
-    return crud.create_todo(db, todo, sync_to_google_calendar=sync_to_google, calendar_id=calendar_id)
+    return crud.create_todo(db, todo)
 
 @app.put("/api/todos/{todo_id}", response_model=schemas.TodoResponse)
 async def update_todo(

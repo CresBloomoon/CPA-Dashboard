@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+
 /* 画面遷移アニメーション - 統一されたフェードインのみ */
 @keyframes fadeIn {
   from {
@@ -254,5 +255,10 @@ body {
 
 .animate-checkmark-circle {
   animation: checkmarkCircle 0.3s ease-out !important;
+}
+
+/* サイドバーインジケーターのフェードインアニメーション */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
 }
 

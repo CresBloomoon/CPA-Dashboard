@@ -162,7 +162,7 @@ export const projectApi = {
   },
 
   // プロジェクトを更新
-  update: async (id: number, data: Partial<ProjectCreate>): Promise<Project> => {
+  update: async (id: number, data: Partial<ProjectCreate & { completed?: boolean }>): Promise<Project> => {
     const response = await api.put<Project>(`/projects/${id}`, data);
     return response.data;
   },

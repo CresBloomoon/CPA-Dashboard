@@ -48,7 +48,7 @@ export default function TodoCreateModal({
     if (isOpen) {
       loadReviewTimings();
     }
-  }, [isOpen]);
+  }, [isOpen, subjectsWithColors]);
 
   const loadReviewTimings = async () => {
     try {
@@ -248,7 +248,9 @@ export default function TodoCreateModal({
                         <span className="flex items-center gap-2">
                           {selectedSetListTiming !== null && (() => {
                             const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
-                            const color = timing ? getSubjectColor(timing.subject_name) : undefined;
+                            const currentSubject = timing ? subjectsWithColors.find(s => s.id === timing.subject_id) : null;
+                            const displaySubjectName = currentSubject ? currentSubject.name : (timing ? timing.subject_name : '');
+                            const color = displaySubjectName ? getSubjectColor(displaySubjectName) : undefined;
                             return color ? (
                               <span
                                 className="w-3 h-3 rounded-full"
@@ -259,7 +261,10 @@ export default function TodoCreateModal({
                           {selectedSetListTiming !== null ?
                             (() => {
                               const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
-                              return timing ? `${timing.subject_name} (${timing.review_days.length}回: ${timing.review_days.map(d => `${d}日後`).join(', ')})` : '選択してください';
+                              if (!timing) return '選択してください';
+                              const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
+                              const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
+                              return `${displaySubjectName} (${timing.review_days.length}回: ${timing.review_days.map(d => `${d}日後`).join(', ')})`;
                             })()
                             : '選択してください'}
                         </span>
@@ -287,32 +292,40 @@ export default function TodoCreateModal({
                               <span className="w-3 h-3" />
                               <span>選択してください</span>
                             </div>
-                            {reviewTimings.map((timing) => {
-                              const color = getSubjectColor(timing.subject_name);
-                              return (
-                                <div
-                                  key={timing.subject_id}
-                                  onClick={() => {
-                                    setSelectedSetListTiming(timing.subject_id);
-                                    setNewTodoSubject(timing.subject_name);
-                                    setIsSetListDropdownOpen(false);
-                                  }}
-                                  className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-blue-50 ${
-                                    selectedSetListTiming === timing.subject_id ? 'bg-blue-100' : ''
-                                  }`}
-                                >
-                                  {color ? (
-                                    <span
-                                      className="w-3 h-3 rounded-full"
-                                      style={{ backgroundColor: color }}
-                                    />
-                                  ) : (
-                                    <span className="w-3 h-3" />
-                                  )}
-                                  <span>{timing.subject_name} ({timing.review_days.length}回: {timing.review_days.map(d => `${d}日後`).join(', ')})</span>
-                                </div>
-                              );
-                            })}
+                            {reviewTimings
+                              .filter((timing) => {
+                                // 現在存在する科目のみを表示
+                                return subjectsWithColors.some(s => s.id === timing.subject_id);
+                              })
+                              .map((timing) => {
+                                // subjectsWithColorsから最新の科目名を取得
+                                const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
+                                const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
+                                const color = getSubjectColor(displaySubjectName);
+                                return (
+                                  <div
+                                    key={timing.subject_id}
+                                    onClick={() => {
+                                      setSelectedSetListTiming(timing.subject_id);
+                                      setNewTodoSubject(displaySubjectName);
+                                      setIsSetListDropdownOpen(false);
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-blue-50 ${
+                                      selectedSetListTiming === timing.subject_id ? 'bg-blue-100' : ''
+                                    }`}
+                                  >
+                                    {color ? (
+                                      <span
+                                        className="w-3 h-3 rounded-full"
+                                        style={{ backgroundColor: color }}
+                                      />
+                                    ) : (
+                                      <span className="w-3 h-3" />
+                                    )}
+                                    <span>{displaySubjectName} ({timing.review_days.length}回: {timing.review_days.map(d => `${d}日後`).join(', ')})</span>
+                                  </div>
+                                );
+                              })}
                           </div>
                         </>
                       )}

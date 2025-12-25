@@ -1,4 +1,22 @@
 import { useState, useEffect, useRef } from 'react';
+import Sidebar, { type SidebarItem } from './Sidebar';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { settingsApi } from '../api';
 import type { Subject, ReviewTiming } from '../types';
 
@@ -24,18 +42,202 @@ const DEFAULT_COLORS = [
   '#AB47BC', // パープル
 ];
 
-type SettingsMenu = 'subjects' | 'review-timing' | 'google-calendar';
+type SettingsMenu = 'subjects' | 'review-timing';
+
+// ソート可能な科目アイテムコンポーネント
+function SortableSubjectItem({
+  subject,
+  index,
+  editingIndex,
+  editingValue,
+  setEditingValue,
+  colorPickerIndex,
+  colorPickerPosition,
+  colorButtonRefs,
+  subjectNameRefs,
+  isSaving,
+  onEdit,
+  onSaveEdit,
+  onCancelEdit,
+  onColorButtonClick,
+  onColorChange,
+  onDelete,
+  onCloseColorPicker,
+  DEFAULT_COLORS,
+}: {
+  subject: Subject;
+  index: number;
+  editingIndex: number | null;
+  editingValue: string;
+  setEditingValue: (value: string) => void;
+  colorPickerIndex: number | null;
+  colorPickerPosition: { top: number; left: number } | null;
+  colorButtonRefs: React.MutableRefObject<{ [key: number]: HTMLButtonElement | null }>;
+  subjectNameRefs: React.MutableRefObject<{ [key: number]: HTMLDivElement | null }>;
+  isSaving: boolean;
+  onEdit: (index: number) => void;
+  onSaveEdit: (index: number) => void;
+  onCancelEdit: () => void;
+  onColorButtonClick: (e: React.MouseEvent, index: number) => void;
+  onColorChange: (index: number, color: string) => void;
+  onDelete: (index: number) => void;
+  onCloseColorPicker: () => void;
+  DEFAULT_COLORS: string[];
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: subject.id, disabled: editingIndex === index || colorPickerIndex === index });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200 ${
+        editingIndex === null && colorPickerIndex === null ? 'cursor-move' : 'cursor-default'
+      }`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex-shrink-0 text-gray-400 cursor-grab active:cursor-grabbing"
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
+        </svg>
+      </div>
+      {editingIndex === index ? (
+        <div className="flex-1 flex items-center gap-2">
+          <input
+            type="text"
+            value={editingValue}
+            onChange={(e) => setEditingValue(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                onSaveEdit(index);
+              } else if (e.key === 'Escape') {
+                onCancelEdit();
+              }
+            }}
+            className="flex-1 px-3 py-2 bg-white rounded border-2 border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            autoFocus
+            disabled={isSaving}
+          />
+          <button
+            onClick={() => onSaveEdit(index)}
+            disabled={isSaving}
+            className="p-2 text-green-600 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="保存"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </button>
+          <button
+            onClick={onCancelEdit}
+            disabled={isSaving}
+            className="p-2 text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="キャンセル"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="relative">
+            <button
+              ref={(el) => { colorButtonRefs.current[index] = el; }}
+              onClick={(e) => onColorButtonClick(e, index)}
+              className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-400 transition-colors"
+              style={{ backgroundColor: subject.color }}
+              title="色を変更"
+            />
+          </div>
+          {colorPickerIndex === index && colorPickerPosition && (
+            <>
+              <div
+                className="fixed inset-0 z-40"
+                onClick={onCloseColorPicker}
+              />
+              <div
+                className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-3"
+                style={{
+                  top: `${colorPickerPosition.top}px`,
+                  left: `${colorPickerPosition.left}px`,
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="grid grid-cols-6 gap-2">
+                  {DEFAULT_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onColorChange(index, color);
+                      }}
+                      className={`w-8 h-8 rounded-full border-2 transition-all ${
+                        subject.color === color ? 'border-gray-800 scale-110' : 'border-gray-300 hover:border-gray-500'
+                      }`}
+                      style={{ backgroundColor: color }}
+                      title={color}
+                    />
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+          <div
+            ref={(el) => { subjectNameRefs.current[index] = el; }}
+            className="flex-1 px-3 py-2 bg-white rounded border border-gray-200 cursor-text hover:border-blue-300 transition-colors"
+            onClick={() => onEdit(index)}
+            title="クリックして編集"
+          >
+            {subject.name}
+          </div>
+          <button
+            onClick={() => onEdit(index)}
+            disabled={isSaving}
+            className="p-2 text-blue-600 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="編集"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+          <button
+            onClick={() => onDelete(index)}
+            disabled={isSaving}
+            className="p-2 text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="削除"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsChange, onDataUpdate }: SettingsViewProps) {
   const [activeMenu, setActiveMenu] = useState<SettingsMenu>('subjects');
   const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [googleCalendarEnabled, setGoogleCalendarEnabled] = useState(false);
-  const [googleCalendarId, setGoogleCalendarId] = useState('primary');
   const [newSubject, setNewSubject] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
   const [colorPickerIndex, setColorPickerIndex] = useState<number | null>(null);
@@ -63,14 +265,6 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       setIsLoading(true);
       const settings = await settingsApi.getAll();
       const subjectsSetting = settings.find(s => s.key === 'subjects');
-      const googleCalendarSetting = settings.find(s => s.key === 'google_calendar_enabled');
-      if (googleCalendarSetting) {
-        setGoogleCalendarEnabled(googleCalendarSetting.value === 'true');
-      }
-      const googleCalendarIdSetting = settings.find(s => s.key === 'google_calendar_id');
-      if (googleCalendarIdSetting) {
-        setGoogleCalendarId(googleCalendarIdSetting.value);
-      }
       
       if (subjectsSetting) {
         try {
@@ -179,12 +373,28 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     setSubjects(updatedSubjects);
     setNewSubject('');
     await saveSubjects(updatedSubjects);
+    
+    // 新しく追加した科目の復習セットリストが存在しない場合は、デフォルト値（1日後）で初期化
+    const existingTiming = reviewTimings.find(t => t.subject_id === newId);
+    if (!existingTiming) {
+      const updatedReviewTimings = [...reviewTimings, {
+        subject_id: newId,
+        subject_name: newSubjectObj.name,
+        review_days: [1], // デフォルトは1日後
+      }];
+      await saveReviewTimings(updatedReviewTimings);
+    }
   };
 
   const handleRemoveSubject = async (index: number) => {
+    const subjectToRemove = subjects[index];
     const updatedSubjects = subjects.filter((_, i) => i !== index);
     setSubjects(updatedSubjects);
     await saveSubjects(updatedSubjects);
+    
+    // 復習セットリストからも削除
+    const updatedReviewTimings = reviewTimings.filter(t => t.subject_id !== subjectToRemove.id);
+    await saveReviewTimings(updatedReviewTimings);
   };
 
   const handleStartEdit = (index: number) => {
@@ -258,7 +468,26 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
         try {
           const parsed = JSON.parse(reviewTimingSetting.value);
           if (Array.isArray(parsed)) {
-            setReviewTimings(parsed as ReviewTiming[]);
+            // 現在存在する科目の復習セットリストのみを保持
+            const validSubjectIds = new Set(subjects.map(s => s.id));
+            const filteredTimings = parsed.filter((t: ReviewTiming) => validSubjectIds.has(t.subject_id));
+            
+            // 存在する科目で復習セットリストがない場合は、デフォルト値で追加
+            const existingSubjectIds = new Set(filteredTimings.map((t: ReviewTiming) => t.subject_id));
+            const missingSubjects = subjects.filter(s => !existingSubjectIds.has(s.id));
+            const defaultTimings = missingSubjects.map(subject => ({
+              subject_id: subject.id,
+              subject_name: subject.name,
+              review_days: [1], // デフォルトは1日後
+            }));
+            
+            const allTimings = [...filteredTimings, ...defaultTimings];
+            setReviewTimings(allTimings);
+            
+            // フィルタリングや追加があった場合は保存
+            if (filteredTimings.length !== parsed.length || defaultTimings.length > 0) {
+              await saveReviewTimings(allTimings);
+            }
             return;
           }
         } catch (error) {
@@ -375,71 +604,47 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     setColorPickerIndex(colorPickerIndex === index ? null : index);
   };
 
-  // ドラッグ開始
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', index.toString());
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '0.5';
-    }
-  };
+  // dnd-kitのセンサー設定
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-  // ドラッグオーバー
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    e.dataTransfer.dropEffect = 'move';
-    
-    if (draggedIndex === null || draggedIndex === index) {
-      setDragOverIndex(null);
-      return;
-    }
-    
-    setDragOverIndex(index);
-  };
+  // ドラッグ終了時の処理
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
 
-  // ドラッグリーブ
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    if (x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom) {
-      return;
-    }
-    setDragOverIndex(null);
-  };
-
-  // ドロップ
-  const handleDrop = async (e: React.DragEvent, dropIndex: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (draggedIndex === null || draggedIndex === dropIndex) {
-      setDraggedIndex(null);
-      setDragOverIndex(null);
+    if (!over || active.id === over.id) {
       return;
     }
 
-    const updatedSubjects = [...subjects];
-    const [removed] = updatedSubjects.splice(draggedIndex, 1);
-    updatedSubjects.splice(dropIndex, 0, removed);
+    // active.idとover.idが数値であることを確認
+    const activeId = typeof active.id === 'number' ? active.id : parseInt(String(active.id));
+    const overId = typeof over.id === 'number' ? over.id : parseInt(String(over.id));
+
+    const oldIndex = subjects.findIndex((s) => s.id === activeId);
+    const newIndex = subjects.findIndex((s) => s.id === overId);
+
+    // インデックスが見つからない場合は処理を中断
+    if (oldIndex === -1 || newIndex === -1) {
+      console.warn('Subject not found:', { activeId, overId, oldIndex, newIndex });
+      return;
+    }
+
+    // 楽観的更新：即座にUIを更新
+    const updatedSubjects = arrayMove(subjects, oldIndex, newIndex);
     setSubjects(updatedSubjects);
-    await saveSubjects(updatedSubjects);
-    
-    setDraggedIndex(null);
-    setDragOverIndex(null);
-  };
 
-  // ドラッグ終了
-  const handleDragEnd = (e: React.DragEvent) => {
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '1';
+    // バックエンドに保存
+    try {
+      await saveSubjects(updatedSubjects);
+    } catch (error) {
+      console.error('Error saving subjects order:', error);
+      // エラーが発生した場合は元に戻す
+      setSubjects(subjects);
     }
-    setDraggedIndex(null);
-    setDragOverIndex(null);
   };
 
   if (isLoading) {
@@ -453,53 +658,28 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     );
   }
 
+  const handleMenuClick = (itemId: string) => {
+    const menu = itemId as SettingsMenu;
+    setActiveMenu(menu);
+    
+    // メニューに応じた追加処理
+    if (menu === 'review-timing') {
+      loadReviewTimings();
+    }
+  };
+
   return (
     <div className="flex h-full min-h-[600px]">
       {/* 左側サイドバー - 画面左端に配置 */}
-      <div className="w-80 bg-gray-50 border-r border-gray-200 flex-shrink-0">
-        <div className="p-6">
-          <h2 className="text-2xl font-semibold text-gray-700 mb-6">設定</h2>
-            <nav className="space-y-2">
-              <button
-                onClick={() => setActiveMenu('subjects')}
-                className={`w-full text-left px-6 py-4 rounded-lg transition-colors text-lg ${
-                  activeMenu === 'subjects'
-                    ? 'bg-blue-500 text-white font-semibold shadow-md'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                科目
-              </button>
-              <button
-                onClick={() => {
-                  setActiveMenu('review-timing');
-                  loadReviewTimings();
-                }}
-                className={`w-full text-left px-6 py-4 rounded-lg transition-colors text-lg ${
-                  activeMenu === 'review-timing'
-                    ? 'bg-blue-500 text-white font-semibold shadow-md'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                復習セットリスト
-              </button>
-              <button
-                onClick={() => {
-                  setActiveMenu('google-calendar');
-                  loadSettings();
-                }}
-                className={`w-full text-left px-6 py-4 rounded-lg transition-colors text-lg ${
-                  activeMenu === 'google-calendar'
-                    ? 'bg-blue-500 text-white font-semibold shadow-md'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                Googleカレンダー連携
-              </button>
-              {/* 今後追加する設定項目はここに追加 */}
-            </nav>
-        </div>
-      </div>
+      <Sidebar
+        title="設定"
+        items={[
+          { id: 'subjects', label: '科目' },
+          { id: 'review-timing', label: '復習セットリスト' },
+        ]}
+        activeItemId={activeMenu}
+        onItemClick={handleMenuClick}
+      />
 
       {/* 右側コンテンツエリア - 独立したカード */}
       <div className="flex-1">
@@ -528,171 +708,49 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
         </div>
 
         {/* 科目リスト */}
-        <div className="space-y-2">
-          {subjects.length === 0 ? (
-            <p className="text-gray-500 text-sm py-4">科目が登録されていません</p>
-          ) : (
-            subjects.map((subject, index) => (
-              <div
-                key={subject.id}
-                draggable={editingIndex === null && colorPickerIndex === null}
-                onDragStart={(e) => {
-                  if (editingIndex === null && colorPickerIndex === null) {
-                    handleDragStart(e, index);
-                  } else {
-                    e.preventDefault();
-                  }
-                }}
-                onDragOver={(e) => {
-                  if (editingIndex === null && colorPickerIndex === null) {
-                    handleDragOver(e, index);
-                  } else {
-                    e.preventDefault();
-                  }
-                }}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => {
-                  if (editingIndex === null && colorPickerIndex === null) {
-                    handleDrop(e, index);
-                  } else {
-                    e.preventDefault();
-                  }
-                }}
-                onDragEnd={handleDragEnd}
-                className={`flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200 ${
-                  editingIndex === null && colorPickerIndex === null ? 'cursor-move' : 'cursor-default'
-                } ${
-                  draggedIndex === index ? 'opacity-50 scale-95' : ''
-                } ${
-                  dragOverIndex === index && draggedIndex !== index ? 'bg-blue-100 border-2 border-blue-400 transform translate-y-0' : ''
-                }`}
-              >
-                <div className="flex-shrink-0 text-gray-400">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
-                  </svg>
-                </div>
-                {editingIndex === index ? (
-                  <div className="flex-1 flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={editingValue}
-                      onChange={(e) => setEditingValue(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSaveEdit(index);
-                        } else if (e.key === 'Escape') {
-                          handleCancelEdit();
-                        }
-                      }}
-                      className="flex-1 px-3 py-2 bg-white rounded border-2 border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      autoFocus
-                      disabled={isSaving}
-                    />
-                    <button
-                      onClick={() => handleSaveEdit(index)}
-                      disabled={isSaving}
-                      className="p-2 text-green-600 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="保存"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={handleCancelEdit}
-                      disabled={isSaving}
-                      className="p-2 text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="キャンセル"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="relative">
-                      <button
-                        ref={(el) => { colorButtonRefs.current[index] = el; }}
-                        onClick={(e) => handleColorButtonClick(e, index)}
-                        className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-400 transition-colors"
-                        style={{ backgroundColor: subject.color }}
-                        title="色を変更"
-                      />
-                    </div>
-                    {colorPickerIndex === index && colorPickerPosition && (
-                      <>
-                        {/* オーバーレイ（背景クリックで閉じる） */}
-                        <div
-                          className="fixed inset-0 z-40"
-                          onClick={() => {
-                            setColorPickerIndex(null);
-                            setColorPickerPosition(null);
-                          }}
-                        />
-                        {/* カラーピッカー - fixedポジショニングで重なりを防ぐ */}
-                        <div
-                          className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-3"
-                          style={{
-                            top: `${colorPickerPosition.top}px`,
-                            left: `${colorPickerPosition.left}px`,
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="grid grid-cols-6 gap-2">
-                            {DEFAULT_COLORS.map((color) => (
-                              <button
-                                key={color}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleColorChange(index, color);
-                                }}
-                                className={`w-8 h-8 rounded-full border-2 transition-all ${
-                                  subject.color === color ? 'border-gray-800 scale-110' : 'border-gray-300 hover:border-gray-500'
-                                }`}
-                                style={{ backgroundColor: color }}
-                                title={color}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      </>
-                    )}
-                    <div 
-                      ref={(el) => { subjectNameRefs.current[index] = el; }}
-                      className="flex-1 px-3 py-2 bg-white rounded border border-gray-200 cursor-text hover:border-blue-300 transition-colors"
-                      onClick={() => handleStartEdit(index)}
-                      title="クリックして編集"
-                    >
-                      {subject.name}
-                    </div>
-                    <button
-                      onClick={() => handleStartEdit(index)}
-                      disabled={isSaving}
-                      className="p-2 text-blue-600 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="編集"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleRemoveSubject(index)}
-                      disabled={isSaving}
-                      className="p-2 text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="削除"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </>
-                )}
-              </div>
-            ))
-          )}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext
+            items={subjects.map(s => s.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="space-y-2">
+              {subjects.length === 0 ? (
+                <p className="text-gray-500 text-sm py-4">科目が登録されていません</p>
+              ) : (
+                subjects.map((subject, index) => (
+                  <SortableSubjectItem
+                    key={subject.id}
+                    subject={subject}
+                    index={index}
+                    editingIndex={editingIndex}
+                    editingValue={editingValue}
+                    setEditingValue={setEditingValue}
+                    colorPickerIndex={colorPickerIndex}
+                    colorPickerPosition={colorPickerPosition}
+                    colorButtonRefs={colorButtonRefs}
+                    subjectNameRefs={subjectNameRefs}
+                    isSaving={isSaving}
+                    onEdit={handleStartEdit}
+                    onSaveEdit={handleSaveEdit}
+                    onCancelEdit={handleCancelEdit}
+                    onColorButtonClick={handleColorButtonClick}
+                    onColorChange={handleColorChange}
+                    onDelete={handleRemoveSubject}
+                    onCloseColorPicker={() => {
+                      setColorPickerIndex(null);
+                      setColorPickerPosition(null);
+                    }}
+                    DEFAULT_COLORS={DEFAULT_COLORS}
+                  />
+                ))
+              )}
+            </div>
+          </SortableContext>
+        </DndContext>
 
             {isSaving && (
               <p className="text-sm text-gray-500 mt-2">保存中...</p>
@@ -798,96 +856,6 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
           </div>
         )}
 
-        {activeMenu === 'google-calendar' && (
-          <div className="bg-white rounded-lg shadow-lg p-6 h-full">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">Googleカレンダー連携</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              リマインダを作成すると、自動的にGoogleカレンダーにイベントとして追加されます。
-            </p>
-
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="flex-1">
-                  <label className="text-sm font-medium text-gray-700 mb-1 block">
-                    Googleカレンダー連携を有効にする
-                  </label>
-                  <p className="text-xs text-gray-500">
-                    有効にすると、リマインダ作成時にGoogleカレンダーに自動でイベントが追加されます
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer ml-4">
-                  <input
-                    type="checkbox"
-                    checked={googleCalendarEnabled}
-                    onChange={async (e) => {
-                      const newValue = e.target.checked;
-                      setGoogleCalendarEnabled(newValue);
-                      try {
-                        setIsSaving(true);
-                        await settingsApi.createOrUpdate({
-                          key: 'google_calendar_enabled',
-                          value: newValue.toString(),
-                        });
-                      } catch (error) {
-                        console.error('Error saving Google Calendar setting:', error);
-                        setGoogleCalendarEnabled(!newValue); // エラー時は元に戻す
-                      } finally {
-                        setIsSaving(false);
-                      }
-                    }}
-                    disabled={isSaving}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                </label>
-              </div>
-
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">
-                  カレンダーID
-                </label>
-                <input
-                  type="text"
-                  value={googleCalendarId}
-                  onChange={(e) => setGoogleCalendarId(e.target.value)}
-                  onBlur={async () => {
-                    try {
-                      setIsSaving(true);
-                      await settingsApi.createOrUpdate({
-                        key: 'google_calendar_id',
-                        value: googleCalendarId || 'primary',
-                      });
-                    } catch (error) {
-                      console.error('Error saving calendar ID:', error);
-                    } finally {
-                      setIsSaving(false);
-                    }
-                  }}
-                  placeholder="primary（デフォルト）またはカレンダーID"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  disabled={isSaving || !googleCalendarEnabled}
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  デフォルトは「primary」（プライマリカレンダー）です。他のカレンダーを使用する場合は、カレンダーIDを入力してください。
-                </p>
-              </div>
-
-              {googleCalendarEnabled && (
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <h4 className="text-sm font-semibold text-blue-800 mb-2">初回セットアップ（1回のみ）</h4>
-                  <ol className="text-xs text-blue-700 space-y-2 list-decimal list-inside">
-                    <li>Google Cloud Consoleでプロジェクトを作成</li>
-                    <li>Google Calendar APIを有効化</li>
-                    <li>OAuth 2.0認証情報を作成（デスクトップアプリ）</li>
-                    <li>credentials.jsonをダウンロードして、バックエンドのルートディレクトリに配置</li>
-                    <li>バックエンドを再起動すると、初回のみブラウザで認証が求められます</li>
-                    <li>認証後は自動で同期されます</li>
-                  </ol>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

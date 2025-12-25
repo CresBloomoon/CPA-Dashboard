@@ -22,6 +22,7 @@ class Project(Base):
     name = Column(String(500), nullable=False)  # プロジェクト名（例：租税法レギュラー答練1回目）
     due_date = Column(DateTime(timezone=True), nullable=True)  # プロジェクトの期限日
     description = Column(Text, nullable=True)  # 説明
+    completed = Column(Boolean, default=False)  # 完了/未完了
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

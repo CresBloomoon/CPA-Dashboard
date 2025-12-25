@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
-import type { StudyProgress, Todo } from '../types';
+import { useMemo, useState } from 'react';
+import type { MouseEvent } from 'react';
 import { format, startOfYear, endOfYear, eachDayOfInterval, getDay, isSameDay, subDays, addDays } from 'date-fns';
 import { ja } from 'date-fns/locale';
+import type { StudyProgress, Todo } from '../types';
 
 interface HeatmapProps {
   progressList: StudyProgress[];
@@ -9,12 +10,17 @@ interface HeatmapProps {
 }
 
 export default function Heatmap({ progressList, todos }: HeatmapProps) {
+  const [tooltip, setTooltip] = useState<{ visible: boolean; text: string; x: number; y: number } | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<string | null>(null);
+  
+  // デフォルトは勉強時間で表示
+  const useStudyHours = true; // TODO: ユーザーが選択できるようにする
+
   // 日別の学習時間を集計
   const dailyHours = useMemo(() => {
     const hoursMap: { [key: string]: number } = {};
     
     progressList.forEach(progress => {
-      // created_atから日付を取得
       const date = new Date(progress.created_at);
       const dateKey = format(date, 'yyyy-MM-dd');
       
@@ -44,10 +50,6 @@ export default function Heatmap({ progressList, todos }: HeatmapProps) {
     return countMap;
   }, [todos]);
 
-  // 今年の最初の日と最後の日を取得
-  const yearStart = startOfYear(new Date());
-  const yearEnd = endOfYear(new Date());
-  
   // 表示する日付の範囲（今年の最初の日曜日から最後の土曜日まで）
   const firstSunday = (() => {
     const start = startOfYear(new Date());
@@ -74,9 +76,6 @@ export default function Heatmap({ progressList, todos }: HeatmapProps) {
     
     return weekList;
   }, [firstSunday, lastSaturday]);
-
-  // デフォルトは勉強時間で表示
-  const useStudyHours = true; // TODO: ユーザーが選択できるようにする
 
   // 学習時間に応じた色を取得
   const getColorByHours = (hours: number): string => {
@@ -117,8 +116,39 @@ export default function Heatmap({ progressList, todos }: HeatmapProps) {
 
   // ツールチップ用のテキストを生成
   const getTooltipText = (date: Date, data: { value: number; label: string }): string => {
-    const dateStr = format(date, 'yyyy年MM月dd日', { locale: ja });
-    return `${dateStr}\n${data.label}`;
+    const month = format(date, 'M', { locale: ja });
+    const day = format(date, 'd', { locale: ja });
+    const weekdayShort = format(date, 'EEE', { locale: ja }); // 曜日短縮形（例: 月）
+    
+    // 例: "12月25日(水) 2.5時間"
+    return `${month}月${day}日(${weekdayShort}) ${data.label}`;
+  };
+
+  const handleCellMouseEnter = (e: MouseEvent<HTMLDivElement>, day: Date, data: { value: number; label: string }) => {
+    const dateKey = format(day, 'yyyy-MM-dd');
+    setHoveredCell(dateKey);
+    const tooltipText = getTooltipText(day, data);
+    setTooltip({
+      visible: true,
+      text: tooltipText,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const handleCellMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (tooltip?.visible) {
+      setTooltip({
+        ...tooltip,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    }
+  };
+
+  const handleCellMouseLeave = () => {
+    setHoveredCell(null);
+    setTooltip(null);
   };
 
   return (
@@ -127,34 +157,7 @@ export default function Heatmap({ progressList, todos }: HeatmapProps) {
       <p className="text-sm text-gray-500 mb-4">今年の学習活動を可視化</p>
       
       <div className="w-full">
-        {/* 月のラベル */}
-        <div className="flex gap-1 mb-2 ml-12">
-          {weeks.map((week, weekIndex) => {
-            const firstDay = week[0];
-            const dayOfMonth = format(firstDay, 'd');
-            // 月の最初の週のみ表示
-            if (dayOfMonth === '1' || weekIndex === 0) {
-              return (
-                <div key={weekIndex} className="text-xs text-gray-500 flex-1 text-center">
-                  {format(firstDay, 'M月', { locale: ja })}
-                </div>
-              );
-            }
-            return <div key={weekIndex} className="flex-1"></div>;
-          })}
-        </div>
-
         <div className="flex gap-1 w-full">
-          {/* 曜日のラベル */}
-          <div className="flex flex-col gap-1 pr-2 flex-shrink-0">
-            <div className="h-3"></div>
-            {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
-              <div key={index} className="h-3 text-xs text-gray-500 flex items-center">
-                {day}
-              </div>
-            ))}
-          </div>
-
           {/* ヒートマップ本体 */}
           <div className="flex gap-1 flex-1">
             {weeks.map((week, weekIndex) => (
@@ -164,22 +167,25 @@ export default function Heatmap({ progressList, todos }: HeatmapProps) {
                   const data = getColor(dateKey);
                   const isToday = isSameDay(day, new Date());
                   const isFuture = day > new Date();
+                  const isHovered = hoveredCell === dateKey;
                   
                   return (
                     <div
                       key={dayIndex}
-                      className="w-full h-3 rounded-sm cursor-pointer group relative"
+                      className="w-full aspect-square rounded-sm cursor-pointer group relative transition-all duration-200"
                       style={{
                         backgroundColor: isFuture ? '#f3f4f6' : data.color,
-                        border: isToday ? '2px solid #ef4444' : 'none',
+                        border: isToday 
+                          ? '2px solid #ef4444' 
+                          : isHovered 
+                            ? '2px solid #3b82f6' 
+                            : '2px solid transparent',
+                        opacity: isHovered ? 0.9 : 1,
                       }}
-                      title={getTooltipText(day, data)}
-                    >
-                      {/* ツールチップ */}
-                      <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-800 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10 transition-opacity">
-                        {getTooltipText(day, data)}
-                      </div>
-                    </div>
+                      onMouseEnter={(e) => handleCellMouseEnter(e, day, data)}
+                      onMouseMove={handleCellMouseMove}
+                      onMouseLeave={handleCellMouseLeave}
+                    />
                   );
                 })}
               </div>
@@ -188,9 +194,22 @@ export default function Heatmap({ progressList, todos }: HeatmapProps) {
         </div>
       </div>
 
+      {/* ツールチップ */}
+      {tooltip?.visible && (
+        <div
+          className="fixed z-50 px-3 py-2 bg-gray-800 text-white text-sm rounded shadow-lg pointer-events-none whitespace-nowrap"
+          style={{
+            left: `${tooltip.x + 10}px`,
+            top: `${tooltip.y + 10}px`,
+          }}
+        >
+          {tooltip.text}
+        </div>
+      )}
+
       {/* 凡例 */}
       <div className="mt-6 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-gray-500">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
           <span>少ない</span>
           <div className="flex gap-1">
             <div className="w-4 h-4 rounded-sm" style={{ backgroundColor: '#ebedf0' }}></div>
@@ -214,4 +233,3 @@ export default function Heatmap({ progressList, todos }: HeatmapProps) {
     </div>
   );
 }
-

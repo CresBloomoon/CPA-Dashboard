@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { studyProgressApi, todoApi, settingsApi, projectApi } from './api';
+import { calculateTodoCounts } from './utils/todoCounts';
 import type { StudyProgress, StudyProgressCreate, SubjectSummary, Todo, Subject, Project } from './types';
 import ProgressList from './components/ProgressList';
 import ProgressForm from './components/ProgressForm';
@@ -27,6 +28,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [prevTab, setPrevTab] = useState<string>('dashboard');
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
+  const [todoListFilterType, setTodoListFilterType] = useState<'today' | 'all' | 'completed'>('today');
 
   const tabs = [
     { id: 'timer', label: '学習時間' },
@@ -174,19 +176,10 @@ function App() {
   const totalProgress = progressList.length > 0
     ? progressList.reduce((sum, p) => sum + p.progress_percent, 0) / progressList.length
     : 0;
-  const totalTodos = todos.length;
-  const completedTodos = todos.filter(t => t.completed).length;
   
-  // 今日が期限のリマインダ数（期限切れも含む）
-  const todayDueTodos = todos.filter(todo => {
-    if (!todo.due_date) return false;
-    const todoDate = new Date(todo.due_date);
-    const today = new Date();
-    // 日付のみを比較（時刻を無視）
-    const todoDateStr = todoDate.toISOString().split('T')[0];
-    const todayStr = today.toISOString().split('T')[0];
-    return todoDateStr <= todayStr; // 今日以前（今日と期限切れ）
-  }).length;
+  // リマインダ件数の計算（共通ロジックを使用）
+  const todoCounts = useMemo(() => calculateTodoCounts(todos), [todos]);
+  const { today: todayDueTodos, all: totalTodos, completed: completedTodos } = todoCounts;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -254,7 +247,20 @@ function App() {
                   todayDueTodos={todayDueTodos}
                   progressList={progressList}
                   subjectsWithColors={subjectsWithColors}
-                  onReminderCardClick={() => {
+                  onTodayDueClick={() => {
+                    setTodoListFilterType('today');
+                    setSlideDirection('right');
+                    setPrevTab(activeTab);
+                    setActiveTab('todo');
+                  }}
+                  onTotalTodosClick={() => {
+                    setTodoListFilterType('all');
+                    setSlideDirection('right');
+                    setPrevTab(activeTab);
+                    setActiveTab('todo');
+                  }}
+                  onCompletedTodosClick={() => {
+                    setTodoListFilterType('completed');
                     setSlideDirection('right');
                     setPrevTab(activeTab);
                     setActiveTab('todo');
@@ -271,8 +277,15 @@ function App() {
             )}
 
             {activeTab === 'todo' && (
-              <div className="max-w-7xl mx-auto">
-                <TodoList todos={todos} onUpdate={fetchTodos} subjects={subjects} subjectsWithColors={subjectsWithColors} projects={projects} />
+              <div className="w-full">
+                <TodoList 
+                  todos={todos} 
+                  onUpdate={fetchTodos} 
+                  subjects={subjects} 
+                  subjectsWithColors={subjectsWithColors} 
+                  projects={projects}
+                  initialFilterType={todoListFilterType}
+                />
               </div>
             )}
 

@@ -38,12 +38,14 @@ function DraggableTodoCard({
   todo, 
   getSubjectColor,
   onToggle,
-  onDelete
+  onDelete,
+  subjectsWithColors = []
 }: { 
   todo: Todo; 
   getSubjectColor: (subject: string | null) => string;
   onToggle: (todo: Todo) => void;
   onDelete: (todo: Todo) => void;
+  subjectsWithColors?: Subject[];
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -56,6 +58,23 @@ function DraggableTodoCard({
 
   const todoColor = getSubjectColor(todo.subject || null);
   const isCompleted = todo.completed;
+  
+  // タイトルから古い科目名を削除し、最新の科目名を取得
+  const getDisplayTitle = () => {
+    let displayTitle = todo.title;
+    // タイトルに【科目名】の形式が含まれている場合、最新の科目名に置き換え
+    if (todo.subject) {
+      const titleMatch = displayTitle.match(/^【(.+?)】(.+)$/);
+      if (titleMatch) {
+        // タイトルに科目名が含まれている場合は、最新の科目名で置き換え
+        displayTitle = `【${todo.subject}】${titleMatch[2]}`;
+      } else if (!displayTitle.startsWith('【')) {
+        // タイトルに科目名が含まれていない場合は、追加
+        displayTitle = `【${todo.subject}】${displayTitle}`;
+      }
+    }
+    return displayTitle;
+  };
   
   // 期限の状態を判定
   let dueDateText = '';
@@ -70,14 +89,19 @@ function DraggableTodoCard({
     const diffTime = dueDate.getTime() - today.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
+    const dateText = `${dueDate.getFullYear()}/${String(dueDate.getMonth() + 1).padStart(2, '0')}/${String(dueDate.getDate()).padStart(2, '0')}`;
+    
     if (diffDays < 0) {
-      dueDateText = `${dueDate.getFullYear()}/${String(dueDate.getMonth() + 1).padStart(2, '0')}/${String(dueDate.getDate()).padStart(2, '0')} 期限切れ`;
-      dueDateClassName = 'text-red-500 font-semibold';
+      // 期限超（前日以前）- 赤文字
+      dueDateText = dateText;
+      dueDateClassName = 'text-red-600';
     } else if (diffDays === 0) {
-      dueDateText = '本日期限';
-      dueDateClassName = 'text-blue-500 font-semibold';
+      // 当日 - 青文字
+      dueDateText = dateText;
+      dueDateClassName = 'text-blue-600';
     } else {
-      dueDateText = `${dueDate.getFullYear()}/${String(dueDate.getMonth() + 1).padStart(2, '0')}/${String(dueDate.getDate()).padStart(2, '0')}`;
+      // 期限前（翌日以降）- 黒文字
+      dueDateText = dateText;
       dueDateClassName = 'text-gray-800';
     }
   }
@@ -158,7 +182,7 @@ function DraggableTodoCard({
         )}
         <div className="flex-1 min-w-0">
           <div className={`text-sm font-medium text-gray-800 ${isCompleted ? 'line-through' : ''}`}>
-            {todo.subject ? `【${todo.subject}】` : ''}{todo.title}
+            {getDisplayTitle()}
           </div>
           {todo.due_date && (
             <div className={`text-xs mt-1 ${dueDateClassName}`}>
@@ -199,6 +223,7 @@ function DroppableProjectColumn({
   getSubjectColor,
   onToggleTodo,
   onDeleteTodo,
+  subjectsWithColors = [],
 }: { 
   project: Project | { id: 'unassigned'; name: string; due_date: null; description: null }; 
   todos: Todo[]; 
@@ -211,6 +236,7 @@ function DroppableProjectColumn({
   getSubjectColor: (subject: string | null) => string;
   onToggleTodo: (todo: Todo) => void;
   onDeleteTodo: (todo: Todo) => void;
+  subjectsWithColors?: Subject[];
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: project.id,
@@ -225,7 +251,43 @@ function DroppableProjectColumn({
     >
       {/* プロジェクトヘッダー */}
       <div className="flex items-center gap-2 mb-4 relative">
-        <h3 className="font-semibold text-gray-800 flex-1">{project.name}</h3>
+        {/* プロジェクト完了ボタン */}
+        {project.id !== 'unassigned' && 'completed' in project && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleProject(project as Project);
+            }}
+            className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
+              (project as Project).completed
+                ? 'bg-green-500 border-green-500'
+                : 'border-gray-300 hover:border-green-400'
+            }`}
+            title={(project as Project).completed ? '完了を解除' : '完了にする'}
+          >
+            {(project as Project).completed && (
+              <svg
+                className="w-4 h-4 text-white animate-checkmark"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  className="animate-draw-check"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={3}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            )}
+          </button>
+        )}
+        <h3 className={`font-semibold flex-1 ${
+          project.id !== 'unassigned' && 'completed' in project && (project as Project).completed
+            ? 'text-gray-400 line-through'
+            : 'text-gray-800'
+        }`}>{project.name}</h3>
         <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded">
           {todos.length}
         </span>
@@ -297,13 +359,14 @@ function DroppableProjectColumn({
       {/* リマインダリスト */}
       <div className="project-column-scroll space-y-2 max-h-[480px] overflow-y-auto pr-1">
         {todos.map((todo) => (
-          <DraggableTodoCard 
-            key={todo.id} 
-            todo={todo} 
-            getSubjectColor={getSubjectColor}
-            onToggle={onToggleTodo}
-            onDelete={onDeleteTodo}
-          />
+                  <DraggableTodoCard 
+                    key={todo.id} 
+                    todo={todo} 
+                    getSubjectColor={getSubjectColor}
+                    onToggle={onToggleTodo}
+                    onDelete={onDeleteTodo}
+                    subjectsWithColors={subjectsWithColors}
+                  />
         ))}
         {todos.length === 0 && (
           <div className="text-center py-8 text-gray-400 text-sm">
@@ -380,6 +443,16 @@ export default function KanbanBoard({
       onTodosUpdate();
     } catch (error) {
       console.error('Error updating todo:', error);
+    }
+  };
+
+  // プロジェクトの完了状態を切り替え
+  const handleToggleProject = async (project: Project) => {
+    try {
+      await projectApi.update(project.id, { completed: !project.completed });
+      onProjectsUpdate();
+    } catch (error) {
+      console.error('Error updating project:', error);
     }
   };
 
@@ -678,6 +751,8 @@ export default function KanbanBoard({
                   getSubjectColor={getSubjectColor}
                   onToggleTodo={handleToggleTodo}
                   onDeleteTodo={handleDeleteTodo}
+                  onToggleProject={handleToggleProject}
+                  subjectsWithColors={subjectsWithColors}
                 />
               );
             })}
@@ -705,7 +780,19 @@ export default function KanbanBoard({
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-800">
-                      {todo.subject ? `【${todo.subject}】` : ''}{todo.title}
+                      {(() => {
+                        let displayTitle = todo.title;
+                        // タイトルに【科目名】の形式が含まれている場合、最新の科目名に置き換え
+                        if (todo.subject) {
+                          const titleMatch = displayTitle.match(/^【(.+?)】(.+)$/);
+                          if (titleMatch) {
+                            displayTitle = `【${todo.subject}】${titleMatch[2]}`;
+                          } else if (!displayTitle.startsWith('【')) {
+                            displayTitle = `【${todo.subject}】${displayTitle}`;
+                          }
+                        }
+                        return displayTitle;
+                      })()}
                     </div>
                   </div>
                 </div>

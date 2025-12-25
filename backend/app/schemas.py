@@ -40,6 +40,7 @@ class ProjectUpdate(BaseModel):
     name: Optional[str] = None
     due_date: Optional[datetime] = None
     description: Optional[str] = None
+    completed: Optional[bool] = None
 
 class ProjectResponse(ProjectBase):
     id: int
