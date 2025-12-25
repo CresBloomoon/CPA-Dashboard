@@ -13,8 +13,10 @@ interface AnimatedCheckboxProps {
 
 // 複数選択のバッチ処理を管理するためのグローバル状態
 const globalCompletingIds = new Set<number>();
+const globalUncompletingIds = new Set<number>(); // チェックを外す処理中のID
 let globalBatchTimeout: NodeJS.Timeout | null = null;
 const globalUpdateCallbacks = new Set<() => void>();
+const globalForceUpdateCallbacks = new Set<() => void>();
 
 // 一括完了処理
 const processBatchCompletion = async (todoIds: number[], onUpdate: () => void) => {
@@ -42,14 +44,16 @@ export default function AnimatedCheckbox({
   size = 'md',
   className = ''
 }: AnimatedCheckboxProps) {
-  const [isCompleting, setIsCompleting] = useState(false);
-  const [shouldAnimate, setShouldAnimate] = useState(false);
+  const [, forceUpdate] = useState({});
   
   // コールバックを登録
   useEffect(() => {
     globalUpdateCallbacks.add(onUpdate);
+    const updateCallback = () => forceUpdate({});
+    globalForceUpdateCallbacks.add(updateCallback);
     return () => {
       globalUpdateCallbacks.delete(onUpdate);
+      globalForceUpdateCallbacks.delete(updateCallback);
     };
   }, [onUpdate]);
 
@@ -58,7 +62,7 @@ export default function AnimatedCheckbox({
       e.stopPropagation();
     }
     
-    // 未完了から完了に変わる場合のみアニメーション
+    // 未完了から完了に変わる場合
     if (!todo.completed) {
       // 既存のタイマーをクリア
       if (globalBatchTimeout) {
@@ -67,88 +71,93 @@ export default function AnimatedCheckbox({
       
       // 新しいIDを追加
       globalCompletingIds.add(todo.id);
-      setIsCompleting(true);
-      setShouldAnimate(true); // アニメーションを有効化
+      
+      // すべてのコンポーネントを再レンダリング
+      globalForceUpdateCallbacks.forEach(callback => callback());
       
       // 猶予時間後に一括処理（新しいクリックがあればリセットされる）
       globalBatchTimeout = setTimeout(() => {
         const idsToComplete = Array.from(globalCompletingIds);
         processBatchCompletion(idsToComplete, onUpdate);
-        setIsCompleting(false);
         globalBatchTimeout = null;
+        // 処理完了後も再レンダリング
+        globalForceUpdateCallbacks.forEach(callback => callback());
       }, batchCompletionDelay);
     } else {
-      // 完了から未完了に戻す場合は即座にAPIを呼び出し
+      // 完了から未完了に戻す場合
+      // バッチ処理中（複数選択受付中）の場合
+      if (globalBatchTimeout) {
+        // バッチ処理から除外（含まれている場合のみ）
+        if (globalCompletingIds.has(todo.id)) {
+          globalCompletingIds.delete(todo.id);
+        }
+        
+        // チェックを外す処理中としてマーク
+        globalUncompletingIds.add(todo.id);
+        
+        // タイマーをリセット（他のアイテムがあれば再設定）
+        clearTimeout(globalBatchTimeout);
+        
+        if (globalCompletingIds.size > 0) {
+          // まだ他のアイテムがある場合はタイマーを再設定
+          globalBatchTimeout = setTimeout(() => {
+            const idsToComplete = Array.from(globalCompletingIds);
+            processBatchCompletion(idsToComplete, onUpdate);
+            globalBatchTimeout = null;
+            globalForceUpdateCallbacks.forEach(callback => callback());
+          }, batchCompletionDelay);
+        } else {
+          globalBatchTimeout = null;
+        }
+      } else {
+        // バッチ処理中でない場合も、チェックを外す処理中としてマーク
+        globalUncompletingIds.add(todo.id);
+      }
+      
+      // 即座に再レンダリングをトリガー
+      globalForceUpdateCallbacks.forEach(callback => callback());
+      
+      // APIを呼び出してチェックを外す
       try {
         await todoApi.update(todo.id, { completed: false });
+        globalUncompletingIds.delete(todo.id);
         onUpdate();
+        // 再レンダリングをトリガー
+        globalForceUpdateCallbacks.forEach(callback => callback());
       } catch (error) {
         console.error('Error updating todo:', error);
+        globalUncompletingIds.delete(todo.id);
+        globalForceUpdateCallbacks.forEach(callback => callback());
       }
     }
   };
 
-  const sizeClasses = size === 'sm' ? 'w-5 h-5' : 'w-6 h-6';
-  const svgSize = size === 'sm' ? 'w-3 h-3' : 'w-3 h-3';
-  const isChecked = todo.completed || isCompleting;
+  const checkboxDiameter = size === 'sm' ? '25px' : '25px';
+  // globalCompletingIdsに含まれているか、または既に完了しているかで判定
+  // ただし、globalUncompletingIdsに含まれている場合はチェックを外す
+  const isChecked = (todo.completed || globalCompletingIds.has(todo.id)) && !globalUncompletingIds.has(todo.id);
 
   return (
     <div 
-      className={`checkbox-wrapper ${isChecked ? 'checked' : ''} ${shouldAnimate ? 'animating' : ''} ${className}`}
+      className={`ui-checkbox-wrapper ${className}`}
       onClick={handleToggle}
     >
-      <div
-        className={`checkbox-button flex-shrink-0 ${sizeClasses} rounded-full border-2 flex items-center justify-center relative overflow-visible cursor-pointer`}
+      <input
+        type="checkbox"
+        className="ui-checkbox"
+        checked={isChecked}
+        onChange={() => {}} // handleToggleで処理するため空
         style={{
-          borderColor: isChecked ? subjectColor : '#d1d5db',
-          backgroundColor: isChecked ? subjectColor : 'transparent',
-          transition: 'background-color 0.3s ease, border-color 0.3s ease, transform 0.3s ease',
-          color: isChecked ? subjectColor : 'transparent',
-        }}
-        onMouseEnter={(e) => {
-          if (!isChecked) {
-            e.currentTarget.style.borderColor = subjectColor;
-            e.currentTarget.style.transform = 'scale(1.15)';
-          } else {
-            e.currentTarget.style.transform = 'scale(1.1)';
-          }
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          if (!isChecked) {
-            e.currentTarget.style.borderColor = '#d1d5db';
-          }
-        }}
-      >
-        {/* 波紋効果 */}
-        {isChecked && (
-          <div 
-            className="checkbox-ripple"
-            style={{
-              background: subjectColor,
-            }}
-          />
-        )}
-        {/* チェックマーク */}
-        {isChecked && (
-          <svg 
-            className={`${svgSize} absolute z-10`}
-            fill="none" 
-            stroke="white" 
-            viewBox="0 0 12 9"
-            style={{
-              strokeWidth: 2,
-              strokeLinecap: 'round',
-              strokeLinejoin: 'round',
-            }}
-          >
-            <polyline 
-              points="1 5 4 8 11 1"
-              className="checkbox-checkmark"
-            />
-          </svg>
-        )}
-      </div>
+          '--primary-color': subjectColor,
+          '--secondary-color': '#fff',
+          '--primary-hover-color': subjectColor,
+          '--checkbox-diameter': checkboxDiameter,
+          '--checkbox-border-radius': '50%',
+          '--checkbox-border-color': isChecked ? 'transparent' : '#d1d5db',
+          '--checkbox-border-width': '1px',
+          '--checkbox-border-style': 'solid',
+        } as React.CSSProperties}
+      />
     </div>
   );
 }

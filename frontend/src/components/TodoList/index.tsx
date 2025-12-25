@@ -1,0 +1,148 @@
+import { useState, useEffect } from 'react';
+import { todoApi } from '../../api';
+import type { Todo, Subject, Project } from '../../types';
+import TodoCreateModal from '../TodoCreateModal';
+import Sidebar from '../Sidebar';
+import { calculateTodoCounts } from '../../utils/todoCounts';
+import { useTodoFilters, type FilterType } from '../../hooks/useTodoFilters';
+import { useTodoSearch } from '../../hooks/useTodoSearch';
+import SearchBar from './SearchBar';
+import TodoItem from './TodoItem';
+import TodoListHeader from './TodoListHeader';
+import EmptyState from './EmptyState';
+
+interface TodoListProps {
+  todos: Todo[];
+  onUpdate: () => void;
+  subjects: string[];
+  subjectsWithColors?: Subject[];
+  projects?: Project[];
+  initialFilterType?: FilterType;
+}
+
+export default function TodoList({ 
+  todos, 
+  onUpdate, 
+  subjects, 
+  subjectsWithColors = [], 
+  projects = [], 
+  initialFilterType = 'today' 
+}: TodoListProps) {
+  const BATCH_COMPLETION_DELAY = 1500;
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [filterType, setFilterType] = useState<FilterType>(initialFilterType);
+  
+  // initialFilterTypeが変更されたらfilterTypeを更新
+  useEffect(() => {
+    setFilterType(initialFilterType);
+  }, [initialFilterType]);
+
+  // フィルタリング
+  const dateFilteredTodos = useTodoFilters(todos, filterType);
+
+  // 検索
+  const {
+    searchTags,
+    searchInput,
+    setSearchInput,
+    handleSearchInputKeyDown,
+    removeSearchTag,
+    filteredTodos: searchFilteredTodos,
+  } = useTodoSearch(dateFilteredTodos);
+
+  // 最終的なフィルタリング結果
+  const filteredTodos = searchFilteredTodos;
+
+  // リマインダ件数の計算
+  const { today: todayCount, all: allCount, completed: completedCount } = calculateTodoCounts(todos);
+
+  // ToDoを削除
+  const handleDelete = async (id: number) => {
+    try {
+      await todoApi.delete(id);
+      onUpdate();
+    } catch (error) {
+      console.error('Error deleting todo:', error);
+    }
+  };
+
+  // モーダルを閉じる
+  const closeModal = () => {
+    setIsModalOpen(false);
+  };
+
+  // 追加ボタンのクリックハンドラ
+  const handleAddClick = () => {
+    setIsModalOpen(true);
+  };
+
+  return (
+    <div className="flex flex-col h-full min-h-[600px]">
+      <SearchBar
+        searchTags={searchTags}
+        searchInput={searchInput}
+        setSearchInput={setSearchInput}
+        onSearchInputKeyDown={handleSearchInputKeyDown}
+        onRemoveSearchTag={removeSearchTag}
+        onAddClick={handleAddClick}
+      />
+
+      <div className="flex flex-1 min-h-0">
+        <Sidebar
+          title="リマインダ"
+          items={[
+            { id: 'today', label: '今日', count: todayCount },
+            { id: 'all', label: 'すべて', count: allCount },
+            { id: 'completed', label: '完了', count: completedCount },
+          ]}
+          activeItemId={filterType}
+          onItemClick={(itemId) => setFilterType(itemId as FilterType)}
+        />
+
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="bg-white rounded-lg shadow-lg p-6 h-full flex flex-col overflow-hidden">
+            <TodoListHeader />
+
+            <div 
+              className="space-y-2 overflow-y-auto"
+              style={{
+                height: 'calc(9.5 * 5rem + 9 * 0.5rem)',
+                minHeight: 'calc(9.5 * 5rem + 9 * 0.5rem)',
+              }}
+            >
+              {filteredTodos.length > 0 && (
+                <div className="space-y-2">
+                  {filteredTodos.map((todo: Todo) => (
+                    <TodoItem
+                      key={todo.id}
+                      todo={todo}
+                      onUpdate={onUpdate}
+                      onDelete={handleDelete}
+                      subjectsWithColors={subjectsWithColors}
+                      projects={projects}
+                      batchCompletionDelay={BATCH_COMPLETION_DELAY}
+                    />
+                  ))}
+                </div>
+              )}
+
+              <EmptyState 
+                hasTodos={todos.length > 0} 
+                hasFilteredResults={filteredTodos.length > 0} 
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <TodoCreateModal
+        isOpen={isModalOpen}
+        onClose={closeModal}
+        onSubmit={onUpdate}
+        subjects={subjects}
+        subjectsWithColors={subjectsWithColors}
+      />
+    </div>
+  );
+}
+

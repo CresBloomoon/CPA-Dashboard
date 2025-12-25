@@ -1,34 +1,39 @@
-import { useState, useEffect, useMemo } from 'react';
-import { studyProgressApi, todoApi, settingsApi, projectApi } from './api';
-import { calculateTodoCounts } from './utils/todoCounts';
-import type { StudyProgress, StudyProgressCreate, SubjectSummary, Todo, Subject, Project } from './types';
-import ProgressList from './components/ProgressList';
-import ProgressForm from './components/ProgressForm';
-import SummaryCards from './components/SummaryCards';
-import SubjectChart from './components/SubjectChart';
-import StudyTimer from './components/StudyTimer';
-import TodoList from './components/TodoList';
-import CalendarView from './components/CalendarView';
-import SettingsView from './components/SettingsView';
-import GanttChart from './components/GanttChart';
-import KanbanBoard from './components/KanbanBoard';
-import Heatmap from './components/Heatmap';
+import { useEffect } from 'react';
 import Tabs from './components/Tabs';
+import AppHeader from './components/App/AppHeader';
+import TabContent from './components/App/TabContent';
+import { useAppData } from './hooks/useAppData';
+import { useAppSettings } from './hooks/useAppSettings';
+import { useTabNavigation } from './hooks/useTabNavigation';
 
 function App() {
-  const [progressList, setProgressList] = useState<StudyProgress[]>([]);
-  const [summary, setSummary] = useState<SubjectSummary[]>([]);
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [subjects, setSubjects] = useState<string[]>(['財計', '財理', '管計', '管理', '企業法', '監査論', '租税法', '経営学']);
-  const [subjectsWithColors, setSubjectsWithColors] = useState<Subject[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [editingProgress, setEditingProgress] = useState<StudyProgress | null>(null);
-  const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [prevTab, setPrevTab] = useState<string>('dashboard');
-  const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
-  const [todoListFilterType, setTodoListFilterType] = useState<'today' | 'all' | 'completed'>('today');
+  const {
+    progressList,
+    summary,
+    todos,
+    projects,
+    isLoading,
+    fetchData,
+    fetchTodos,
+  } = useAppData();
+
+  const {
+    subjects,
+    subjectsWithColors,
+    setSubjects,
+    setSubjectsWithColors,
+    loadSettings,
+  } = useAppSettings();
+
+  const {
+    activeTab,
+    slideDirection,
+    todoListFilterType,
+    handleTabChange,
+    handleHomeClick,
+    handleSettingsClick,
+    handleTodoFilterClick,
+  } = useTabNavigation();
 
   const tabs = [
     { id: 'timer', label: '学習時間' },
@@ -37,87 +42,6 @@ function App() {
     { id: 'kanban', label: 'プロジェクト' },
     { id: 'gantt', label: 'ガントチャート' },
   ];
-
-  // データ取得
-  const fetchData = async () => {
-    try {
-      setIsLoading(true);
-      
-      // 各APIを個別に呼び出してエラーハンドリング
-      try {
-        const progress = await studyProgressApi.getAll();
-        setProgressList(progress);
-      } catch (error) {
-        console.error('Error fetching progress:', error);
-      }
-      
-      try {
-        const summaryData = await studyProgressApi.getSummary();
-        setSummary(summaryData);
-      } catch (error) {
-        console.error('Error fetching summary:', error);
-      }
-      
-      try {
-        const todosData = await todoApi.getAll();
-        setTodos(todosData);
-      } catch (error) {
-        console.error('Error fetching todos:', error);
-      }
-      
-      try {
-        const projectsData = await projectApi.getAll();
-        setProjects(projectsData);
-      } catch (error) {
-        console.error('Error fetching projects:', error);
-        // プロジェクト取得に失敗した場合は空配列を設定
-        setProjects([]);
-      }
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ToDoデータ取得
-  const fetchTodos = async () => {
-    try {
-      const todosData = await todoApi.getAll();
-      setTodos(todosData);
-    } catch (error) {
-      console.error('Error fetching todos:', error);
-    }
-  };
-
-  // 設定を読み込む
-  const loadSettings = async () => {
-    try {
-      const settings = await settingsApi.getAll();
-      const subjectsSetting = settings.find(s => s.key === 'subjects');
-      if (subjectsSetting) {
-        const parsedSubjects = JSON.parse(subjectsSetting.value);
-        // Subject型の配列か、文字列の配列かを判定
-        if (Array.isArray(parsedSubjects) && parsedSubjects.length > 0) {
-          if (parsedSubjects[0] && typeof parsedSubjects[0] === 'object' && 'id' in parsedSubjects[0]) {
-            setSubjectsWithColors(parsedSubjects as Subject[]);
-            setSubjects((parsedSubjects as Subject[]).map(s => s.name));
-          } else {
-            // 文字列配列の場合は名前のみを設定（色情報なし）
-            setSubjects(parsedSubjects as string[]);
-            setSubjectsWithColors([]);
-          }
-        }
-      } else {
-        // 設定が存在しない場合は空にする
-        setSubjectsWithColors([]);
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-      // エラー時はデフォルト値を使用
-      setSubjectsWithColors([]);
-    }
-  };
 
   // 初期データ読み込み
   useEffect(() => {
@@ -132,102 +56,20 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  // 進捗追加
-  const handleAdd = async (data: StudyProgressCreate) => {
-    await studyProgressApi.create(data);
-    await fetchData();
-    setShowForm(false);
-  };
-
-  // 進捗更新
-  const handleUpdate = async (data: StudyProgressCreate) => {
-    if (editingProgress) {
-      await studyProgressApi.update(editingProgress.id, data);
-      await fetchData();
-      setEditingProgress(null);
-      setShowForm(false);
-    }
-  };
-
-  // 進捗削除
-  const handleDelete = async (id: number) => {
-    try {
-      await studyProgressApi.delete(id);
-      await fetchData();
-    } catch (error) {
-      console.error('Error deleting progress:', error);
-    }
-  };
-
-  // 編集開始
-  const handleEdit = (progress: StudyProgress) => {
-    setEditingProgress(progress);
-    setShowForm(true);
-  };
-
-  // フォームキャンセル
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingProgress(null);
-  };
-
-  // 統計計算
-  const totalHours = summary.reduce((sum, s) => sum + s.total_hours, 0);
-  const totalProgress = progressList.length > 0
-    ? progressList.reduce((sum, p) => sum + p.progress_percent, 0) / progressList.length
-    : 0;
-  
-  // リマインダ件数の計算（共通ロジックを使用）
-  const todoCounts = useMemo(() => calculateTodoCounts(todos), [todos]);
-  const { today: todayDueTodos, all: totalTodos, completed: completedTodos } = todoCounts;
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="container mx-auto px-4 py-8">
-        <header className="mb-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <button
-                onClick={() => {
-                  setSlideDirection('right');
-                  setPrevTab(activeTab);
-                  setActiveTab('dashboard');
-                }}
-                className="text-left hover:opacity-80 transition-opacity"
-              >
-                <h1 className="text-4xl font-bold text-gray-800 mb-2">
-                  CPA Dashboard
-                </h1>
-                <p className="text-gray-600">公認会計士の勉強進捗管理</p>
-              </button>
-            </div>
-          </div>
-        </header>
+      <div className="container mx-auto px-4 py-8">
+        <AppHeader onHomeClick={handleHomeClick} />
 
         <div className="border-b border-gray-200 mb-6 relative">
           <Tabs 
             activeTab={activeTab} 
-            onTabChange={(tab) => {
-              const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'kanban', 'gantt', 'settings'];
-              const currentIndex = tabOrder.indexOf(activeTab);
-              const newIndex = tabOrder.indexOf(tab);
-              setSlideDirection(newIndex > currentIndex ? 'right' : 'left');
-              setPrevTab(activeTab);
-              setActiveTab(tab);
-            }} 
+            onTabChange={handleTabChange} 
             tabs={tabs.filter(tab => tab.id !== 'settings')}
             showHomeButton={true}
-            onHomeClick={() => {
-              setSlideDirection('right');
-              setPrevTab(activeTab);
-              setActiveTab('dashboard');
-            }}
+            onHomeClick={handleHomeClick}
             showSettingsButton={true}
-            onSettingsClick={() => {
-              setSlideDirection('right');
-              setPrevTab(activeTab);
-              setActiveTab('settings');
-            }}
+            onSettingsClick={handleSettingsClick}
           />
         </div>
 
@@ -237,108 +79,26 @@ function App() {
             <p className="mt-4 text-gray-600">読み込み中...</p>
           </div>
         ) : (
-          <div key={activeTab} className={slideDirection === 'right' ? 'slide-in-right' : 'slide-in-left'}>
-            {activeTab === 'dashboard' && (
-              <div className="space-y-6">
-                <SummaryCards
-                  totalHours={totalHours}
-                  totalTodos={totalTodos}
-                  completedTodos={completedTodos}
-                  todayDueTodos={todayDueTodos}
-                  progressList={progressList}
-                  subjectsWithColors={subjectsWithColors}
-                  onTodayDueClick={() => {
-                    setTodoListFilterType('today');
-                    setSlideDirection('right');
-                    setPrevTab(activeTab);
-                    setActiveTab('todo');
-                  }}
-                  onTotalTodosClick={() => {
-                    setTodoListFilterType('all');
-                    setSlideDirection('right');
-                    setPrevTab(activeTab);
-                    setActiveTab('todo');
-                  }}
-                  onCompletedTodosClick={() => {
-                    setTodoListFilterType('completed');
-                    setSlideDirection('right');
-                    setPrevTab(activeTab);
-                    setActiveTab('todo');
-                  }}
-                />
-                <Heatmap progressList={progressList} todos={todos} />
-              </div>
-            )}
-
-            {activeTab === 'timer' && (
-              <div className="max-w-2xl mx-auto">
-                <StudyTimer onRecorded={fetchData} subjects={subjects} subjectsWithColors={subjectsWithColors} />
-              </div>
-            )}
-
-            {activeTab === 'todo' && (
-              <div className="w-full">
-                <TodoList 
-                  todos={todos} 
-                  onUpdate={fetchTodos} 
-                  subjects={subjects} 
-                  subjectsWithColors={subjectsWithColors} 
-                  projects={projects}
-                  initialFilterType={todoListFilterType}
-                />
-              </div>
-            )}
-
-            {activeTab === 'calendar' && (
-              <div className="max-w-full mx-auto">
-                <CalendarView todos={todos} onUpdate={fetchTodos} subjectsWithColors={subjectsWithColors} />
-              </div>
-            )}
-
-            {activeTab === 'kanban' && (
-              <div className="max-w-full mx-auto">
-                <KanbanBoard 
-                  todos={todos} 
-                  projects={projects} 
-                  subjectsWithColors={subjectsWithColors}
-                  onProjectsUpdate={fetchData}
-                  onTodosUpdate={fetchTodos}
-                  subjects={subjects}
-                />
-              </div>
-            )}
-
-            {activeTab === 'gantt' && (
-              <div className="max-w-full mx-auto">
-                <GanttChart 
-                  todos={todos} 
-                  projects={projects} 
-                  subjectsWithColors={subjectsWithColors}
-                  onProjectsUpdate={fetchData}
-                  subjects={subjects}
-                />
-              </div>
-            )}
-
-            {activeTab === 'settings' && (
-              <div className="w-full -mx-4">
-                <SettingsView 
-                  onSubjectsChange={(names) => {
-                    setSubjects(names);
-                  }}
-                  onSubjectsWithColorsChange={(subjectsWithColorsData) => {
-                    setSubjectsWithColors(subjectsWithColorsData);
-                  }}
-                  onDataUpdate={fetchData}
-                />
-              </div>
-            )}
-          </div>
+          <TabContent
+            activeTab={activeTab}
+            slideDirection={slideDirection}
+            progressList={progressList}
+            summary={summary}
+            todos={todos}
+            projects={projects}
+            subjects={subjects}
+            subjectsWithColors={subjectsWithColors}
+            todoListFilterType={todoListFilterType}
+            onFetchData={fetchData}
+            onFetchTodos={fetchTodos}
+            onSubjectsChange={setSubjects}
+            onSubjectsWithColorsChange={setSubjectsWithColors}
+            onTodoFilterClick={handleTodoFilterClick}
+          />
         )}
-        </div>
       </div>
+    </div>
   );
 }
 
 export default App;
-
