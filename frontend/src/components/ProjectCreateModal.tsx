@@ -5,7 +5,6 @@ import { ja } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
 import { projectApi } from '../api';
 import type { ProjectCreate } from '../types';
-import { useToast } from './Toast';
 
 registerLocale('ja', ja);
 
@@ -13,29 +12,18 @@ interface ProjectCreateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: () => void; // プロジェクト作成後に呼ばれるコールバック（データ更新用）
-  showNotification?: (message: string, type: 'success' | 'error') => void;
 }
 
 export default function ProjectCreateModal({
   isOpen,
   onClose,
   onSubmit,
-  showNotification,
 }: ProjectCreateModalProps) {
-  const { showToast } = useToast();
   const [projectName, setProjectName] = useState('');
   const [projectDueDate, setProjectDueDate] = useState<Date | null>(null);
   const [projectDescription, setProjectDescription] = useState('');
   const [isCreating, setIsCreating] = useState(false);
 
-  // 通知を表示（showNotificationが提供されている場合はそれを使用、なければuseToastを使用）
-  const notify = (message: string, type: 'success' | 'error') => {
-    if (showNotification) {
-      showNotification(message, type);
-    } else {
-      showToast(message, type);
-    }
-  };
 
   // フォームをリセット
   const resetForm = () => {
@@ -49,7 +37,6 @@ export default function ProjectCreateModal({
     e.preventDefault();
     
     if (!projectName.trim()) {
-      notify('プロジェクト名を入力してください', 'error');
       return;
     }
 
@@ -62,8 +49,6 @@ export default function ProjectCreateModal({
       };
 
       await projectApi.create(projectData);
-      notify('プロジェクトを作成しました', 'success');
-      
       // フォームをリセット
       resetForm();
       
@@ -74,7 +59,6 @@ export default function ProjectCreateModal({
       onClose();
     } catch (error) {
       console.error('Error creating project:', error);
-      notify('プロジェクトの作成に失敗しました', 'error');
     } finally {
       setIsCreating(false);
     }

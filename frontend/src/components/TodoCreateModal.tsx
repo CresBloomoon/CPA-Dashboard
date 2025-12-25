@@ -6,7 +6,6 @@ import { addDays, format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
 import { todoApi, settingsApi } from '../api';
 import type { TodoCreate, Subject, ReviewTiming } from '../types';
-import { useToast } from './Toast';
 
 registerLocale('ja', ja);
 
@@ -17,7 +16,6 @@ interface TodoCreateModalProps {
   subjects: string[];
   subjectsWithColors?: Subject[];
   initialProjectId?: number | null; // プロジェクトIDを初期値として設定
-  showNotification?: (message: string, type: 'success' | 'error') => void;
 }
 
 export default function TodoCreateModal({
@@ -27,9 +25,7 @@ export default function TodoCreateModal({
   subjects,
   subjectsWithColors = [],
   initialProjectId,
-  showNotification,
 }: TodoCreateModalProps) {
-  const { showToast } = useToast();
   const [newTodoTitle, setNewTodoTitle] = useState('');
   const [newTodoSubject, setNewTodoSubject] = useState<string>('');
   const [newTodoDueDate, setNewTodoDueDate] = useState<Date>(new Date());
@@ -75,23 +71,14 @@ export default function TodoCreateModal({
   };
 
   // 通知を表示
-  const notify = (message: string, type: 'success' | 'error') => {
-    showToast(message, type);
-    // 後方互換性のため、showNotificationも呼び出す
-    if (showNotification) {
-      showNotification(message, type);
-    }
-  };
 
   // 復習リマインダを一括作成（セットリストから）
   const handleCreateReviewSet = async (timing: ReviewTiming, title: string) => {
     if (!timing || timing.review_days.length === 0) {
-      notify('復習タイミングが設定されていません', 'error');
       return;
     }
 
     if (!title || !title.trim()) {
-      notify('タイトルを入力してください', 'error');
       return;
     }
 
@@ -127,10 +114,9 @@ export default function TodoCreateModal({
       setIsUsingSetList(false);
       setSelectedSetListTiming(null);
       onSubmit();
-      notify(`${timing.review_days.length}件の復習リマインダを作成しました`, 'success');
+      // トースト表示は不要
     } catch (error) {
       console.error('Error creating review todos:', error);
-      notify('復習リマインダの作成に失敗しました', 'error');
     } finally {
       setIsAdding(false);
     }
@@ -157,7 +143,6 @@ export default function TodoCreateModal({
       
       const title = newTodoTitle.trim();
       if (!title) {
-        notify('タイトルを入力してください', 'error');
         return;
       }
       
@@ -168,7 +153,6 @@ export default function TodoCreateModal({
     
     // 通常の単発リマインダ作成
     if (!newTodoTitle.trim() || !newTodoDueDate) {
-      notify('タイトルと期限日を入力してください', 'error');
       return;
     }
 
@@ -195,10 +179,9 @@ export default function TodoCreateModal({
       await todoApi.create(todoData);
       onSubmit();
       closeModal();
-      notify('リマインダを追加しました', 'success');
+      // トースト表示は不要
     } catch (error) {
       console.error('Error adding todo:', error);
-      notify('リマインダの追加に失敗しました', 'error');
     } finally {
       setIsAdding(false);
     }

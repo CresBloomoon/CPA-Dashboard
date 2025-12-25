@@ -52,7 +52,6 @@ export default function ProgressForm({ progress, onSubmit, onCancel, subjects, s
       });
     } catch (error) {
       console.error('Error submitting form:', error);
-      alert('保存に失敗しました');
     } finally {
       setIsSubmitting(false);
     }

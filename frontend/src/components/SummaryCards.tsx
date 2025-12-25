@@ -1,31 +1,176 @@
+import { useMemo } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { ja } from 'date-fns/locale';
+import type { StudyProgress, Subject } from '../types';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
 interface SummaryCardsProps {
   totalHours: number;
   totalTodos: number;
   completedTodos: number;
   todayDueTodos: number;
   onReminderCardClick?: () => void;
+  progressList?: StudyProgress[];
+  subjectsWithColors?: Subject[];
 }
 
-export default function SummaryCards({ totalHours, totalTodos, completedTodos, todayDueTodos, onReminderCardClick }: SummaryCardsProps) {
+export default function SummaryCards({ 
+  totalHours, 
+  totalTodos, 
+  completedTodos, 
+  todayDueTodos, 
+  onReminderCardClick,
+  progressList = [],
+  subjectsWithColors = []
+}: SummaryCardsProps) {
+  // 科目名から色を取得する関数
+  const getSubjectColor = (subjectName: string): string => {
+    const subject = subjectsWithColors.find(s => s.name === subjectName);
+    return subject?.color || '#9ca3af';
+  };
+
+  // 1週間分のデータを集計
+  const chartData = useMemo(() => {
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 1, locale: ja }); // 月曜日から
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1, locale: ja });
+    const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
+
+    // 各日のデータを初期化
+    const dailyData = days.map(day => {
+      const dayLabel = format(day, 'E', { locale: ja }); // 曜日
+      return {
+        label: dayLabel,
+        dateObj: day,
+        subjects: {} as Record<string, number>,
+        total: 0
+      };
+    });
+
+    // 進捗データを日付ごとに集計
+    progressList.forEach(progress => {
+      const progressDate = new Date(progress.created_at);
+      const dayIndex = dailyData.findIndex(d => isSameDay(d.dateObj, progressDate));
+      
+      if (dayIndex >= 0) {
+        const subject = progress.subject;
+        if (!dailyData[dayIndex].subjects[subject]) {
+          dailyData[dayIndex].subjects[subject] = 0;
+        }
+        dailyData[dayIndex].subjects[subject] += progress.study_hours;
+        dailyData[dayIndex].total += progress.study_hours;
+      }
+    });
+
+    // 科目リストに含まれる科目のみを取得
+    const validSubjects = subjectsWithColors.map(s => s.name);
+    const allSubjects = Array.from(new Set(progressList.map(p => p.subject)))
+      .filter(subject => validSubjects.includes(subject));
+
+    // ラベル（曜日）を取得
+    const labels = dailyData.map(day => day.label);
+
+    // 各科目のデータセットを作成
+    const datasets = allSubjects.map(subject => ({
+      label: subject,
+      data: dailyData.map(day => day.subjects[subject] || 0),
+      backgroundColor: getSubjectColor(subject),
+    }));
+
+    return {
+      labels,
+      datasets,
+    };
+  }, [progressList, subjectsWithColors]);
+
+  // 今日と今週の学習時間を計算
+  const todayHours = useMemo(() => {
+    const today = new Date();
+    return progressList
+      .filter(p => isSameDay(new Date(p.created_at), today))
+      .reduce((sum, p) => sum + p.study_hours, 0);
+  }, [progressList]);
+
+  const thisWeekHours = useMemo(() => {
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 1, locale: ja }); // 月曜日から
+    return progressList
+      .filter(p => {
+        const progressDate = new Date(p.created_at);
+        return progressDate >= weekStart && progressDate <= today;
+      })
+      .reduce((sum, p) => sum + p.study_hours, 0);
+  }, [progressList]);
+
+  const options = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        display: false, // 凡例を非表示
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}時間`;
+          }
+        }
+      }
+    },
+    scales: {
+      x: {
+        stacked: true,
+      },
+      y: {
+        stacked: true,
+        beginAtZero: true,
+      },
+    },
+  };
+
   return (
     <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-1 bg-white rounded-lg shadow-lg p-6">
-        <div className="flex items-center justify-between">
+      <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
+        <h3 className="text-lg font-semibold text-gray-700 mb-4">1週間の学習時間</h3>
+        
+        {/* 今日と今月のサマリー */}
+        <div className="flex gap-6 mb-6">
           <div>
-            <p className="text-gray-600 text-sm mb-1">総学習時間</p>
-            <p className="text-3xl font-bold text-gray-800">{totalHours.toFixed(1)}</p>
-            <p className="text-gray-500 text-xs mt-1">時間</p>
+            <p className="text-gray-600 text-sm mb-1">今日</p>
+            <p className="text-2xl font-bold text-gray-800">{todayHours.toFixed(1)} 時間</p>
           </div>
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
+          <div>
+            <p className="text-gray-600 text-sm mb-1">今週</p>
+            <p className="text-2xl font-bold text-gray-800">{thisWeekHours.toFixed(1)} 時間</p>
           </div>
+        </div>
+
+        {/* 棒グラフ */}
+        <div className="h-64">
+          <Bar data={chartData} options={options} />
         </div>
       </div>
 
       <div 
-        className={`md:col-span-2 bg-white rounded-lg shadow-lg p-6 ${
+        className={`md:col-span-1 bg-white rounded-lg shadow-lg p-6 ${
           onReminderCardClick 
             ? 'cursor-pointer hover:bg-blue-50 active:scale-[0.99] transition-all duration-300' 
             : ''
@@ -81,4 +226,3 @@ export default function SummaryCards({ totalHours, totalTodos, completedTodos, t
     </div>
   );
 }
-

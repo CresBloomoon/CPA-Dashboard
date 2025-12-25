@@ -20,7 +20,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [isRunning, setIsRunning] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0); // 秒単位
   const [manualHours, setManualHours] = useState(0); // 時間
-  const [manualMinutes, setManualMinutes] = useState(5); // 分（5分刻み）
+  const [manualMinutes, setManualMinutes] = useState(0); // 分（5分刻み）
   const [mode, setMode] = useState<'stopwatch' | 'manual'>('stopwatch');
   const [topic, setTopic] = useState<string>('');
   const intervalRef = useRef<number | null>(null);
@@ -92,7 +92,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
       // 既存の進捗を検索（同じ科目・トピック）
       const allProgress = await studyProgressApi.getAll();
       const existingProgress = allProgress.find(
-        (p) => p.subject === selectedSubject && p.topic === (topic || '時間記録')
+        (p) => p.subject === selectedSubject && p.topic === (topic || '学習時間')
       );
 
       if (existingProgress) {
@@ -105,7 +105,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
         // 新しい進捗を作成
         const newProgress: StudyProgressCreate = {
           subject: selectedSubject,
-          topic: topic || '時間記録',
+          topic: topic || '学習時間',
           progress_percent: 0,
           study_hours: hours,
           notes: mode === 'stopwatch' 
@@ -119,7 +119,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
       handleReset();
       setTopic('');
       setManualHours(0);
-      setManualMinutes(5);
+      setManualMinutes(0);
       onRecorded();
     } catch (error) {
       console.error('Error recording time:', error);
@@ -134,9 +134,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
-  // 5分刻みのオプション生成
+  // 5分刻みのオプション生成（0分から55分まで）
   const minuteOptions = [];
-  for (let i = 5; i <= 300; i += 5) {
+  for (let i = 0; i <= 55; i += 5) {
     minuteOptions.push(i);
   }
 

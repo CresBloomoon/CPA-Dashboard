@@ -348,7 +348,6 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
       onUpdate();
     } catch (error) {
       console.error('Error updating todo:', error);
-      alert('ToDoの更新に失敗しました');
     }
   };
 
@@ -419,7 +418,6 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
       console.error('Error moving todo:', error);
       // エラー時は楽観的更新を元に戻す
       setOptimisticTodos(todos);
-      alert('ToDoの移動に失敗しました');
     }
   };
 

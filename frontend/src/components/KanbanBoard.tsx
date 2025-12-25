@@ -21,7 +21,6 @@ import type { Todo, Project, ProjectCreate, Subject } from '../types';
 import { projectApi, todoApi } from '../api';
 import TodoCreateModal from './TodoCreateModal';
 import ProjectCreateModal from './ProjectCreateModal';
-import { useToast } from './Toast';
 
 registerLocale('ja', ja);
 
@@ -38,12 +37,15 @@ interface KanbanBoardProps {
 function DraggableTodoCard({ 
   todo, 
   getSubjectColor,
-  onToggle 
+  onToggle,
+  onDelete
 }: { 
   todo: Todo; 
   getSubjectColor: (subject: string | null) => string;
   onToggle: (todo: Todo) => void;
+  onDelete: (todo: Todo) => void;
 }) {
+  const [isHovered, setIsHovered] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: todo.id,
   });
@@ -85,13 +87,15 @@ function DraggableTodoCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`p-3 bg-white rounded-lg shadow-sm border-l-4 cursor-move hover:shadow-md transition-shadow ${
+      className={`p-3 bg-white rounded-lg shadow-sm border-l-4 cursor-move hover:shadow-md transition-shadow relative ${
         isCompleted ? 'opacity-60' : ''
       } ${isDragging ? 'opacity-50' : ''}`}
       style={{
         ...style,
         borderLeftColor: todoColor,
       }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
     >
       <div className="flex items-start gap-2">
         <button
@@ -162,6 +166,21 @@ function DraggableTodoCard({
             </div>
           )}
         </div>
+        {/* 削除ボタン（ホバー時のみ表示） */}
+        {isHovered && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(todo);
+            }}
+            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+            title="削除"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        )}
       </div>
     </div>
   );
@@ -179,6 +198,7 @@ function DroppableProjectColumn({
   onAddTodoClick,
   getSubjectColor,
   onToggleTodo,
+  onDeleteTodo,
 }: { 
   project: Project | { id: 'unassigned'; name: string; due_date: null; description: null }; 
   todos: Todo[]; 
@@ -190,6 +210,7 @@ function DroppableProjectColumn({
   onAddTodoClick: (projectId: number | 'unassigned') => void;
   getSubjectColor: (subject: string | null) => string;
   onToggleTodo: (todo: Todo) => void;
+  onDeleteTodo: (todo: Todo) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: project.id,
@@ -281,6 +302,7 @@ function DroppableProjectColumn({
             todo={todo} 
             getSubjectColor={getSubjectColor}
             onToggle={onToggleTodo}
+            onDelete={onDeleteTodo}
           />
         ))}
         {todos.length === 0 && (
@@ -301,7 +323,6 @@ export default function KanbanBoard({
   onTodosUpdate,
   subjects 
 }: KanbanBoardProps) {
-  const { showToast } = useToast();
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [overId, setOverId] = useState<number | 'unassigned' | null>(null);
@@ -352,11 +373,6 @@ export default function KanbanBoard({
     setSelectedProjectIdForTodo(null);
   };
 
-  // 通知を表示（後方互換性のため）
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    showToast(message, type);
-  };
-
   // ToDoの完了状態を切り替え
   const handleToggleTodo = async (todo: Todo) => {
     try {
@@ -364,7 +380,16 @@ export default function KanbanBoard({
       onTodosUpdate();
     } catch (error) {
       console.error('Error updating todo:', error);
-      showNotification('リマインダの更新に失敗しました', 'error');
+    }
+  };
+
+  // ToDoを削除
+  const handleDeleteTodo = async (todo: Todo) => {
+    try {
+      await todoApi.delete(todo.id);
+      onTodosUpdate();
+    } catch (error) {
+      console.error('Error deleting todo:', error);
     }
   };
 
@@ -398,7 +423,6 @@ export default function KanbanBoard({
   // プロジェクト編集保存
   const handleSaveEdit = async () => {
     if (!editingProject || !editProjectName.trim()) {
-      showNotification('プロジェクト名を入力してください', 'error');
       return;
     }
 
@@ -410,7 +434,6 @@ export default function KanbanBoard({
       };
 
       await projectApi.update(editingProject.id, projectData);
-      showNotification('プロジェクトを更新しました', 'success');
       
       // モーダルを閉じる
       closeEditModal();
@@ -419,19 +442,13 @@ export default function KanbanBoard({
       onProjectsUpdate();
     } catch (error) {
       console.error('Error updating project:', error);
-      showNotification('プロジェクトの更新に失敗しました', 'error');
     }
   };
 
   // プロジェクト削除
   const handleDeleteProject = async (projectId: number) => {
-    if (!confirm('このプロジェクトを削除しますか？関連するリマインダは「未分類」に移動されます。')) {
-      return;
-    }
-
     try {
       await projectApi.delete(projectId);
-      showNotification('プロジェクトを削除しました', 'success');
       setOpenMenuProjectId(null);
       
       // プロジェクトリストを更新
@@ -440,7 +457,6 @@ export default function KanbanBoard({
       onTodosUpdate();
     } catch (error) {
       console.error('Error deleting project:', error);
-      showNotification('プロジェクトの削除に失敗しました', 'error');
     }
   };
 
@@ -532,7 +548,6 @@ export default function KanbanBoard({
       console.error('Error details:', error.response?.data, error.response?.status, error.message);
       // エラー時は楽観的更新を元に戻す
       setOptimisticTodos(todos);
-      showNotification('リマインダの移動に失敗しました', 'error');
     }
   };
 
@@ -662,6 +677,7 @@ export default function KanbanBoard({
                   onAddTodoClick={openTodoModal}
                   getSubjectColor={getSubjectColor}
                   onToggleTodo={handleToggleTodo}
+                  onDeleteTodo={handleDeleteTodo}
                 />
               );
             })}
@@ -707,7 +723,6 @@ export default function KanbanBoard({
         subjects={subjects}
         subjectsWithColors={subjectsWithColors}
         initialProjectId={selectedProjectIdForTodo === 'unassigned' ? null : (selectedProjectIdForTodo as number | null)}
-        showNotification={showNotification}
       />
 
       {/* プロジェクト作成モーダル */}
@@ -715,7 +730,6 @@ export default function KanbanBoard({
         isOpen={isProjectModalOpen}
         onClose={closeProjectModal}
         onSubmit={onProjectsUpdate}
-        showNotification={showNotification}
       />
     </div>
   );

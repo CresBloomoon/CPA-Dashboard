@@ -160,7 +160,6 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       }
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('設定の保存に失敗しました');
     } finally {
       setIsSaving(false);
     }
@@ -209,7 +208,6 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
 
     // 重複チェック
     if (subjects.some(s => s.name === newName && subjects.indexOf(s) !== index)) {
-      alert('同じ科目名が既に存在します');
       return;
     }
 
@@ -236,7 +234,6 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       setEditingValue('');
     } catch (error) {
       console.error('Error updating subject name:', error);
-      alert('科目名の更新に失敗しました');
     } finally {
       setIsSaving(false);
     }
@@ -292,7 +289,6 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       setReviewTimings(timings);
     } catch (error) {
       console.error('Error saving review timings:', error);
-      alert('復習タイミングの保存に失敗しました');
     } finally {
       setIsSaving(false);
     }

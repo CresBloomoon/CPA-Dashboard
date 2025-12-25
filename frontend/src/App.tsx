@@ -13,7 +13,6 @@ import GanttChart from './components/GanttChart';
 import KanbanBoard from './components/KanbanBoard';
 import Heatmap from './components/Heatmap';
 import Tabs from './components/Tabs';
-import { ToastProvider } from './components/Toast';
 
 function App() {
   const [progressList, setProgressList] = useState<StudyProgress[]>([]);
@@ -25,19 +24,16 @@ function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingProgress, setEditingProgress] = useState<StudyProgress | null>(null);
-  const [health, setHealth] = useState<string>('');
   const [activeTab, setActiveTab] = useState<string>('dashboard');
   const [prevTab, setPrevTab] = useState<string>('dashboard');
   const [slideDirection, setSlideDirection] = useState<'left' | 'right'>('right');
 
   const tabs = [
-    { id: 'dashboard', label: 'ダッシュボード' },
-    { id: 'timer', label: '時間記録' },
+    { id: 'timer', label: '学習時間' },
     { id: 'todo', label: 'リマインダ' },
     { id: 'calendar', label: 'カレンダー' },
     { id: 'kanban', label: 'プロジェクト' },
     { id: 'gantt', label: 'ガントチャート' },
-    { id: 'settings', label: '設定' },
   ];
 
   // データ取得
@@ -89,7 +85,6 @@ function App() {
       setTodos(todosData);
     } catch (error) {
       console.error('Error fetching todos:', error);
-      alert('リマインダの取得に失敗しました');
     }
   };
 
@@ -122,19 +117,8 @@ function App() {
     }
   };
 
-  // ヘルスチェック
+  // 初期データ読み込み
   useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const response = await fetch(`${apiUrl}/health`);
-        const data = await response.json();
-        setHealth(data.status);
-      } catch (error) {
-        setHealth('接続エラー');
-      }
-    };
-    checkHealth();
     fetchData();
     loadSettings();
   }, []);
@@ -165,14 +149,11 @@ function App() {
 
   // 進捗削除
   const handleDelete = async (id: number) => {
-    if (confirm('本当に削除しますか？')) {
-      try {
-        await studyProgressApi.delete(id);
-        await fetchData();
-      } catch (error) {
-        console.error('Error deleting progress:', error);
-        alert('削除に失敗しました');
-      }
+    try {
+      await studyProgressApi.delete(id);
+      await fetchData();
+    } catch (error) {
+      console.error('Error deleting progress:', error);
     }
   };
 
@@ -208,34 +189,54 @@ function App() {
   }).length;
 
   return (
-    <ToastProvider>
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="container mx-auto px-4 py-8">
         <header className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-4xl font-bold text-gray-800 mb-2">
-                CPA Dashboard
-              </h1>
-              <p className="text-gray-600">公認会計士の勉強進捗管理</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-3 h-3 rounded-full ${health === 'healthy' ? 'bg-green-500' : 'bg-red-500'}`}></div>
-              <span className="text-sm text-gray-600">
-                API: {health || '確認中...'}
-              </span>
+              <button
+                onClick={() => {
+                  setSlideDirection('right');
+                  setPrevTab(activeTab);
+                  setActiveTab('dashboard');
+                }}
+                className="text-left hover:opacity-80 transition-opacity"
+              >
+                <h1 className="text-4xl font-bold text-gray-800 mb-2">
+                  CPA Dashboard
+                </h1>
+                <p className="text-gray-600">公認会計士の勉強進捗管理</p>
+              </button>
             </div>
           </div>
         </header>
 
-        <Tabs activeTab={activeTab} onTabChange={(tab) => {
-          const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'kanban', 'gantt', 'settings'];
-          const currentIndex = tabOrder.indexOf(activeTab);
-          const newIndex = tabOrder.indexOf(tab);
-          setSlideDirection(newIndex > currentIndex ? 'right' : 'left');
-          setPrevTab(activeTab);
-          setActiveTab(tab);
-        }} tabs={tabs} />
+        <div className="border-b border-gray-200 mb-6 relative">
+          <Tabs 
+            activeTab={activeTab} 
+            onTabChange={(tab) => {
+              const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'kanban', 'gantt', 'settings'];
+              const currentIndex = tabOrder.indexOf(activeTab);
+              const newIndex = tabOrder.indexOf(tab);
+              setSlideDirection(newIndex > currentIndex ? 'right' : 'left');
+              setPrevTab(activeTab);
+              setActiveTab(tab);
+            }} 
+            tabs={tabs.filter(tab => tab.id !== 'settings')}
+            showHomeButton={true}
+            onHomeClick={() => {
+              setSlideDirection('right');
+              setPrevTab(activeTab);
+              setActiveTab('dashboard');
+            }}
+            showSettingsButton={true}
+            onSettingsClick={() => {
+              setSlideDirection('right');
+              setPrevTab(activeTab);
+              setActiveTab('settings');
+            }}
+          />
+        </div>
 
         {isLoading ? (
           <div className="text-center py-12">
@@ -251,6 +252,8 @@ function App() {
                   totalTodos={totalTodos}
                   completedTodos={completedTodos}
                   todayDueTodos={todayDueTodos}
+                  progressList={progressList}
+                  subjectsWithColors={subjectsWithColors}
                   onReminderCardClick={() => {
                     setSlideDirection('right');
                     setPrevTab(activeTab);
@@ -321,7 +324,6 @@ function App() {
         )}
         </div>
       </div>
-    </ToastProvider>
   );
 }
 

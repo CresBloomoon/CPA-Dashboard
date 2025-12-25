@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { todoApi } from '../api';
 import type { Todo, Subject, Project } from '../types';
 import TodoCreateModal from './TodoCreateModal';
-import { useToast } from './Toast';
 
 interface TodoListProps {
   todos: Todo[];
@@ -39,15 +38,9 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
       console.log('TodoList - subjectsWithColors is empty');
     }
   }, [subjectsWithColors]);
-  const { showToast } = useToast();
   const [searchTags, setSearchTags] = useState<string[]>([]);
   const [searchInput, setSearchInput] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-
-  // 通知を表示（後方互換性のため）
-  const showNotification = (message: string, type: 'success' | 'error') => {
-    showToast(message, type);
-  };
 
   // ToDoの完了状態を切り替え
   const handleToggle = async (todo: Todo) => {
@@ -56,7 +49,6 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
       onUpdate();
     } catch (error) {
       console.error('Error updating todo:', error);
-      showNotification('リマインダの更新に失敗しました', 'error');
     }
   };
 
@@ -65,10 +57,8 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
     try {
       await todoApi.delete(id);
       onUpdate();
-      showNotification('リマインダを削除しました', 'success');
     } catch (error) {
       console.error('Error deleting todo:', error);
-      showNotification('リマインダの削除に失敗しました', 'error');
     }
   };
 
@@ -181,7 +171,6 @@ export default function TodoList({ todos, onUpdate, subjects, subjectsWithColors
         onSubmit={onUpdate}
         subjects={subjects}
         subjectsWithColors={subjectsWithColors}
-        showNotification={showNotification}
       />
 
       {/* 検索タグの説明 */}
