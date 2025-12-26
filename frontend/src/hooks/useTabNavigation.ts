@@ -10,6 +10,10 @@ export const useTabNavigation = () => {
   const [todoListFilterType, setTodoListFilterType] = useState<'today' | 'all' | 'completed'>('today');
 
   const handleTabChange = (tab: string) => {
+    // タブ操作でリマインダ画面に入るときは、サイドバー選択を必ず「今日」にリセットする
+    if (tab === 'todo') {
+      setTodoListFilterType('today');
+    }
     const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'kanban', 'settings'];
     const currentIndex = tabOrder.indexOf(activeTab);
     const newIndex = tabOrder.indexOf(tab);
