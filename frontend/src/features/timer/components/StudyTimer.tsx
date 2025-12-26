@@ -3,7 +3,18 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Subject } from '../../../api/types';
 import { ANIMATION_THEME, TIMER_SETTINGS, UI_VISUALS } from '../../../config/appConfig';
-import { useTimer } from '../context/TimerContext';
+import { useTimer } from '../hooks/TimerContext';
+import {
+  adjustByStep,
+  adjustPomodoroMinutes,
+  canEditPomodoroSettings,
+  computePomodoroElapsedFocusSeconds,
+  computePomodoroRemainingRatio,
+  formatClockFromSeconds,
+  getPomodoroPhaseTotalSeconds,
+  isPomodoroAwaitingPhaseStart,
+  isPomodoroStarted,
+} from '../domain';
 import TimerModeTabs from './TimerModeTabs';
 
 interface StudyTimerProps {
@@ -106,47 +117,27 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     }, TIMER_SETTINGS.FEEDBACK.TOAST_DURATION_MS);
   };
 
-  // 時間をフォーマット（MM:SS または HH:MM:SS）
-  const formatTime = (seconds: number): string => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    if (h > 0) {
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-    }
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  };
+  // ドメインロジックを使用
+  const pomodoroElapsedFocusSeconds = useMemo(
+    () => computePomodoroElapsedFocusSeconds(timerState),
+    [timerState]
+  );
 
-  const pomodoroFocusSeconds = timerState.pomodoroFocusMinutes * 60;
-  const pomodoroBreakSeconds = timerState.pomodoroBreakMinutes * 60;
-  const pomodoroPhaseTotalSeconds = timerState.pomodoroPhase === 'break' ? pomodoroBreakSeconds : pomodoroFocusSeconds;
-  const pomodoroElapsedFocusSeconds = useMemo(() => {
-    if (timerState.mode !== 'pomodoro') return 0;
-    if (timerState.pomodoroPhase === 'break') return pomodoroFocusSeconds;
-    return Math.max(pomodoroFocusSeconds - (timerState.pomodoroRemainingSeconds ?? pomodoroFocusSeconds), 0);
-  }, [timerState.mode, timerState.pomodoroPhase, timerState.pomodoroRemainingSeconds, pomodoroFocusSeconds]);
+  const pomodoroHasStarted = useMemo(() => isPomodoroStarted(timerState), [timerState]);
 
-  // ポモドーロ設定（集中/休憩）を編集できるのは「開始前」だけにしたい
-  // - 一時停止中でも、残り時間が減っている/フェーズがbreak/セット数が2以上なら「開始済み」扱い
-  const pomodoroHasStarted =
-    timerState.mode === 'pomodoro' &&
-    (timerState.pomodoroPhase === 'break' ||
-      (timerState.pomodoroRemainingSeconds ?? pomodoroFocusSeconds) < pomodoroFocusSeconds ||
-      timerState.pomodoroCurrentSet > 1);
+  const canEditSettings = useMemo(() => canEditPomodoroSettings(timerState), [timerState]);
 
-  // ポモドーロ設定を編集できるのは「開始前」かつ「1セット目」の時だけ
-  const canEditPomodoroSettings =
-    timerState.mode === 'pomodoro' && !timerState.isRunning && !pomodoroHasStarted && timerState.pomodoroCurrentSet === 1;
+  const pomodoroAwaitingStart = useMemo(() => isPomodoroAwaitingPhaseStart(timerState), [timerState]);
 
-  // 「00:00到達で停止した後」は、次フェーズをユーザーが押して開始する
-  // - breakフェーズ終了時：pomodoroPhase === 'break' && 残り時間が満タン
-  // - focusフェーズ終了時：pomodoroPhase === 'focus' && 残り時間が満タン
-  const pomodoroAwaitingPhaseStart =
-    timerState.mode === 'pomodoro' &&
-    pomodoroHasStarted &&
-    !timerState.isRunning &&
-    ((timerState.pomodoroPhase === 'break' && (timerState.pomodoroRemainingSeconds ?? pomodoroBreakSeconds) === pomodoroBreakSeconds) ||
-      (timerState.pomodoroPhase === 'focus' && (timerState.pomodoroRemainingSeconds ?? pomodoroFocusSeconds) === pomodoroFocusSeconds));
+  const pomodoroPhaseTotalSeconds = useMemo(
+    () => getPomodoroPhaseTotalSeconds(timerState),
+    [timerState]
+  );
+
+  const pomodoroRemainingRatio = useMemo(
+    () => computePomodoroRemainingRatio(timerState),
+    [timerState]
+  );
 
 
   // 科目カラーリングの「登場アニメ」を、秒更新（59:59→59:58…）で再発火させないためのキー
@@ -165,19 +156,14 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const immersiveEligible =
     timerState.isRunning && (timerState.mode === 'pomodoro' || timerState.mode === 'stopwatch');
   const circleDisplayTime = timerState.mode === 'pomodoro'
-    ? pomodoroAwaitingPhaseStart
+    ? pomodoroAwaitingStart
       ? timerState.pomodoroPhase === 'break'
         ? 'REST'
         : 'FOCUS'
-      : formatTime(timerState.pomodoroRemainingSeconds ?? pomodoroPhaseTotalSeconds)
+      : formatClockFromSeconds(timerState.pomodoroRemainingSeconds ?? pomodoroPhaseTotalSeconds)
     : timerState.mode === 'stopwatch'
-      ? formatTime(timerState.elapsedTime)
+      ? formatClockFromSeconds(timerState.elapsedTime)
       : `${String(timerState.manualHours).padStart(2, '0')}:${String(timerState.manualMinutes).padStart(2, '0')}`;
-
-  // プログレス計算（ポモドーロのみ）
-  const pomodoroRemainingRatio = timerState.mode === 'pomodoro' && pomodoroPhaseTotalSeconds > 0
-    ? Math.min(Math.max((timerState.pomodoroRemainingSeconds ?? pomodoroPhaseTotalSeconds) / pomodoroPhaseTotalSeconds, 0), 1)
-    : 0;
 
   const subjectColor = getSubjectColor(timerState.selectedSubject);
   // 学習時間画面は「シックでミニマル」寄せ：差し色は落ち着いたスレートブルーに固定
@@ -246,11 +232,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     }
   };
 
-  // 手動入力モード用の関数
-  const adjustValue = (current: number, deltaSteps: number, min: number, max: number) => {
-    const next = current + deltaSteps;
-    return Math.min(max, Math.max(min, next));
-  };
 
 
   // ポモドーロ設定UI：実行開始時は閉じる
@@ -259,14 +240,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   }, [timerState.isRunning]);
 
 
-  const clampToStep = (value: number, min: number, max: number) => {
-    const stepped =
-      Math.round(value / TIMER_SETTINGS.POMODORO.STEP_MINUTES) * TIMER_SETTINGS.POMODORO.STEP_MINUTES;
-    return Math.min(max, Math.max(min, stepped));
-  };
-
   const adjustMinutes = (current: number, deltaSteps: number, min: number, max: number) => {
-    return clampToStep(current + deltaSteps * TIMER_SETTINGS.POMODORO.STEP_MINUTES, min, max);
+    return adjustPomodoroMinutes(current, deltaSteps, TIMER_SETTINGS.POMODORO.STEP_MINUTES, min, max);
   };
 
   const openSettingsWithDelay = () => {
@@ -740,7 +715,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         if (timerState.isRunning) return;
                         e.preventDefault();
                         const direction = e.deltaY > 0 ? -1 : 1;
-                        const next = adjustValue(timerState.manualHours, direction, 0, 24);
+                        const next = adjustByStep(timerState.manualHours, direction, 0, 24);
                         setManualHours(next);
                       }}
                     >
@@ -795,7 +770,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         if (timerState.isRunning) return;
                         e.preventDefault();
                         const direction = e.deltaY > 0 ? -1 : 1;
-                        const next = adjustValue(timerState.manualMinutes, direction, 0, 59);
+                        const next = adjustByStep(timerState.manualMinutes, direction, 0, 59);
                         setManualMinutes(next);
                       }}
                     >
@@ -840,7 +815,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     onMouseEnter={() => {
                       if (timerState.mode !== 'pomodoro') return;
                       if (timerState.isRunning) return;
-                      if (!canEditPomodoroSettings) return;
+                      if (!canEditSettings) return;
                       setIsHoveringTimeText(true);
                       openSettingsWithDelay();
                     }}
@@ -855,7 +830,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                   >
                     {/* ホバー演出：細い角丸枠＋わずかな暗転（0.2sフェード） */}
                     <AnimatePresence>
-                      {canEditPomodoroSettings && isHoveringTimeText && (
+                      {canEditSettings && isHoveringTimeText && (
                         <motion.div
                           key="time-hover"
                           initial={{ opacity: 0 }}
@@ -867,7 +842,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       )}
                     </AnimatePresence>
 
-                    {pomodoroAwaitingPhaseStart ? (
+                    {pomodoroAwaitingStart ? (
                       <div className="relative text-4xl font-medium text-slate-200 tracking-[0.02em]">
                         {circleDisplayTime}
                       </div>
@@ -911,7 +886,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
             {/* ポモドーロ設定 Popover：サークル中央（数字に重なる位置）に表示 */}
             <AnimatePresence>
-              {canEditPomodoroSettings && isPomodoroSettingsOpen && (
+              {canEditSettings && isPomodoroSettingsOpen && (
                 <>
                   {/* 背景の数字がうっすら残るように、控えめなガラスオーバーレイ */}
                   <motion.div

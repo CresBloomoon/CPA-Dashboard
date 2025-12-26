@@ -4,6 +4,8 @@ import {
   createInitialTimerState,
   isPomodoroAwaitingPhaseStart,
   resetTimer,
+  setManualHours,
+  setManualMinutes,
   setMode,
   setPomodoroBreakMinutes,
   setPomodoroFocusMinutes,
@@ -57,7 +59,7 @@ describe('timer domain state', () => {
     // move to break awaiting start
     s = { ...s, pomodoroPhase: 'break', pomodoroRemainingSeconds: 5 * 60 };
     // mark as started by being in break, then start
-    s = startTimer({ ...s, isRunning: false, startedAtMs: null }, 0);
+    s = startTimer({ ...s, isRunning: false, startTime: null }, 0);
     s = tick(s, 5 * 60 * 1000);
     expect(s.isRunning).toBe(false);
     expect(s.pomodoroPhase).toBe('focus');
@@ -112,6 +114,62 @@ describe('timer domain state', () => {
     s = setPomodoroSets(s, 3, ranges);
     expect(s.pomodoroSets).toBe(3);
     expect(s.pomodoroCurrentSet).toBe(3);
+  });
+
+  it('setManualHours clamps value to range', () => {
+    let s = createInitialTimerState(defaults, ranges);
+    s = setManualHours(s, 5, ranges);
+    expect(s.manualHours).toBe(5);
+    s = setManualHours(s, -1, ranges);
+    expect(s.manualHours).toBe(0);
+    s = setManualHours(s, 30, ranges);
+    expect(s.manualHours).toBe(24);
+  });
+
+  it('setManualMinutes clamps value to range', () => {
+    let s = createInitialTimerState(defaults, ranges);
+    s = setManualMinutes(s, 30, ranges);
+    expect(s.manualMinutes).toBe(30);
+    s = setManualMinutes(s, -1, ranges);
+    expect(s.manualMinutes).toBe(0);
+    s = setManualMinutes(s, 70, ranges);
+    expect(s.manualMinutes).toBe(59);
+  });
+
+  it('tick does nothing when not running', () => {
+    let s = createInitialTimerState(defaults, ranges);
+    const next = tick(s, 1000);
+    expect(next).toBe(s);
+  });
+
+  it('tick does nothing when startTime is null', () => {
+    let s = createInitialTimerState(defaults, ranges);
+    s = { ...s, isRunning: true, startTime: null };
+    const next = tick(s, 1000);
+    expect(next).toBe(s);
+  });
+
+  it('tick does nothing for manual mode', () => {
+    let s = createInitialTimerState({ ...defaults, mode: 'manual' }, ranges);
+    s = { ...s, isRunning: true, startTime: 1000 };
+    const next = tick(s, 2000);
+    expect(next).toBe(s);
+  });
+
+  it('isPomodoroAwaitingPhaseStart returns false for non-pomodoro mode', () => {
+    let s = createInitialTimerState({ ...defaults, mode: 'stopwatch' }, ranges);
+    expect(isPomodoroAwaitingPhaseStart(s)).toBe(false);
+  });
+
+  it('isPomodoroAwaitingPhaseStart returns false when running', () => {
+    let s = createInitialTimerState(defaults, ranges);
+    s = { ...s, isRunning: true, pomodoroPhase: 'break', pomodoroRemainingSeconds: 5 * 60 };
+    expect(isPomodoroAwaitingPhaseStart(s)).toBe(false);
+  });
+
+  it('isPomodoroAwaitingPhaseStart returns false when not started', () => {
+    let s = createInitialTimerState(defaults, ranges);
+    expect(isPomodoroAwaitingPhaseStart(s)).toBe(false);
   });
 });
 
