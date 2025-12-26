@@ -200,28 +200,50 @@ export const UI_VISUALS = {
     /**
      * タイマー中央の数字表示のスタイル定義（一元化）。
      * すべてのモード（ポモドーロ/ストップウォッチ/手動入力）で統一。
+     * 
+     * スタイルの詳細:
+     * - fontSize: text-7xl (4.5rem / 72px)
+     * - fontWeight: font-extralight (200)
+     * - color: text-slate-200 (rgb(226, 232, 240))
+     * - letterSpacing: tracking-[0.02em] (0.02em)
+     * - fontFamily: tabular-nums (等幅数字)
      */
     DIGITS: {
       /** フォントサイズクラス */
       SIZE_CLASS: 'text-7xl',
       /** フォントウェイト（extralight: 細い / light: やや細い / normal: 標準 / medium: やや太い） */
       WEIGHT_CLASS: 'font-extralight',
-      /** テキストカラー */
+      /** テキストカラー（不透明度100%） */
       COLOR_CLASS: 'text-slate-200',
       /** 文字間隔 */
       TRACKING_CLASS: 'tracking-[0.02em]',
       /** 等幅数字（tabular-nums） */
       TABULAR_NUMS: 'tabular-nums',
+      /**
+       * 完全なTailwindクラス文字列（一元化されたスタイル定義）。
+       * この定義を変更するだけで、すべてのモードの時刻表示が連動して変わります。
+       */
+      CLASS: 'text-7xl font-extralight text-slate-200 tabular-nums tracking-[0.02em]',
     },
     /**
      * ポモドーロ待機中（FOCUS/REST表示）のスタイル。
      * 通常の数字表示とは異なるサイズとウェイトを使用。
+     * 
+     * スタイルの詳細:
+     * - fontSize: text-4xl (2.25rem / 36px)
+     * - fontWeight: font-medium (500)
+     * - color: text-slate-200 (rgb(226, 232, 240))
+     * - letterSpacing: tracking-[0.02em] (0.02em)
      */
     AWAITING_PHASE: {
       SIZE_CLASS: 'text-4xl',
       WEIGHT_CLASS: 'font-medium',
       COLOR_CLASS: 'text-slate-200',
       TRACKING_CLASS: 'tracking-[0.02em]',
+      /**
+       * 完全なTailwindクラス文字列（ポモドーロ待機中専用）。
+       */
+      CLASS: 'text-4xl font-medium text-slate-200 tracking-[0.02em]',
     },
   },
 } as const;
