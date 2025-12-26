@@ -196,6 +196,34 @@ export const UI_VISUALS = {
      */
     TIMER_DIGITS_CLASS: 'text-7xl',
   },
+  TIMER_DISPLAY: {
+    /**
+     * タイマー中央の数字表示のスタイル定義（一元化）。
+     * すべてのモード（ポモドーロ/ストップウォッチ/手動入力）で統一。
+     */
+    DIGITS: {
+      /** フォントサイズクラス */
+      SIZE_CLASS: 'text-7xl',
+      /** フォントウェイト（extralight: 細い / light: やや細い / normal: 標準 / medium: やや太い） */
+      WEIGHT_CLASS: 'font-extralight',
+      /** テキストカラー */
+      COLOR_CLASS: 'text-slate-200',
+      /** 文字間隔 */
+      TRACKING_CLASS: 'tracking-[0.02em]',
+      /** 等幅数字（tabular-nums） */
+      TABULAR_NUMS: 'tabular-nums',
+    },
+    /**
+     * ポモドーロ待機中（FOCUS/REST表示）のスタイル。
+     * 通常の数字表示とは異なるサイズとウェイトを使用。
+     */
+    AWAITING_PHASE: {
+      SIZE_CLASS: 'text-4xl',
+      WEIGHT_CLASS: 'font-medium',
+      COLOR_CLASS: 'text-slate-200',
+      TRACKING_CLASS: 'tracking-[0.02em]',
+    },
+  },
 } as const;
 
 export const APP_LIMITS = {

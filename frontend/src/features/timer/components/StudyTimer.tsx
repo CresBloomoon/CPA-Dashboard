@@ -3,6 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Subject } from '../../../api/types';
 import { ANIMATION_THEME, TIMER_SETTINGS, UI_VISUALS } from '../../../config/appConfig';
+
+// タイマー数字表示のスタイル定義（一元化）
+const TIMER_DIGITS_STYLE = `${UI_VISUALS.TIMER_DISPLAY.DIGITS.SIZE_CLASS} ${UI_VISUALS.TIMER_DISPLAY.DIGITS.WEIGHT_CLASS} ${UI_VISUALS.TIMER_DISPLAY.DIGITS.COLOR_CLASS} ${UI_VISUALS.TIMER_DISPLAY.DIGITS.TABULAR_NUMS} ${UI_VISUALS.TIMER_DISPLAY.DIGITS.TRACKING_CLASS}`;
+const TIMER_AWAITING_STYLE = `${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.SIZE_CLASS} ${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.WEIGHT_CLASS} ${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.COLOR_CLASS} ${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.TRACKING_CLASS}`;
 import { useTimer } from '../hooks/TimerContext';
 import {
   adjustByStep,
@@ -743,12 +747,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <div className={`${UI_VISUALS.FONT_SIZES.TIMER_DIGITS_CLASS} font-extralight text-slate-200 tabular-nums tracking-[0.02em]`}>
+                      <div className={TIMER_DIGITS_STYLE}>
                         {String(timerState.manualHours).padStart(2, '0')}
                       </div>
                     </div>
                     {/* コロン */}
-                    <div className={`${UI_VISUALS.FONT_SIZES.TIMER_DIGITS_CLASS} font-extralight text-slate-200 tabular-nums tracking-[0.02em]`}>
+                    <div className={TIMER_DIGITS_STYLE}>
                       :
                     </div>
                     {/* 分部分 */}
@@ -798,7 +802,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <div className={`${UI_VISUALS.FONT_SIZES.TIMER_DIGITS_CLASS} font-extralight text-slate-200 tabular-nums tracking-[0.02em]`}>
+                      <div className={TIMER_DIGITS_STYLE}>
                         {String(timerState.manualMinutes).padStart(2, '0')}
                       </div>
                     </div>
@@ -838,12 +842,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     </AnimatePresence>
 
                     {pomodoroAwaitingStart ? (
-                      <div className="relative text-4xl font-medium text-slate-200 tracking-[0.02em]">
+                      <div className={`relative ${TIMER_AWAITING_STYLE}`}>
                         {circleDisplayTime}
                       </div>
                     ) : (
                       // 手動入力モードと同じスタイルで統一（各部分を分けて表示）
-                      <div className={`relative ${UI_VISUALS.FONT_SIZES.TIMER_DIGITS_CLASS} font-extralight text-slate-200 tabular-nums tracking-[0.02em] flex items-center gap-1`}>
+                      <div className={`relative ${TIMER_DIGITS_STYLE} flex items-center gap-1`}>
                         {(() => {
                           // circleDisplayTimeを分割（MM:SS または HH:MM:SS）
                           const parts = circleDisplayTime.split(':');
