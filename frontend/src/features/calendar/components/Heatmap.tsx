@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import type { MouseEvent } from 'react';
 import { format, startOfYear, endOfYear, eachDayOfInterval, getDay, isSameDay, subDays, addDays } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import type { StudyProgress, Todo } from '../types';
+import type { StudyProgress, Todo } from '../../../api/types';
 
 interface HeatmapProps {
   progressList: StudyProgress[];

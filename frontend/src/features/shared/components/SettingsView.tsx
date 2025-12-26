@@ -17,8 +17,8 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { settingsApi } from '../api';
-import type { Subject, ReviewTiming } from '../types';
+import { settingsApi } from '../../../api/api';
+import type { Subject, ReviewTiming } from '../../../api/types';
 
 interface SettingsViewProps {
   onSubjectsChange: (subjects: string[]) => void;

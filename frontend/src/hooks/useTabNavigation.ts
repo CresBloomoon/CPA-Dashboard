@@ -10,7 +10,7 @@ export const useTabNavigation = () => {
   const [todoListFilterType, setTodoListFilterType] = useState<'today' | 'all' | 'completed'>('today');
 
   const handleTabChange = (tab: string) => {
-    const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'kanban', 'gantt', 'settings'];
+    const tabOrder = ['dashboard', 'timer', 'todo', 'calendar', 'kanban', 'settings'];
     const currentIndex = tabOrder.indexOf(activeTab);
     const newIndex = tabOrder.indexOf(tab);
     setSlideDirection(newIndex > currentIndex ? 'right' : 'left');

@@ -1,13 +1,12 @@
-import { calculateTodoCounts } from '../../utils/todoCounts';
-import type { StudyProgress, Subject, Project, Todo } from '../../types';
-import SummaryCards from '../SummaryCards';
-import Heatmap from '../Heatmap';
-import StudyTimer from '../StudyTimer';
-import TodoList from '../TodoList';
-import CalendarView from '../CalendarView';
-import KanbanBoard from '../KanbanBoard';
-import GanttChart from '../GanttChart';
-import SettingsView from '../SettingsView';
+import { calculateTodoCounts } from '../../../utils/todoCounts';
+import type { StudyProgress, Subject, Project, Todo } from '../../../api/types';
+import SummaryCards from '../../timer/components/SummaryCards';
+import Heatmap from '../../calendar/components/Heatmap';
+import StudyTimer from '../../timer/components/StudyTimer';
+import TodoList from '../../kanban/components/TodoList';
+import CalendarView from '../../calendar/components/CalendarView';
+import KanbanBoard from '../../kanban/components/KanbanBoard';
+import SettingsView from './SettingsView';
 
 interface TabContentProps {
   activeTab: string;
@@ -102,18 +101,6 @@ export default function TabContent({
             subjectsWithColors={subjectsWithColors}
             onProjectsUpdate={onFetchData}
             onTodosUpdate={onFetchTodos}
-            subjects={subjects}
-          />
-        </div>
-      )}
-
-      {activeTab === 'gantt' && (
-        <div className="max-w-full mx-auto">
-          <GanttChart 
-            todos={todos} 
-            projects={projects} 
-            subjectsWithColors={subjectsWithColors}
-            onProjectsUpdate={onFetchData}
             subjects={subjects}
           />
         </div>

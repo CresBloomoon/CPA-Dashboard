@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import type { Todo } from '../types';
-import { todoApi } from '../api';
+import type { Todo } from '../../../api/types';
+import { todoApi } from '../../../api/api';
 
 interface AnimatedCheckboxProps {
   todo: Todo;

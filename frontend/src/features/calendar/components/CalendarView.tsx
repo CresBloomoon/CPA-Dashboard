@@ -14,9 +14,9 @@ import {
 } from '@dnd-kit/core';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
 import { ja } from 'date-fns/locale';
-import { todoApi } from '../api';
-import type { Todo, Subject } from '../types';
-import AnimatedCheckbox from './AnimatedCheckbox';
+import { todoApi } from '../../../api/api';
+import type { Todo, Subject } from '../../../api/types';
+import AnimatedCheckbox from '../../kanban/components/AnimatedCheckbox';
 
 interface CalendarViewProps {
   todos: Todo[];

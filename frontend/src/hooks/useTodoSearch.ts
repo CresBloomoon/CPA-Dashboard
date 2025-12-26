@@ -1,5 +1,5 @@
 import { useState, useMemo, type KeyboardEvent, type ChangeEvent } from 'react';
-import type { Todo } from '../types';
+import type { Todo } from '../api/types';
 
 /**
  * Todoの検索ロジック

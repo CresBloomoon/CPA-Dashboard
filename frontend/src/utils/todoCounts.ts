@@ -1,5 +1,5 @@
 import { startOfDay, isSameDay, isBefore } from 'date-fns';
-import type { Todo } from '../types';
+import type { Todo } from '../api/types';
 
 export interface TodoCounts {
   today: number; // 今日が期限（未完了のみ）

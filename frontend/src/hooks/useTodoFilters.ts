@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { isSameDay, isBefore, startOfDay } from 'date-fns';
-import type { Todo } from '../types';
+import type { Todo } from '../api/types';
 
 export type FilterType = 'today' | 'all' | 'completed';
 

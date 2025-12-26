@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { studyProgressApi, todoApi, projectApi } from '../api';
-import type { StudyProgress, SubjectSummary, Todo, Project } from '../types';
+import { studyProgressApi, todoApi, projectApi } from '../api/api';
+import type { StudyProgress, SubjectSummary, Todo, Project } from '../api/types';
 
 /**
  * アプリのデータ取得ロジック

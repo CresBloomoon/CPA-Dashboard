@@ -1,8 +1,8 @@
 import { type MouseEvent } from 'react';
-import type { Todo } from '../../types';
+import type { Todo } from '../../../../api/types';
 import AnimatedCheckbox from '../AnimatedCheckbox';
-import { getSubjectColor, getProjectName } from '../../utils/todoHelpers';
-import type { Subject, Project } from '../../types';
+import { getSubjectColor, getProjectName } from '../../../../utils/todoHelpers';
+import type { Subject, Project } from '../../../../api/types';
 
 interface TodoItemProps {
   todo: Todo;

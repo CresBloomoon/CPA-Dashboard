@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
-import { todoApi } from '../../api';
-import type { Todo, Subject, Project } from '../../types';
+import { todoApi } from '../../../../api/api';
+import type { Todo, Subject, Project } from '../../../../api/types';
 import TodoCreateModal from '../TodoCreateModal';
-import Sidebar from '../Sidebar';
-import { calculateTodoCounts } from '../../utils/todoCounts';
-import { useTodoFilters, type FilterType } from '../../hooks/useTodoFilters';
-import { useTodoSearch } from '../../hooks/useTodoSearch';
+import Sidebar from '../../../shared/components/Sidebar';
+import { calculateTodoCounts } from '../../../../utils/todoCounts';
+import { useTodoFilters, type FilterType } from '../../../../hooks/useTodoFilters';
+import { useTodoSearch } from '../../../../hooks/useTodoSearch';
 import SearchBar from './SearchBar';
 import TodoItem from './TodoItem';
 import TodoListHeader from './TodoListHeader';

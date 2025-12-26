@@ -10,7 +10,7 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import { startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
-import type { StudyProgress, Subject } from '../types';
+import type { StudyProgress, Subject } from '../../../api/types';
 
 ChartJS.register(
   CategoryScale,
@@ -249,3 +249,4 @@ export default function SummaryCards({
     </div>
   );
 }
+

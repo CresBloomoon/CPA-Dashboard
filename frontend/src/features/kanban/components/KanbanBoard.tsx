@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Dialog } from '@headlessui/react';
 import {
   DndContext,
@@ -18,8 +18,8 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
 import { format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
-import type { Todo, Project, ProjectCreate, Subject } from '../types';
-import { projectApi, todoApi } from '../api';
+import type { Todo, Project, ProjectCreate, Subject } from '../../../api/types';
+import { projectApi, todoApi } from '../../../api/api';
 import TodoCreateModal from './TodoCreateModal';
 import ProjectCreateModal from './ProjectCreateModal';
 import AnimatedCheckbox from './AnimatedCheckbox';
@@ -54,9 +54,8 @@ function DraggableTodoCard({
     id: todo.id,
   });
 
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
+  // transformを適用しない（自動ソートアニメーションを無効化）
+  const style = undefined;
 
   const todoColor = getSubjectColor(todo.subject || null);
   const isCompleted = todo.completed;
@@ -113,9 +112,9 @@ function DraggableTodoCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`p-3 bg-white rounded-lg shadow-sm border-l-4 cursor-move hover:shadow-md transition-shadow relative ${
+      className={`p-3 bg-white rounded-lg shadow-sm border-l-4 cursor-move hover:shadow-md transition-all duration-200 relative ${
         isCompleted ? 'opacity-60' : ''
-      } ${isDragging ? 'opacity-0 pointer-events-none' : ''}`}
+      } ${isDragging ? 'opacity-0 pointer-events-none scale-95' : 'hover:scale-[1.02]'}`}
       style={{
         ...style,
         borderLeftColor: todoColor,
@@ -177,6 +176,7 @@ function DroppableProjectColumn({
   onDeleteTodo,
   onToggleProject,
   subjectsWithColors = [],
+  activeId,
 }: { 
   project: Project | { id: 'unassigned'; name: string; due_date: null; description: null }; 
   todos: Todo[]; 
@@ -191,6 +191,7 @@ function DroppableProjectColumn({
   onDeleteTodo: (todo: Todo) => void;
   onToggleProject: (project: Project) => void;
   subjectsWithColors?: Subject[];
+  activeId: number | null;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: project.id,
@@ -198,6 +199,39 @@ function DroppableProjectColumn({
       type: 'project',
     },
   });
+  
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  // 自動スクロール処理
+  useEffect(() => {
+    if (isDragOver && scrollRef.current && activeId) {
+      const scrollContainer = scrollRef.current;
+      const scrollThreshold = 100; // スクロールを開始する距離（px）
+      const scrollSpeed = 10; // スクロール速度（px）
+      
+      const handleMouseMove = (e: MouseEvent) => {
+        if (!scrollRef.current) return;
+        const rect = scrollRef.current.getBoundingClientRect();
+        const mouseY = e.clientY;
+        const containerTop = rect.top;
+        const containerBottom = rect.bottom;
+        
+        // 上端に近い場合
+        if (mouseY - containerTop < scrollThreshold) {
+          scrollRef.current.scrollTop -= scrollSpeed;
+        }
+        // 下端に近い場合
+        else if (containerBottom - mouseY < scrollThreshold) {
+          scrollRef.current.scrollTop += scrollSpeed;
+        }
+      };
+      
+      window.addEventListener('mousemove', handleMouseMove);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+      };
+    }
+  }, [isDragOver, activeId]);
 
   return (
     <div
@@ -314,7 +348,12 @@ function DroppableProjectColumn({
       </div>
 
       {/* リマインダリスト */}
-      <div className="project-column-scroll space-y-2 max-h-[480px] overflow-y-auto pr-1">
+      <div 
+        className="project-column-scroll space-y-2 max-h-[480px] overflow-y-auto pr-1 transition-all duration-200"
+        style={{
+          scrollBehavior: 'smooth',
+        }}
+      >
         {todos.map((todo) => (
           <DraggableTodoCard 
             key={todo.id} 
@@ -781,6 +820,7 @@ export default function KanbanBoard({
                   onDeleteTodo={handleDeleteTodo}
                   onToggleProject={handleToggleProject}
                   subjectsWithColors={subjectsWithColors}
+                  activeId={activeId}
                 />
               );
             })}
@@ -793,10 +833,11 @@ export default function KanbanBoard({
             const todoColor = getSubjectColor(todo.subject || null);
             return (
               <div
-                className="p-3 bg-white rounded-lg shadow-lg border-l-4 opacity-90"
+                className="p-3 bg-white rounded-lg border-l-4 transform scale-95 transition-transform"
                 style={{
                   borderLeftColor: todoColor,
                   width: '320px',
+                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
                 }}
               >
                 <div className="flex items-start gap-2">

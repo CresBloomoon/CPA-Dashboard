@@ -12,6 +12,11 @@ class StudyProgress(Base):
     progress_percent = Column(Float, default=0.0)  # 進捗率（0-100）
     study_hours = Column(Float, default=0.0)  # 学習時間（時間）
     notes = Column(Text, nullable=True)  # メモ
+    # 分析機能のための追加フィールド
+    actual_time = Column(Float, nullable=True)  # 実際にかかった時間（時間）
+    target_time = Column(Float, nullable=True)  # 目標としていた標準時間（時間）
+    variance_reason = Column(String(200), nullable=True)  # 差異の原因（「集中力欠如」「難易度高」など）
+    theory_calculation_ratio = Column(Float, nullable=True)  # 理論と計算の比率（0.0-1.0）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

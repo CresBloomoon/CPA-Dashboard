@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import Tabs from './components/Tabs';
-import AppHeader from './components/App/AppHeader';
-import TabContent from './components/App/TabContent';
+import Tabs from './features/shared/components/Tabs';
+import AppHeader from './features/shared/components/AppHeader';
+import TabContent from './features/shared/components/TabContent';
 import { useAppData } from './hooks/useAppData';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useTabNavigation } from './hooks/useTabNavigation';
@@ -40,7 +40,6 @@ function App() {
     { id: 'todo', label: 'リマインダ' },
     { id: 'calendar', label: 'カレンダー' },
     { id: 'kanban', label: 'プロジェクト' },
-    { id: 'gantt', label: 'ガントチャート' },
   ];
 
   // 初期データ読み込み

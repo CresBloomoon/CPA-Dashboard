@@ -1,4 +1,4 @@
-import { SubjectSummary } from '../types';
+import { SubjectSummary } from '../../../api/types';
 
 interface SubjectChartProps {
   summary: SubjectSummary[];

@@ -3,8 +3,8 @@ import { Dialog } from '@headlessui/react';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
-import { projectApi } from '../api';
-import type { ProjectCreate } from '../types';
+import { projectApi } from '../../../api/api';
+import type { ProjectCreate } from '../../../api/types';
 
 registerLocale('ja', ja);
 

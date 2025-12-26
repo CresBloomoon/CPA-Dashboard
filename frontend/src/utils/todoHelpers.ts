@@ -1,4 +1,4 @@
-import type { Subject, Project } from '../types';
+import type { Subject, Project } from '../api/types';
 
 /**
  * 科目名から色を取得

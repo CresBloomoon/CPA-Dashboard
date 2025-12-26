@@ -5,6 +5,11 @@ export interface StudyProgress {
   progress_percent: number;
   study_hours: number;
   notes?: string;
+  // 分析機能のための追加フィールド
+  actual_time?: number; // 実際にかかった時間（時間）
+  target_time?: number; // 目標としていた標準時間（時間）
+  variance_reason?: string; // 差異の原因（「集中力欠如」「難易度高」など）
+  theory_calculation_ratio?: number; // 理論と計算の比率（0.0-1.0）
   created_at: string;
   updated_at?: string;
 }
@@ -15,6 +20,11 @@ export interface StudyProgressCreate {
   progress_percent: number;
   study_hours: number;
   notes?: string;
+  // 分析機能のための追加フィールド
+  actual_time?: number;
+  target_time?: number;
+  variance_reason?: string;
+  theory_calculation_ratio?: number;
 }
 
 export interface SubjectSummary {

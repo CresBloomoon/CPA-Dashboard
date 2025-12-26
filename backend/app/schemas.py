@@ -8,6 +8,11 @@ class StudyProgressBase(BaseModel):
     progress_percent: float = Field(0.0, ge=0.0, le=100.0, description="進捗率（0-100）")
     study_hours: float = Field(0.0, ge=0.0, description="学習時間（時間）")
     notes: Optional[str] = Field(None, description="メモ")
+    # 分析機能のための追加フィールド
+    actual_time: Optional[float] = Field(None, ge=0.0, description="実際にかかった時間（時間）")
+    target_time: Optional[float] = Field(None, ge=0.0, description="目標としていた標準時間（時間）")
+    variance_reason: Optional[str] = Field(None, description="差異の原因（「集中力欠如」「難易度高」など）")
+    theory_calculation_ratio: Optional[float] = Field(None, ge=0.0, le=1.0, description="理論と計算の比率（0.0-1.0）")
 
 class StudyProgressCreate(StudyProgressBase):
     pass
@@ -18,6 +23,10 @@ class StudyProgressUpdate(BaseModel):
     progress_percent: Optional[float] = Field(None, ge=0.0, le=100.0)
     study_hours: Optional[float] = Field(None, ge=0.0)
     notes: Optional[str] = None
+    actual_time: Optional[float] = Field(None, ge=0.0)
+    target_time: Optional[float] = Field(None, ge=0.0)
+    variance_reason: Optional[str] = None
+    theory_calculation_ratio: Optional[float] = Field(None, ge=0.0, le=1.0)
 
 class StudyProgressResponse(StudyProgressBase):
     id: int

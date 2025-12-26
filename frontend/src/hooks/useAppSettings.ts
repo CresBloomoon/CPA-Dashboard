@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { settingsApi } from '../api';
-import type { Subject } from '../types';
+import { settingsApi } from '../api/api';
+import type { Subject } from '../api/types';
 
 /**
  * アプリの設定読み込みロジック

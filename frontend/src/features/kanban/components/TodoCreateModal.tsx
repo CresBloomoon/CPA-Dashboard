@@ -4,8 +4,8 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
 import { addDays, format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
-import { todoApi, settingsApi } from '../api';
-import type { TodoCreate, Subject, ReviewTiming } from '../types';
+import { todoApi, settingsApi } from '../../../api/api';
+import type { TodoCreate, Subject, ReviewTiming } from '../../../api/types';
 
 registerLocale('ja', ja);
 
