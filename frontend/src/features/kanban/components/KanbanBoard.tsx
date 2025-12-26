@@ -23,6 +23,7 @@ import { projectApi, todoApi } from '../../../api/api';
 import TodoCreateModal from './TodoCreateModal';
 import ProjectCreateModal from './ProjectCreateModal';
 import AnimatedCheckbox from './AnimatedCheckbox';
+import AnimatedProjectCheckbox from './AnimatedProjectCheckbox';
 
 registerLocale('ja', ja);
 
@@ -62,19 +63,9 @@ function DraggableTodoCard({
   
   // タイトルから古い科目名を削除し、最新の科目名を取得
   const getDisplayTitle = () => {
-    let displayTitle = todo.title;
-    // タイトルに【科目名】の形式が含まれている場合、最新の科目名に置き換え
-    if (todo.subject) {
-      const titleMatch = displayTitle.match(/^【(.+?)】(.+)$/);
-      if (titleMatch) {
-        // タイトルに科目名が含まれている場合は、最新の科目名で置き換え
-        displayTitle = `【${todo.subject}】${titleMatch[2]}`;
-      } else if (!displayTitle.startsWith('【')) {
-        // タイトルに科目名が含まれていない場合は、追加
-        displayTitle = `【${todo.subject}】${displayTitle}`;
-      }
-    }
-    return displayTitle;
+    // 互換: 以前のデータで title に「【科目】」が含まれている場合は表示時に除去する
+    const match = todo.title.match(/^【(.+?)】(.+)$/);
+    return match ? match[2] : todo.title;
   };
   
   // 期限の状態を判定
@@ -122,8 +113,8 @@ function DraggableTodoCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="flex items-start gap-2">
-        <div onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center gap-2">
+        <div className="self-center" onClick={(e) => e.stopPropagation()}>
           <AnimatedCheckbox
             todo={todo}
             subjectColor={todoColor}
@@ -131,13 +122,28 @@ function DraggableTodoCard({
             size="sm"
           />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className={`flex-1 min-w-0 ${isHovered ? 'pr-10' : ''}`}>
           <div className={`text-sm font-medium text-gray-800 truncate ${isCompleted ? 'line-through' : ''}`}>
             {getDisplayTitle()}
           </div>
-          {todo.due_date && (
-            <div className={`text-xs mt-1 ${dueDateClassName}`}>
-              {dueDateText}
+          {(todo.subject || todo.due_date) && (
+            <div className="mt-1 flex items-center gap-2">
+              {todo.subject && (
+                <span
+                  className="px-2 py-0.5 rounded-md text-xs font-medium"
+                  style={{
+                    backgroundColor: `${todoColor}20`,
+                    color: todoColor,
+                  }}
+                >
+                  {todo.subject}
+                </span>
+              )}
+              {todo.due_date && (
+                <span className={`text-xs ${dueDateClassName}`}>
+                  {dueDateText}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -148,7 +154,7 @@ function DraggableTodoCard({
               e.stopPropagation();
               onDelete(todo);
             }}
-            className="absolute top-2 right-2 p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
             title="削除"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,35 +250,10 @@ function DroppableProjectColumn({
       <div className="flex items-center gap-2 mb-4 relative">
         {/* プロジェクト完了ボタン */}
         {project.id !== 'unassigned' && 'completed' in project && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleProject(project as Project);
-            }}
-            className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all duration-200 ${
-              (project as Project).completed
-                ? 'bg-green-500 border-green-500'
-                : 'border-gray-300 hover:border-green-400'
-            }`}
-            title={(project as Project).completed ? '完了を解除' : '完了にする'}
-          >
-            {(project as Project).completed && (
-              <svg
-                className="w-4 h-4 text-white animate-checkmark"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  className="animate-draw-check"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={3}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-            )}
-          </button>
+          <AnimatedProjectCheckbox
+            project={project as Project}
+            onToggle={() => onToggleProject(project as Project)}
+          />
         )}
         <h3 className={`font-semibold flex-1 ${
           project.id !== 'unassigned' && 'completed' in project && (project as Project).completed
@@ -349,7 +330,7 @@ function DroppableProjectColumn({
 
       {/* リマインダリスト */}
       <div 
-        className="project-column-scroll space-y-2 max-h-[480px] overflow-y-auto pr-1 transition-all duration-200"
+        className="project-column-scroll space-y-3 max-h-[480px] overflow-y-auto px-1 py-1 pr-2 transition-all duration-200"
         style={{
           scrollBehavior: 'smooth',
         }}
@@ -844,17 +825,8 @@ export default function KanbanBoard({
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-medium text-gray-800 truncate">
                       {(() => {
-                        let displayTitle = todo.title;
-                        // タイトルに【科目名】の形式が含まれている場合、最新の科目名に置き換え
-                        if (todo.subject) {
-                          const titleMatch = displayTitle.match(/^【(.+?)】(.+)$/);
-                          if (titleMatch) {
-                            displayTitle = `【${todo.subject}】${titleMatch[2]}`;
-                          } else if (!displayTitle.startsWith('【')) {
-                            displayTitle = `【${todo.subject}】${displayTitle}`;
-                          }
-                        }
-                        return displayTitle;
+                        const match = todo.title.match(/^【(.+?)】(.+)$/);
+                        return match ? match[2] : todo.title;
                       })()}
                     </div>
                   </div>

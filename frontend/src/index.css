@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ページ全体のスクロールバー有無でレイアウトが左右にズレないようにする */
+html {
+  overflow-y: scroll;
+}
+
+/* フォールバック（ブラウザ差異対策） */
+body {
+  overflow-y: scroll;
+}
+
 
 /* 画面遷移アニメーション - 統一されたフェードインのみ */
 @keyframes fadeIn {

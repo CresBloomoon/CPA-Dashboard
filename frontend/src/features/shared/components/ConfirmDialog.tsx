@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -21,40 +23,72 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  // Escキーで閉じる（明示的なハンドラ）
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onCancel]);
+
   return (
-    <Dialog open={isOpen} onClose={onCancel} className="relative z-[60]">
-      <div className="fixed inset-0 bg-black/50" aria-hidden="true" />
+    <AnimatePresence>
+      {isOpen && (
+        <Dialog open={true} onClose={onCancel} className="relative z-[60]">
+          <motion.div
+            className="fixed inset-0 bg-black/50"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={onCancel}
+          />
 
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
-          <Dialog.Title className="text-lg font-semibold text-gray-800">
-            {title}
-          </Dialog.Title>
-          <div className="mt-2 text-sm text-gray-600">{message}</div>
+          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={onCancel}>
+            <Dialog.Panel
+              as={motion.div}
+              className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            >
+              <Dialog.Title className="text-lg font-semibold text-gray-800">
+                {title}
+              </Dialog.Title>
+              <div className="mt-2 text-sm text-gray-600">{message}</div>
 
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              {cancelText}
-            </button>
-            <button
-              type="button"
-              onClick={onConfirm}
-              className={`px-4 py-2 rounded-lg transition-colors ${
-                destructive
-                  ? 'bg-red-500 text-white hover:bg-red-600'
-                  : 'bg-blue-500 text-white hover:bg-blue-600'
-              }`}
-            >
-              {confirmText}
-            </button>
+              <div className="mt-6 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onCancel}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                >
+                  {cancelText}
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirm}
+                  className={`px-4 py-2 rounded-lg transition-colors ${
+                    destructive
+                      ? 'bg-red-500 text-white hover:bg-red-600'
+                      : 'bg-blue-500 text-white hover:bg-blue-600'
+                  }`}
+                >
+                  {confirmText}
+                </button>
+              </div>
+            </Dialog.Panel>
           </div>
-        </Dialog.Panel>
-      </div>
-    </Dialog>
+        </Dialog>
+      )}
+    </AnimatePresence>
   );
 }
 

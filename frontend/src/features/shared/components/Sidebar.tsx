@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { type ReactNode, useRef } from 'react';
+import { LayoutGroup, motion } from 'framer-motion';
 
 export interface SidebarItem {
   id: string;
@@ -11,107 +12,58 @@ interface SidebarProps {
   items: SidebarItem[];
   activeItemId: string;
   onItemClick: (itemId: string) => void;
+  headerRight?: ReactNode;
 }
 
-export default function Sidebar({ title, items, activeItemId, onItemClick }: SidebarProps) {
-  const [indicatorStyle, setIndicatorStyle] = useState<{ top: number; height: number }>({ top: 0, height: 0 });
-  const buttonRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
-  const navRef = useRef<HTMLElement | null>(null);
-
-  const updateIndicator = () => {
-    const activeButton = buttonRefs.current[activeItemId];
-    if (activeButton && navRef.current) {
-      // nav要素を基準に位置を計算
-      const navRect = navRef.current.getBoundingClientRect();
-      const buttonRect = activeButton.getBoundingClientRect();
-      const top = buttonRect.top - navRect.top;
-      const height = buttonRect.height;
-      
-      setIndicatorStyle({
-        top: top,
-        height: height,
-      });
-    } else {
-      // アクティブなボタンが見つからない場合はインジケータを非表示
-      setIndicatorStyle({ top: 0, height: 0 });
-    }
-  };
-
-  useEffect(() => {
-    // レンダリング後に位置を更新
-    const timer = setTimeout(() => {
-      updateIndicator();
-    }, 0);
-    
-    // ウィンドウリサイズ時にも位置を再計算
-    const handleResize = () => {
-      updateIndicator();
-    };
-    
-    window.addEventListener('resize', handleResize);
-    
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', handleResize);
-    };
-  }, [activeItemId, items]);
-
-  // ボタンがマウントされた後にも位置を更新
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      updateIndicator();
-    }, 100);
-    return () => clearTimeout(timer);
-  }, [activeItemId, items]);
+export default function Sidebar({ title, items, activeItemId, onItemClick, headerRight }: SidebarProps) {
+  // 複数サイドバーが同時に存在する場合の layoutId 競合を避けるため、LayoutGroup を分離
+  const layoutGroupIdRef = useRef(`active-pill-${title}`);
 
   return (
     <div className="w-80 bg-gray-50 border-r border-gray-200 flex-shrink-0 h-full flex flex-col">
       <div className="p-6 flex-shrink-0 relative">
-        <h2 className="text-2xl font-semibold text-gray-700 mb-6">{title}</h2>
-        <nav ref={navRef} className="space-y-2 relative">
-          {/* アクティブインジケーター */}
-          {indicatorStyle.height > 0 && (
-            <div
-              className="absolute left-0 right-0 bg-blue-500 rounded-lg z-0 animate-fade-in"
-              style={{
-                top: `${indicatorStyle.top}px`,
-                height: `${indicatorStyle.height}px`,
-              }}
-            />
-          )}
-          {items.map((item) => {
-            const isActive = activeItemId === item.id;
-            return (
-              <button
-                key={item.id}
-                ref={(el) => {
-                  buttonRefs.current[item.id] = el;
-                  if (el && activeItemId === item.id) {
-                    // refが設定されたら位置を更新
-                    setTimeout(() => updateIndicator(), 0);
-                  }
-                }}
-                onClick={() => onItemClick(item.id)}
-                className={`w-full flex items-center justify-between px-6 py-4 rounded-lg transition-colors duration-200 text-lg relative z-10 ${
-                  isActive
-                    ? 'bg-blue-500 text-white font-semibold shadow-md'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <span>{item.label}</span>
-                {item.count !== undefined && (
-                  <span
-                    className={`text-sm font-normal transition-colors duration-200 ${
-                      isActive ? 'text-white/70' : 'text-gray-400'
-                    }`}
-                  >
-                    {item.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl font-semibold text-gray-700">{title}</h2>
+          {headerRight && <div className="flex-shrink-0">{headerRight}</div>}
+        </div>
+        <LayoutGroup id={layoutGroupIdRef.current}>
+          <nav className="space-y-2 relative">
+            {items.map((item) => {
+              const isActive = activeItemId === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => onItemClick(item.id)}
+                  className={`w-full flex items-center justify-between px-6 py-4 rounded-lg transition-colors duration-200 text-lg relative ${
+                    isActive
+                      ? 'text-white font-semibold'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {/* アクティブ背景（layoutIdで上下にスライド） */}
+                  {isActive && (
+                    <motion.div
+                      layoutId="active-pill"
+                      className="absolute inset-0 bg-blue-500 rounded-lg shadow-md"
+                      transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                    />
+                  )}
+
+                  <span className="relative z-10">{item.label}</span>
+                  {item.count !== undefined && (
+                    <span
+                      className={`relative z-10 text-sm font-normal transition-colors duration-200 ${
+                        isActive ? 'text-white/70' : 'text-gray-400'
+                      }`}
+                    >
+                      {item.count}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </LayoutGroup>
       </div>
     </div>
   );

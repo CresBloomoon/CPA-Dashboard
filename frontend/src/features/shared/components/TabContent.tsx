@@ -1,5 +1,6 @@
 import { calculateTodoCounts } from '../../../utils/todoCounts';
 import type { StudyProgress, Subject, Project, Todo } from '../../../api/types';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import SummaryCards from '../../timer/components/SummaryCards';
 import Heatmap from '../../calendar/components/Heatmap';
 import StudyTimer from '../../timer/components/StudyTimer';
@@ -27,7 +28,7 @@ interface TabContentProps {
 
 export default function TabContent({
   activeTab,
-  slideDirection,
+  slideDirection: _slideDirection,
   progressList,
   summary,
   todos,
@@ -49,9 +50,34 @@ export default function TabContent({
     ? progressList.reduce((sum, p) => sum + p.progress_percent, 0) / progressList.length
     : 0;
 
+  const transition = {
+    type: 'spring' as const,
+    stiffness: 300,
+    damping: 30,
+  };
+  const variants = {
+    // 右から入る
+    initial: { opacity: 0, x: 20 },
+    // 定位置へ
+    animate: { opacity: 1, x: 0 },
+    // 左へ消える
+    exit: { opacity: 0, x: -20 },
+  };
+
   return (
-    <div key={activeTab} className={slideDirection === 'right' ? 'slide-in-right' : 'slide-in-left'}>
-      {activeTab === 'dashboard' && (
+    <MotionConfig reducedMotion="never">
+      <div className="relative overflow-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={activeTab}
+            variants={variants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            transition={transition}
+            className="w-full"
+          >
+          {activeTab === 'dashboard' && (
         <div className="space-y-6">
           <SummaryCards
             totalHours={totalHours}
@@ -75,7 +101,7 @@ export default function TabContent({
       )}
 
       {activeTab === 'todo' && (
-        <div className="w-full">
+        <div className="w-full min-h-[600px]">
           <TodoList 
             todos={todos} 
             onUpdate={onFetchTodos} 
@@ -88,13 +114,13 @@ export default function TabContent({
       )}
 
       {activeTab === 'calendar' && (
-        <div className="max-w-full mx-auto">
+        <div className="max-w-full mx-auto min-h-[600px]">
           <CalendarView todos={todos} onUpdate={onFetchTodos} subjectsWithColors={subjectsWithColors} />
         </div>
       )}
 
       {activeTab === 'kanban' && (
-        <div className="max-w-full mx-auto">
+        <div className="max-w-full mx-auto min-h-[600px]">
           <KanbanBoard 
             todos={todos} 
             projects={projects} 
@@ -107,7 +133,7 @@ export default function TabContent({
       )}
 
       {activeTab === 'settings' && (
-        <div className="w-full -mx-4">
+        <div className="w-full -mx-4 min-h-[600px]">
           <SettingsView 
             onSubjectsChange={onSubjectsChange}
             onSubjectsWithColorsChange={onSubjectsWithColorsChange}
@@ -115,7 +141,10 @@ export default function TabContent({
           />
         </div>
       )}
-    </div>
+          </motion.div>
+        </AnimatePresence>
+      </div>
+    </MotionConfig>
   );
 }
 

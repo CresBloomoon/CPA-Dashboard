@@ -84,12 +84,22 @@ export default function TodoList({
         setSearchInput={setSearchInput}
         onSearchInputKeyDown={handleSearchInputKeyDown}
         onRemoveSearchTag={removeSearchTag}
-        onAddClick={handleAddClick}
       />
 
       <div className="flex flex-1 min-h-0">
         <Sidebar
           title="リマインダ"
+          headerRight={
+            <button
+              onClick={handleAddClick}
+              className="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
+              title="リマインダを追加"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          }
           items={[
             { id: 'today', label: '今日', count: todayCount },
             { id: 'all', label: 'すべて', count: allCount },
@@ -103,13 +113,7 @@ export default function TodoList({
           <div className="bg-white rounded-lg shadow-lg p-6 h-full flex flex-col overflow-hidden">
             <TodoListHeader />
 
-            <div 
-              className="space-y-2 overflow-y-auto"
-              style={{
-                height: 'calc(9.5 * 5rem + 9 * 0.5rem)',
-                minHeight: 'calc(9.5 * 5rem + 9 * 0.5rem)',
-              }}
-            >
+            <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
               {filteredTodos.length > 0 && (
                 <div className="space-y-2">
                   {filteredTodos.map((todo: Todo) => (

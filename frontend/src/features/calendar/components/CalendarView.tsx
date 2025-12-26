@@ -48,13 +48,17 @@ function DraggableTodoCard({
   const bgColor = subjectColor ? `${subjectColor}20` : undefined;
   const textColor = subjectColor ? getTextColor(subjectColor) : undefined;
   const borderColor = subjectColor ? subjectColor : undefined;
+  const displayTitle = (() => {
+    const match = todo.title.match(/^【(.+?)】(.+)$/);
+    return match ? match[2] : todo.title;
+  })();
 
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`text-xs px-1 py-0.5 rounded truncate cursor-move transition-colors flex items-center gap-1 ${
+      className={`text-xs px-1 py-1 min-h-[26px] rounded truncate cursor-move transition-colors flex items-center gap-1 ${
         isDragging ? 'opacity-50' : ''
       }`}
       style={{
@@ -68,7 +72,7 @@ function DraggableTodoCard({
           color: '#1e40af'
         }),
       }}
-      title={todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}
+      title={displayTitle}
     >
       <div onClick={(e) => e.stopPropagation()}>
         <AnimatedCheckbox
@@ -80,8 +84,7 @@ function DraggableTodoCard({
         />
       </div>
       <span className="truncate">
-        {todo.subject ? `【${todo.subject}】` : ''}
-        {todo.title.length > 8 ? `${todo.title.substring(0, 8)}...` : todo.title}
+        {displayTitle.length > 8 ? `${displayTitle.substring(0, 8)}...` : displayTitle}
       </span>
     </div>
   );
@@ -110,7 +113,10 @@ function DraggableCompletedTodoCard({
   } : undefined;
 
   const subjectColor = getSubjectColor(todo.subject);
-  const displayText = todo.subject ? `【${todo.subject}】${todo.title}` : todo.title;
+  const displayText = (() => {
+    const match = todo.title.match(/^【(.+?)】(.+)$/);
+    return match ? match[2] : todo.title;
+  })();
   const textColor = subjectColor ? getTextColor(subjectColor) : undefined;
 
   return (
@@ -118,7 +124,7 @@ function DraggableCompletedTodoCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`text-xs cursor-move hover:bg-gray-100 px-1 py-0.5 rounded transition-colors flex items-center gap-1 ${
+      className={`text-xs cursor-move hover:bg-gray-100 px-1 py-1 min-h-[26px] rounded transition-colors flex items-center gap-1 ${
         isDragging ? 'opacity-50' : ''
       } ${todo.completed ? 'opacity-60' : ''}`}
       style={{
@@ -494,6 +500,10 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
             const subjectColor = getSubjectColor(todo.subject);
             const bgColor = subjectColor ? `${subjectColor}20` : '#dbeafe';
             const textColor = subjectColor ? getTextColor(subjectColor) : '#1e40af';
+            const displayTitle = (() => {
+              const match = todo.title.match(/^【(.+?)】(.+)$/);
+              return match ? match[2] : todo.title;
+            })();
             return (
               <div
                 className="text-xs px-1 py-0.5 rounded truncate flex items-center gap-1 opacity-90"
@@ -507,8 +517,7 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
                   style={{ borderColor: subjectColor || '#2563eb' }}
                 />
                 <span className="truncate">
-                  {todo.subject ? `【${todo.subject}】` : ''}
-                  {todo.title.length > 8 ? `${todo.title.substring(0, 8)}...` : todo.title}
+                  {displayTitle.length > 8 ? `${displayTitle.substring(0, 8)}...` : displayTitle}
                 </span>
               </div>
             );

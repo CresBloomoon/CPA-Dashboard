@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog } from '@headlessui/react';
+import { AnimatePresence, motion } from 'framer-motion';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
 import { addDays, format } from 'date-fns';
@@ -132,6 +133,19 @@ export default function TodoCreateModal({
     onClose();
   };
 
+  // Escキーで閉じる（明示的なハンドラ）
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        closeModal();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   // フォーム送信
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,14 +202,32 @@ export default function TodoCreateModal({
   };
 
   return (
-    <Dialog open={isOpen} onClose={closeModal} className="relative z-50">
-      {/* オーバーレイ */}
-      <div className="fixed inset-0 bg-black bg-opacity-50" aria-hidden="true" />
+    <AnimatePresence>
+      {isOpen && (
+        <Dialog open={true} onClose={closeModal} className="relative z-50">
+          {/* オーバーレイ（背景クリックで閉じる） */}
+          <motion.div
+            className="fixed inset-0 bg-black/50"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={closeModal}
+          />
 
-      {/* モーダルコンテンツ */}
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] min-h-[600px] overflow-y-auto">
-          <div className="p-6">
+          {/* モーダルコンテンツ */}
+          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={closeModal}>
+            <Dialog.Panel
+              as={motion.div}
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] min-h-[600px] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            >
+              <div className="p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-700">新規リマインダ</h3>
               <button
@@ -383,7 +415,7 @@ export default function TodoCreateModal({
                                 const dueDate = addDays(newTodoDueDate, day);
                                 return (
                                   <div key={index} className="text-sm text-blue-700">
-                                    【{timing.subject_name}】{newTodoTitle.trim()}_復習{index + 1}回目 ({dueDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })})
+                                    {newTodoTitle.trim()}_復習{index + 1}回目 ({dueDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })})
                                   </div>
                                 );
                               })}
@@ -538,6 +570,8 @@ export default function TodoCreateModal({
         </Dialog.Panel>
       </div>
     </Dialog>
+      )}
+    </AnimatePresence>
   );
 }
 

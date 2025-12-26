@@ -22,6 +22,11 @@ export default function TodoItem({
   batchCompletionDelay,
 }: TodoItemProps) {
   const subjectColor = getSubjectColor(todo.subject, subjectsWithColors) || '#3b82f6';
+  const displayTitle = (() => {
+    // 互換: 以前のデータで title に「【科目】」が含まれている場合は表示時に除去する
+    const match = todo.title.match(/^【(.+?)】(.+)$/);
+    return match ? match[2] : todo.title;
+  })();
 
   const handleClick = (e: MouseEvent<HTMLDivElement>) => {
     // 削除ボタンやチェックボックスがクリックされた場合は完了処理を実行しない
@@ -69,9 +74,20 @@ export default function TodoItem({
       />
       <div className="flex-1 min-w-0">
         <div className={`flex items-center gap-2 ${todo.completed ? 'text-gray-600' : 'text-gray-800'}`}>
-          <span className="truncate">{todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}</span>
+          <span className="truncate">{displayTitle}</span>
         </div>
         <div className="flex items-center gap-2 mt-1 text-sm">
+          {todo.subject && (
+            <span
+              className="px-2 py-1 rounded-md text-sm font-medium"
+              style={{
+                backgroundColor: `${subjectColor}20`,
+                color: subjectColor,
+              }}
+            >
+              {todo.subject}
+            </span>
+          )}
           {dueDateText && (
             <span className={`px-2 py-1 bg-gray-100 rounded-md text-sm ${dueDateColorClass}`}>
               {dueDateText}

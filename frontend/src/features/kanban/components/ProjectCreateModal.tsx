@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dialog } from '@headlessui/react';
+import { AnimatePresence, motion } from 'framer-motion';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
@@ -70,28 +71,59 @@ export default function ProjectCreateModal({
     onClose();
   };
 
+  // Escキーで閉じる（明示的なハンドラ）
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   return (
-    <Dialog open={isOpen} onClose={handleClose} className="relative z-50">
-      {/* オーバーレイ */}
-      <div className="fixed inset-0 bg-black bg-opacity-50" aria-hidden="true" />
+    <AnimatePresence>
+      {isOpen && (
+        <Dialog open={true} onClose={handleClose} className="relative z-50">
+          {/* オーバーレイ（背景クリックで閉じる） */}
+          <motion.div
+            className="fixed inset-0 bg-black/50"
+            aria-hidden="true"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            onClick={handleClose}
+          />
 
-      {/* モーダルコンテンツ */}
-      <div className="fixed inset-0 flex items-center justify-center p-4">
-        <Dialog.Panel className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-700">新規プロジェクト</h3>
-              <button
-                onClick={handleClose}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+          {/* モーダルコンテンツ */}
+          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={handleClose}>
+            <Dialog.Panel
+              as={motion.div}
+              className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+            >
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xl font-semibold text-gray-700">新規プロジェクト</h3>
+                  <button
+                    onClick={handleClose}
+                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
 
-            <form onSubmit={handleCreate} className="space-y-4">
+                <form onSubmit={handleCreate} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   プロジェクト名 <span className="text-red-500">*</span>
@@ -151,6 +183,8 @@ export default function ProjectCreateModal({
         </Dialog.Panel>
       </div>
     </Dialog>
+      )}
+    </AnimatePresence>
   );
 }
 

@@ -6,7 +6,6 @@ interface SearchBarProps {
   setSearchInput: (value: string) => void;
   onSearchInputKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void;
   onRemoveSearchTag: (tag: string) => void;
-  onAddClick: () => void;
 }
 
 export default function SearchBar({
@@ -15,11 +14,10 @@ export default function SearchBar({
   setSearchInput,
   onSearchInputKeyDown,
   onRemoveSearchTag,
-  onAddClick,
 }: SearchBarProps) {
   return (
     <>
-      <div className="flex items-center justify-end gap-4 p-6 pb-4 flex-shrink-0">
+      <div className="flex items-center justify-end gap-4 pl-6 pr-0 pb-4 flex-shrink-0">
         {/* 検索バー */}
         <div className="flex flex-wrap items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent bg-white min-h-[42px] w-80">
           <div className="flex items-center text-gray-400">
@@ -57,17 +55,6 @@ export default function SearchBar({
             className="flex-1 min-w-[120px] outline-none bg-transparent"
           />
         </div>
-        
-        {/* 追加ボタン（＋のみ） */}
-        <button
-          onClick={onAddClick}
-          className="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
-          title="リマインダを追加"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
       </div>
 
       {/* 検索タグの説明 */}
