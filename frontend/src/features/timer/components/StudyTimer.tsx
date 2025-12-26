@@ -968,6 +968,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             onClick={handleRecord}
             disabled={
               isRecording ||
+              timerState.isRunning ||
               !timerState.selectedSubject ||
               (timerState.mode === 'stopwatch' && timerState.elapsedTime === 0) ||
               (timerState.mode === 'pomodoro' && pomodoroElapsedFocusSeconds === 0) ||
@@ -975,7 +976,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             }
             className="w-full px-6 py-3 bg-slate-800/45 hover:bg-slate-800/55 text-slate-200 rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_16px_40px_rgba(0,0,0,0.50)]"
           >
-            {isRecording ? '記録中...' : toastMessage && toastMessage.includes('記録しました') ? '完了！' : '時間を記録'}
+            {isRecording ? '記録中...' : toastMessage && toastMessage.includes('記録しました') ? '完了！' : '記録'}
           </button>
         </motion.div>
 
