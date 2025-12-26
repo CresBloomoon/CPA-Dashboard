@@ -12,6 +12,7 @@ import {
   DragOverEvent,
   useDraggable,
   useDroppable,
+  closestCenter,
 } from '@dnd-kit/core';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
@@ -114,7 +115,7 @@ function DraggableTodoCard({
       {...attributes}
       className={`p-3 bg-white rounded-lg shadow-sm border-l-4 cursor-move hover:shadow-md transition-shadow relative ${
         isCompleted ? 'opacity-60' : ''
-      } ${isDragging ? 'opacity-50' : ''}`}
+      } ${isDragging ? 'opacity-0 pointer-events-none' : ''}`}
       style={{
         ...style,
         borderLeftColor: todoColor,
@@ -131,14 +132,8 @@ function DraggableTodoCard({
             size="sm"
           />
         </div>
-        {todo.subject && (
-          <span
-            className="w-2 h-2 rounded-full flex-shrink-0 mt-1"
-            style={{ backgroundColor: todoColor }}
-          />
-        )}
         <div className="flex-1 min-w-0">
-          <div className={`text-sm font-medium text-gray-800 ${isCompleted ? 'line-through' : ''}`}>
+          <div className={`text-sm font-medium text-gray-800 truncate ${isCompleted ? 'line-through' : ''}`}>
             {getDisplayTitle()}
           </div>
           {todo.due_date && (
@@ -180,6 +175,7 @@ function DroppableProjectColumn({
   getSubjectColor,
   onUpdateTodos,
   onDeleteTodo,
+  onToggleProject,
   subjectsWithColors = [],
 }: { 
   project: Project | { id: 'unassigned'; name: string; due_date: null; description: null }; 
@@ -193,10 +189,14 @@ function DroppableProjectColumn({
   getSubjectColor: (subject: string | null) => string;
   onUpdateTodos: () => void;
   onDeleteTodo: (todo: Todo) => void;
+  onToggleProject: (project: Project) => void;
   subjectsWithColors?: Subject[];
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: project.id,
+    data: {
+      type: 'project',
+    },
   });
 
   return (
@@ -316,14 +316,14 @@ function DroppableProjectColumn({
       {/* リマインダリスト */}
       <div className="project-column-scroll space-y-2 max-h-[480px] overflow-y-auto pr-1">
         {todos.map((todo) => (
-                  <DraggableTodoCard 
-                    key={todo.id} 
-                    todo={todo} 
-                  getSubjectColor={getSubjectColor}
-                  onUpdate={onUpdateTodos}
-                  onDelete={onDeleteTodo}
-                    subjectsWithColors={subjectsWithColors}
-                  />
+          <DraggableTodoCard 
+            key={todo.id} 
+            todo={todo} 
+            getSubjectColor={getSubjectColor}
+            onUpdate={onUpdateTodos}
+            onDelete={onDeleteTodo}
+            subjectsWithColors={subjectsWithColors}
+          />
         ))}
         {todos.length === 0 && (
           <div className="text-center py-8 text-gray-400 text-sm">
@@ -491,7 +491,12 @@ export default function KanbanBoard({
   };
 
   // プロジェクトごとにリマインダをグループ化（楽観的状態を使用）
+  // ドラッグ中のアイテムは移動前のプロジェクトから除外
   const todosByProject = optimisticTodos.reduce((acc, todo) => {
+    // ドラッグ中のアイテムは除外
+    if (activeId === todo.id) {
+      return acc;
+    }
     const projectId = todo.project_id || 'unassigned';
     if (!acc[projectId]) {
       acc[projectId] = [];
@@ -509,11 +514,25 @@ export default function KanbanBoard({
   const handleDragOver = (event: DragOverEvent) => {
     const { over } = event;
     if (over) {
-      const overId = over.id;
-      if (typeof overId === 'string' && overId === 'unassigned') {
-        setOverId('unassigned');
-      } else if (typeof overId === 'number') {
-        setOverId(overId);
+      // プロジェクトカードのドロップ可能領域を優先的に検出
+      const overData = over.data.current;
+      if (overData?.type === 'project') {
+        const overId = over.id;
+        if (typeof overId === 'string' && overId === 'unassigned') {
+          setOverId('unassigned');
+        } else if (typeof overId === 'number') {
+          setOverId(overId);
+        }
+      } else {
+        // Todoの上にホバーしている場合、そのTodoが属するプロジェクトを検出
+        const overId = over.id;
+        if (typeof overId === 'number') {
+          const targetTodo = optimisticTodos.find(t => t.id === overId);
+          if (targetTodo) {
+            const targetProjectId = targetTodo.project_id || 'unassigned';
+            setOverId(targetProjectId);
+          }
+        }
       }
     } else {
       setOverId(null);
@@ -531,9 +550,6 @@ export default function KanbanBoard({
     }
 
     const todoId = active.id as number;
-    const targetProjectId = over.id;
-
-    // 同じプロジェクトへの移動は無視
     const todo = optimisticTodos.find(t => t.id === todoId);
     if (!todo) {
       setActiveId(null);
@@ -542,42 +558,97 @@ export default function KanbanBoard({
     }
 
     const currentProjectId = todo.project_id || 'unassigned';
-    if (currentProjectId === targetProjectId) {
+    
+    // over.data.typeが'project'の場合はプロジェクト間の移動
+    // それ以外（TodoのID）の場合は同じプロジェクト内でのソート
+    const overData = over.data.current;
+    const isProjectDrop = overData?.type === 'project';
+    
+    if (isProjectDrop) {
+      // プロジェクト間での移動
+      const targetProjectId = over.id;
+      
+      // 同じプロジェクトへの移動は無視
+      if (currentProjectId === targetProjectId) {
+        setActiveId(null);
+        setOverId(null);
+        return;
+      }
+
+      const projectId = targetProjectId === 'unassigned' ? null : (targetProjectId as number);
+      
+      // 楽観的更新：即座にUIを更新
+      setOptimisticTodos(prevTodos => 
+        prevTodos.map(t => 
+          t.id === todoId ? { ...t, project_id: projectId } : t
+        )
+      );
+      
       setActiveId(null);
       setOverId(null);
-      return;
-    }
 
-    // 楽観的更新：即座にUIを更新
-    const projectId = targetProjectId === 'unassigned' ? null : (targetProjectId as number);
-    setOptimisticTodos(prevTodos => 
-      prevTodos.map(t => 
-        t.id === todoId ? { ...t, project_id: projectId } : t
-      )
-    );
-    
-    setActiveId(null);
-    setOverId(null);
+      try {
+        // API呼び出し
+        const updateData: { project_id: number | null } = {
+          project_id: projectId,
+        };
+        
+        await todoApi.update(todoId, updateData);
+        
+        // サーバーから最新データを取得
+        onTodosUpdate();
+      } catch (error: any) {
+        console.error('Error moving todo:', error);
+        // エラー時は楽観的更新を元に戻す
+        setOptimisticTodos(todos);
+      }
+    } else {
+      // Todoの上にドロップした場合、そのTodoが属するプロジェクトに移動
+      const targetTodoId = over.id as number;
+      const targetTodo = optimisticTodos.find(t => t.id === targetTodoId);
+      
+      if (!targetTodo) {
+        setActiveId(null);
+        setOverId(null);
+        return;
+      }
+      
+      const targetProjectId = targetTodo.project_id || 'unassigned';
+      
+      // 同じプロジェクトへの移動は無視
+      if (currentProjectId === targetProjectId) {
+        setActiveId(null);
+        setOverId(null);
+        return;
+      }
 
-    try {
-      // API呼び出し
-      // project_idがnullの場合も明示的に送信する必要がある
-      // Pydanticの__fields_set__に含まれるように、明示的にnullを設定
-      const updateData: { project_id: number | null } = {
-        project_id: projectId, // nullの場合は明示的にnullを送信
-      };
-      console.log('Moving todo:', todoId, 'from project:', todo.project_id, 'to project:', projectId, 'updateData:', updateData, 'updateData JSON:', JSON.stringify(updateData));
+      const projectId = targetProjectId === 'unassigned' ? null : (targetProjectId as number);
       
-      const response = await todoApi.update(todoId, updateData);
-      console.log('Update response:', response);
+      // 楽観的更新：即座にUIを更新
+      setOptimisticTodos(prevTodos => 
+        prevTodos.map(t => 
+          t.id === todoId ? { ...t, project_id: projectId } : t
+        )
+      );
       
-      // サーバーから最新データを取得
-      onTodosUpdate();
-    } catch (error: any) {
-      console.error('Error moving todo:', error);
-      console.error('Error details:', error.response?.data, error.response?.status, error.message);
-      // エラー時は楽観的更新を元に戻す
-      setOptimisticTodos(todos);
+      setActiveId(null);
+      setOverId(null);
+
+      try {
+        // API呼び出し
+        const updateData: { project_id: number | null } = {
+          project_id: projectId,
+        };
+        
+        await todoApi.update(todoId, updateData);
+        
+        // サーバーから最新データを取得
+        onTodosUpdate();
+      } catch (error: any) {
+        console.error('Error moving todo:', error);
+        // エラー時は楽観的更新を元に戻す
+        setOptimisticTodos(todos);
+      }
     }
   };
 
@@ -729,14 +800,8 @@ export default function KanbanBoard({
                 }}
               >
                 <div className="flex items-start gap-2">
-                  {todo.subject && (
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0 mt-1"
-                      style={{ backgroundColor: todoColor }}
-                    />
-                  )}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-800">
+                    <div className="text-sm font-medium text-gray-800 truncate">
                       {(() => {
                         let displayTitle = todo.title;
                         // タイトルに【科目名】の形式が含まれている場合、最新の科目名に置き換え

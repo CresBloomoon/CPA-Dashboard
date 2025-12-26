@@ -67,16 +67,9 @@ export default function TodoItem({
         batchCompletionDelay={batchCompletionDelay}
         size="md"
       />
-      <div className="flex-1">
+      <div className="flex-1 min-w-0">
         <div className={`flex items-center gap-2 ${todo.completed ? 'text-gray-600' : 'text-gray-800'}`}>
-          {todo.subject && (
-            <span
-              className="inline-block w-3 h-3 rounded-full flex-shrink-0"
-              style={{ backgroundColor: subjectColor }}
-              title={todo.subject}
-            />
-          )}
-          <span>{todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}</span>
+          <span className="truncate">{todo.subject ? `【${todo.subject}】${todo.title}` : todo.title}</span>
         </div>
         <div className="flex items-center gap-2 mt-1 text-sm">
           {dueDateText && (
@@ -104,4 +97,5 @@ export default function TodoItem({
     </div>
   );
 }
+
 

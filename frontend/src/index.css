@@ -226,6 +226,7 @@ body {
   border-radius: var(--checkbox-border-radius, 50%);
   background: var(--secondary-color, #fff);
   border: var(--checkbox-border-width, 1px) var(--checkbox-border-style, solid) var(--checkbox-border-color, #d9d9d9);
+  box-shadow: 0 0 0 1px var(--checkbox-border-color, #d9d9d9);
   -webkit-transition: all 0.3s;
   -o-transition: all 0.3s;
   transition: all 0.3s;
@@ -262,22 +263,27 @@ body {
   border-radius: 50%;
   background: var(--primary-color, #1677ff);
   opacity: 0;
-  -webkit-transition: opacity 0.3s ease;
-  -o-transition: opacity 0.3s ease;
-  transition: opacity 0.3s ease;
+  transform: scale(0.7);
+  transform-origin: center;
+  -webkit-transition: opacity 0.3s ease, transform 0.2s ease;
+  -o-transition: opacity 0.3s ease, transform 0.2s ease;
+  transition: opacity 0.3s ease, transform 0.2s ease;
   pointer-events: none;
 }
 
 .ui-checkbox:hover {
-  border-color: var(--primary-color, #1677ff);
+  border-color: var(--primary-hover-color, #1677ff);
+  box-shadow: 0 0 0 1px var(--primary-hover-color, #1677ff);
 }
 
 .ui-checkbox:checked {
   border-color: var(--primary-color, #1677ff);
+  box-shadow: 0 0 0 1px var(--primary-color, #1677ff);
 }
 
 .ui-checkbox:checked::before {
   opacity: 1;
+  transform: scale(1);
 }
 
 .ui-checkbox:active:not(:checked)::after {
