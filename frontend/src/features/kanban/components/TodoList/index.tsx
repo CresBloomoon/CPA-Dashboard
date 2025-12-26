@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { ANIMATION_THEME } from '../../../../config/appConfig';
 import { todoApi } from '../../../../api/api';
 import type { Todo, Subject, Project } from '../../../../api/types';
 import TodoCreateModal from '../TodoCreateModal';
@@ -90,15 +92,19 @@ export default function TodoList({
         <Sidebar
           title="リマインダ"
           headerRight={
-            <button
+            <motion.button
               onClick={handleAddClick}
-              className="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
+              className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-gray-100 transition-colors"
               title="リマインダを追加"
+              aria-label="リマインダを追加"
+              whileHover={{ scale: ANIMATION_THEME.SCALES.BUTTON.HOVER }}
+              whileTap={{ scale: ANIMATION_THEME.SCALES.BUTTON.TAP }}
+              transition={ANIMATION_THEME.SPRINGS.UI_TIGHT}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-            </button>
+            </motion.button>
           }
           items={[
             { id: 'today', label: '今日', count: todayCount },

@@ -1,5 +1,6 @@
 import { type ReactNode, useRef } from 'react';
 import { LayoutGroup, motion } from 'framer-motion';
+import { ANIMATION_THEME } from '../../../config/appConfig';
 
 export interface SidebarItem {
   id: string;
@@ -24,7 +25,7 @@ export default function Sidebar({ title, items, activeItemId, onItemClick, heade
       <div className="p-6 flex-shrink-0 relative">
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-semibold text-gray-700">{title}</h2>
-          {headerRight && <div className="flex-shrink-0">{headerRight}</div>}
+          {headerRight && <div className="flex-shrink-0 min-w-10 flex justify-end">{headerRight}</div>}
         </div>
         <LayoutGroup id={layoutGroupIdRef.current}>
           <nav className="space-y-2 relative">
@@ -45,14 +46,14 @@ export default function Sidebar({ title, items, activeItemId, onItemClick, heade
                     <motion.div
                       layoutId="active-pill"
                       className="absolute inset-0 bg-blue-500 rounded-lg shadow-md"
-                      transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+                      transition={ANIMATION_THEME.SPRINGS.SIDEBAR_PILL}
                     />
                   )}
 
                   <span className="relative z-10">{item.label}</span>
                   {item.count !== undefined && (
                     <span
-                      className={`relative z-10 text-sm font-normal transition-colors duration-200 ${
+                      className={`relative z-10 text-sm font-normal transition-colors duration-200 min-w-10 text-right ${
                         isActive ? 'text-white/70' : 'text-gray-400'
                       }`}
                     >

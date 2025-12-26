@@ -1,10 +1,19 @@
 import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { TIMER_SETTINGS } from '../../../config/appConfig';
 
 interface TimerState {
   elapsedTime: number; // 秒単位
   isRunning: boolean;
   selectedSubject: string;
-  mode: 'stopwatch' | 'manual';
+  mode: 'pomodoro' | 'stopwatch' | 'manual';
+  pomodoroPhase: 'focus' | 'break';
+  pomodoroFocusMinutes: number;
+  pomodoroBreakMinutes: number;
+  pomodoroSets: number;
+  /** 現在のセット数（1から開始） */
+  pomodoroCurrentSet: number;
+  /** 現在フェーズ（focus/break）の残り秒 */
+  pomodoroRemainingSeconds: number;
   manualHours: number;
   manualMinutes: number;
   startTime: number | null; // タイマー開始時のタイムスタンプ
@@ -16,9 +25,12 @@ interface TimerContextType {
   stopTimer: () => void;
   resetTimer: () => void;
   setSelectedSubject: (subject: string) => void;
-  setMode: (mode: 'stopwatch' | 'manual') => void;
+  setMode: (mode: 'pomodoro' | 'stopwatch' | 'manual') => void;
   setManualHours: (hours: number) => void;
   setManualMinutes: (minutes: number) => void;
+  setPomodoroFocusMinutes: (minutes: number) => void;
+  setPomodoroBreakMinutes: (minutes: number) => void;
+  setPomodoroSets: (sets: number) => void;
   saveRecord: (onRecorded: () => void) => Promise<{ success: boolean; message: string }>;
 }
 
@@ -26,16 +38,77 @@ const TimerContext = createContext<TimerContextType | undefined>(undefined);
 
 const STORAGE_KEY = 'studyTimerState';
 
+
 // localStorageから状態を復元
 const loadTimerState = (): TimerState => {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
       const state = JSON.parse(saved);
+      const focusMinutes =
+        typeof state.pomodoroFocusMinutes === 'number' && state.pomodoroFocusMinutes >= 0
+          ? state.pomodoroFocusMinutes
+          : TIMER_SETTINGS.POMODORO.DEFAULT.FOCUS_MINUTES;
+      const breakMinutes =
+        typeof state.pomodoroBreakMinutes === 'number' && state.pomodoroBreakMinutes >= 0
+          ? state.pomodoroBreakMinutes
+          : TIMER_SETTINGS.POMODORO.DEFAULT.BREAK_MINUTES;
+      const sets =
+        typeof state.pomodoroSets === 'number' && state.pomodoroSets >= TIMER_SETTINGS.POMODORO.RANGE.SETS.MIN && state.pomodoroSets <= TIMER_SETTINGS.POMODORO.RANGE.SETS.MAX
+          ? state.pomodoroSets
+          : TIMER_SETTINGS.POMODORO.DEFAULT.SETS;
+      const currentSet =
+        typeof state.pomodoroCurrentSet === 'number' && state.pomodoroCurrentSet >= 1 && state.pomodoroCurrentSet <= sets
+          ? state.pomodoroCurrentSet
+          : 1;
+      const focusSeconds = focusMinutes * 60;
+      const breakSeconds = breakMinutes * 60;
+      const phase: 'focus' | 'break' = state.pomodoroPhase === 'break' ? 'break' : 'focus';
+      const remainingSecondsRaw =
+        typeof state.pomodoroRemainingSeconds === 'number' ? state.pomodoroRemainingSeconds : focusSeconds;
+
       // 実行中だった場合、経過時間を再計算
       if (state.isRunning && state.startTime && state.startTime > 0) {
         const now = Date.now();
         const totalElapsed = Math.floor((now - state.startTime) / 1000);
+        // pomodoroの場合は残り時間を再計算（focus→break への繰り上げも考慮）
+        if (state.mode === 'pomodoro') {
+          // ※このアプリではフェーズを自動継続しない（00:00到達で停止し、次フェーズの開始を待つ）
+          const elapsed = totalElapsed;
+          const remaining = Math.max(remainingSecondsRaw - elapsed, 0);
+
+          // まだ同じフェーズ内で走っている
+          if (elapsed < remainingSecondsRaw && remaining > 0) {
+            return {
+              ...state,
+              pomodoroPhase: phase,
+              pomodoroFocusMinutes: focusMinutes,
+              pomodoroBreakMinutes: breakMinutes,
+              pomodoroSets: sets,
+              pomodoroCurrentSet: currentSet,
+              pomodoroRemainingSeconds: remaining,
+              elapsedTime: 0,
+              isRunning: true,
+              startTime: state.startTime,
+            };
+          }
+
+          // フェーズが終わっていた（＝00:00到達）。次フェーズに切り替えた状態で停止して待機させる
+          const nextPhase: 'focus' | 'break' = phase === 'focus' ? 'break' : 'focus';
+          const nextSeconds = nextPhase === 'break' ? breakSeconds : focusSeconds;
+          return {
+            ...state,
+            pomodoroPhase: nextPhase,
+            pomodoroFocusMinutes: focusMinutes,
+            pomodoroBreakMinutes: breakMinutes,
+            pomodoroSets: sets,
+            pomodoroCurrentSet: currentSet,
+            pomodoroRemainingSeconds: nextSeconds,
+            elapsedTime: 0,
+            isRunning: false,
+            startTime: null,
+          };
+        }
         return {
           ...state,
           elapsedTime: totalElapsed,
@@ -45,6 +118,12 @@ const loadTimerState = (): TimerState => {
       return {
         ...state,
         startTime: null,
+        pomodoroPhase: phase,
+        pomodoroFocusMinutes: focusMinutes,
+        pomodoroBreakMinutes: breakMinutes,
+        pomodoroSets: sets,
+        pomodoroCurrentSet: currentSet,
+        pomodoroRemainingSeconds: remainingSecondsRaw,
       };
     }
   } catch (error) {
@@ -54,7 +133,13 @@ const loadTimerState = (): TimerState => {
     elapsedTime: 0,
     isRunning: false,
     selectedSubject: '',
-    mode: 'stopwatch',
+    mode: 'pomodoro',
+    pomodoroPhase: 'focus',
+    pomodoroFocusMinutes: TIMER_SETTINGS.POMODORO.DEFAULT.FOCUS_MINUTES,
+    pomodoroBreakMinutes: TIMER_SETTINGS.POMODORO.DEFAULT.BREAK_MINUTES,
+    pomodoroSets: TIMER_SETTINGS.POMODORO.DEFAULT.SETS,
+    pomodoroCurrentSet: 1,
+    pomodoroRemainingSeconds: TIMER_SETTINGS.POMODORO.DEFAULT.FOCUS_MINUTES * 60,
     manualHours: 0,
     manualMinutes: 0,
     startTime: null,
@@ -92,7 +177,75 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         const now = Date.now();
         const elapsed = Math.floor((now - startTimeRef.current) / 1000);
         setTimerState(prev => ({ ...prev, elapsedTime: elapsed }));
-      }, 1000);
+      }, TIMER_SETTINGS.ENGINE.TICK_INTERVAL_MS);
+    } else if (timerState.isRunning && timerState.mode === 'pomodoro') {
+      // pomodoro: 残り時間を減らす（現在フェーズの開始時刻から再計算）
+      const focusSeconds = timerState.pomodoroFocusMinutes * 60;
+      const breakSeconds = timerState.pomodoroBreakMinutes * 60;
+      const phaseTotalSeconds = timerState.pomodoroPhase === 'break' ? breakSeconds : focusSeconds;
+
+      if (!startTimeRef.current || startTimeRef.current === 0) {
+        const elapsedAlready = Math.max(phaseTotalSeconds - (timerState.pomodoroRemainingSeconds || phaseTotalSeconds), 0);
+        startTimeRef.current = Date.now() - elapsedAlready * 1000;
+        setTimerState(prev => ({ ...prev, startTime: startTimeRef.current }));
+      }
+
+      intervalRef.current = setInterval(() => {
+        const now = Date.now();
+        const elapsed = Math.floor((now - startTimeRef.current) / 1000);
+        const remaining = Math.max(phaseTotalSeconds - elapsed, 0);
+
+        if (remaining <= 0) {
+          // focus終了 → breakへ切り替え、停止して待つ
+          if (timerState.pomodoroPhase === 'focus') {
+            setTimerState(prev => ({
+              ...prev,
+              isRunning: false,
+              pomodoroPhase: 'break',
+              pomodoroRemainingSeconds: breakSeconds,
+              startTime: null,
+            }));
+            startTimeRef.current = 0;
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
+            return;
+          }
+
+          // break終了 → セット数をカウントアップし、停止して次回はfocusから（待機）
+          if (timerState.pomodoroPhase === 'break') {
+            setTimerState(prev => ({
+              ...prev,
+              isRunning: false,
+              pomodoroPhase: 'focus',
+              pomodoroRemainingSeconds: focusSeconds,
+              pomodoroCurrentSet: Math.min(prev.pomodoroCurrentSet + 1, prev.pomodoroSets),
+              startTime: null,
+            }));
+            startTimeRef.current = 0;
+            if (intervalRef.current) {
+              clearInterval(intervalRef.current);
+              intervalRef.current = null;
+            }
+            return;
+          }
+          startTimeRef.current = 0;
+          setTimerState(prev => ({
+            ...prev,
+            isRunning: false,
+            startTime: null,
+            pomodoroPhase: 'focus',
+            pomodoroRemainingSeconds: focusSeconds,
+          }));
+          return;
+        }
+
+        setTimerState(prev => ({
+          ...prev,
+          pomodoroRemainingSeconds: remaining,
+        }));
+      }, TIMER_SETTINGS.ENGINE.TICK_INTERVAL_MS);
     } else {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -108,7 +261,14 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         clearInterval(intervalRef.current);
       }
     };
-  }, [timerState.isRunning, timerState.mode]);
+  }, [
+    timerState.isRunning,
+    timerState.mode,
+    // pomodoro phase/setting changes should re-arm the interval (but not every tick)
+    timerState.pomodoroPhase,
+    timerState.pomodoroFocusMinutes,
+    timerState.pomodoroBreakMinutes,
+  ]);
 
   // 状態が変更されたらlocalStorageに保存
   useEffect(() => {
@@ -132,6 +292,9 @@ export function TimerProvider({ children }: { children: ReactNode }) {
     if (!timerState.selectedSubject) {
       return;
     }
+    if (timerState.mode === 'manual') {
+      return;
+    }
     if (timerState.mode === 'stopwatch') {
       startTimeRef.current = Date.now() - timerState.elapsedTime * 1000;
       setTimerState(prev => ({
@@ -139,8 +302,20 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         isRunning: true,
         startTime: startTimeRef.current,
       }));
-    } else {
-      setTimerState(prev => ({ ...prev, isRunning: true }));
+    } else if (timerState.mode === 'pomodoro') {
+      const focusSeconds = timerState.pomodoroFocusMinutes * 60;
+      const breakSeconds = timerState.pomodoroBreakMinutes * 60;
+      const phaseTotalSeconds = timerState.pomodoroPhase === 'break' ? breakSeconds : focusSeconds;
+          const remaining =
+            timerState.pomodoroRemainingSeconds > 0 ? timerState.pomodoroRemainingSeconds : phaseTotalSeconds;
+      const elapsedAlready = phaseTotalSeconds - remaining;
+      startTimeRef.current = Date.now() - elapsedAlready * 1000;
+      setTimerState(prev => ({
+        ...prev,
+        isRunning: true,
+        startTime: startTimeRef.current,
+        pomodoroRemainingSeconds: remaining,
+      }));
     }
   };
 
@@ -159,17 +334,28 @@ export function TimerProvider({ children }: { children: ReactNode }) {
       elapsedTime: 0,
       isRunning: false,
       startTime: null,
+      pomodoroPhase: 'focus',
+      pomodoroCurrentSet: 1,
+      pomodoroRemainingSeconds: prev.mode === 'pomodoro' ? prev.pomodoroFocusMinutes * 60 : prev.pomodoroRemainingSeconds,
     }));
     startTimeRef.current = 0;
-    localStorage.removeItem(STORAGE_KEY);
   };
 
   const setSelectedSubject = (subject: string) => {
     setTimerState(prev => ({ ...prev, selectedSubject: subject }));
   };
 
-  const setMode = (mode: 'stopwatch' | 'manual') => {
-    setTimerState(prev => ({ ...prev, mode, isRunning: false, elapsedTime: 0, startTime: null }));
+  const setMode = (mode: 'pomodoro' | 'stopwatch' | 'manual') => {
+    setTimerState(prev => ({
+      ...prev,
+      mode,
+      isRunning: false,
+      elapsedTime: 0,
+      startTime: null,
+      pomodoroPhase: 'focus',
+      pomodoroCurrentSet: 1,
+      pomodoroRemainingSeconds: mode === 'pomodoro' ? prev.pomodoroFocusMinutes * 60 : prev.pomodoroRemainingSeconds,
+    }));
     startTimeRef.current = 0;
   };
 
@@ -179,6 +365,40 @@ export function TimerProvider({ children }: { children: ReactNode }) {
 
   const setManualMinutes = (minutes: number) => {
     setTimerState(prev => ({ ...prev, manualMinutes: minutes }));
+  };
+
+  const setPomodoroFocusMinutes = (minutes: number) => {
+    setTimerState(prev => ({
+      ...prev,
+      pomodoroFocusMinutes: minutes,
+      pomodoroPhase: 'focus',
+      isRunning: false,
+      startTime: null,
+      pomodoroRemainingSeconds: minutes * 60,
+    }));
+    startTimeRef.current = 0;
+  };
+
+  const setPomodoroBreakMinutes = (minutes: number) => {
+    setTimerState(prev => ({
+      ...prev,
+      pomodoroBreakMinutes: minutes,
+      // 変更時はfocusへ戻して再計算
+      pomodoroPhase: 'focus',
+      isRunning: false,
+      startTime: null,
+      pomodoroRemainingSeconds: prev.pomodoroFocusMinutes * 60,
+    }));
+    startTimeRef.current = 0;
+  };
+
+  const setPomodoroSets = (sets: number) => {
+    setTimerState(prev => ({
+      ...prev,
+      pomodoroSets: sets,
+      // セット数を変更したとき、現在のセット数が新しいセット数を超えている場合はリセット
+      pomodoroCurrentSet: prev.pomodoroCurrentSet > sets ? 1 : prev.pomodoroCurrentSet,
+    }));
   };
 
   // 学習時間を記録する関数
@@ -198,6 +418,15 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         return { success: false, message: '記録する時間がありません' };
       }
       hours = timerState.elapsedTime / 3600;
+    } else if (timerState.mode === 'pomodoro') {
+      const focusSeconds = timerState.pomodoroFocusMinutes * 60;
+      const elapsedSeconds = timerState.pomodoroPhase === 'break'
+        ? focusSeconds
+        : Math.max(focusSeconds - timerState.pomodoroRemainingSeconds, 0);
+      if (elapsedSeconds === 0) {
+        return { success: false, message: '記録する時間がありません' };
+      }
+      hours = elapsedSeconds / 3600;
     } else {
       hours = timerState.manualHours + timerState.manualMinutes / 60;
     }
@@ -239,6 +468,12 @@ export function TimerProvider({ children }: { children: ReactNode }) {
           study_hours: hours,
           notes: timerState.mode === 'stopwatch' 
             ? `ストップウォッチで記録: ${formatTime(timerState.elapsedTime)}` 
+            : timerState.mode === 'pomodoro'
+              ? `ポモドーロで記録: ${formatTime(
+                  timerState.pomodoroPhase === 'break'
+                    ? focusSeconds
+                    : Math.max(focusSeconds - timerState.pomodoroRemainingSeconds, 0)
+                )}`
             : `手動記録: ${timerState.manualHours > 0 ? `${timerState.manualHours}時間` : ''}${timerState.manualMinutes}分`,
         };
         await studyProgressApi.create(newProgress);
@@ -270,6 +505,9 @@ export function TimerProvider({ children }: { children: ReactNode }) {
         setMode,
         setManualHours,
         setManualMinutes,
+        setPomodoroFocusMinutes,
+        setPomodoroBreakMinutes,
+        setPomodoroSets,
         saveRecord,
       }}
     >

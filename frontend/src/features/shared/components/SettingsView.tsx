@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { settingsApi } from '../../../api/api';
 import type { Subject, ReviewTiming } from '../../../api/types';
+import { APP_LIMITS } from '../../../config/appConfig';
 
 interface SettingsViewProps {
   onSubjectsChange: (subjects: string[]) => void;
@@ -594,11 +595,13 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     const subjectNameElement = subjectNameRefs.current[index];
     if (subjectNameElement) {
       const rect = subjectNameElement.getBoundingClientRect();
-      const popupWidth = 200; // カラーピッカーの幅（おおよそ）
       // 科目名の左側に表示
       setColorPickerPosition({ 
         top: rect.top, 
-        left: rect.left - popupWidth - 8 
+        left:
+          rect.left -
+          APP_LIMITS.SETTINGS.COLOR_PICKER.WIDTH_PX -
+          APP_LIMITS.SETTINGS.COLOR_PICKER.GAP_PX 
       });
     }
     setColorPickerIndex(colorPickerIndex === index ? null : index);

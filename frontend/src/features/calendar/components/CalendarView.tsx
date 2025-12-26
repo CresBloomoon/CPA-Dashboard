@@ -17,6 +17,7 @@ import { ja } from 'date-fns/locale';
 import { todoApi } from '../../../api/api';
 import type { Todo, Subject } from '../../../api/types';
 import AnimatedCheckbox from '../../kanban/components/AnimatedCheckbox';
+import { APP_LIMITS } from '../../../config/appConfig';
 
 interface CalendarViewProps {
   todos: Todo[];
@@ -84,7 +85,9 @@ function DraggableTodoCard({
         />
       </div>
       <span className="truncate">
-        {displayTitle.length > 8 ? `${displayTitle.substring(0, 8)}...` : displayTitle}
+        {displayTitle.length > APP_LIMITS.CALENDAR.TITLE_TRUNCATE_CHARS
+          ? `${displayTitle.substring(0, APP_LIMITS.CALENDAR.TITLE_TRUNCATE_CHARS)}...`
+          : displayTitle}
       </span>
     </div>
   );
@@ -147,8 +150,8 @@ function DraggableCompletedTodoCard({
         />
       </div>
       <span className="truncate" title={displayText}>
-        {displayText.length > 8 
-          ? `${displayText.substring(0, 8)}...` 
+        {displayText.length > APP_LIMITS.CALENDAR.TITLE_TRUNCATE_CHARS
+          ? `${displayText.substring(0, APP_LIMITS.CALENDAR.TITLE_TRUNCATE_CHARS)}...`
           : displayText}
       </span>
     </div>
@@ -206,7 +209,7 @@ function DroppableDateCell({
         {format(date, 'd')}
       </div>
       <div className="space-y-1">
-        {incompleteTodos.slice(0, 4).map((todo) => (
+        {incompleteTodos.slice(0, APP_LIMITS.CALENDAR.MAX_INCOMPLETE_TODOS).map((todo) => (
           <DraggableTodoCard
             key={todo.id}
             todo={todo}
@@ -215,14 +218,16 @@ function DroppableDateCell({
             onUpdate={onUpdateTodos}
           />
         ))}
-        {incompleteTodos.length > 4 && (
+        {incompleteTodos.length > APP_LIMITS.CALENDAR.MAX_INCOMPLETE_TODOS && (
           <div className="text-xs text-gray-500">
-            +{incompleteTodos.length - 4}件
+            +{incompleteTodos.length - APP_LIMITS.CALENDAR.MAX_INCOMPLETE_TODOS}件
           </div>
         )}
-        {completedTodos.length > 0 && incompleteTodos.length <= 4 && (
+        {completedTodos.length > 0 && incompleteTodos.length <= APP_LIMITS.CALENDAR.MAX_INCOMPLETE_TODOS && (
           <>
-            {completedTodos.slice(0, incompleteTodos.length === 0 ? 4 : 1).map((todo) => (
+            {completedTodos
+              .slice(0, incompleteTodos.length === 0 ? APP_LIMITS.CALENDAR.MAX_INCOMPLETE_TODOS : 1)
+              .map((todo) => (
               <DraggableCompletedTodoCard
                 key={todo.id}
                 todo={todo}
@@ -517,7 +522,9 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
                   style={{ borderColor: subjectColor || '#2563eb' }}
                 />
                 <span className="truncate">
-                  {displayTitle.length > 8 ? `${displayTitle.substring(0, 8)}...` : displayTitle}
+                  {displayTitle.length > APP_LIMITS.CALENDAR.TITLE_TRUNCATE_CHARS
+                    ? `${displayTitle.substring(0, APP_LIMITS.CALENDAR.TITLE_TRUNCATE_CHARS)}...`
+                    : displayTitle}
                 </span>
               </div>
             );

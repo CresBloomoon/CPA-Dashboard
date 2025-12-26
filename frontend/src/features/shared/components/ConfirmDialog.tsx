@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Dialog } from '@headlessui/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ANIMATION_THEME } from '../../../config/appConfig';
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -45,7 +46,7 @@ export default function ConfirmDialog({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: ANIMATION_THEME.DURATIONS_S.FADE }}
             onClick={onCancel}
           />
 
@@ -56,7 +57,7 @@ export default function ConfirmDialog({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={ANIMATION_THEME.SPRINGS.MODAL}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               <Dialog.Title className="text-lg font-semibold text-gray-800">

@@ -1,4 +1,6 @@
-import { type KeyboardEvent, type ChangeEvent } from 'react';
+import { type KeyboardEvent, type ChangeEvent, useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { ANIMATION_THEME } from '../../../../config/appConfig';
 
 interface SearchBarProps {
   searchTags: string[];
@@ -15,11 +17,38 @@ export default function SearchBar({
   onSearchInputKeyDown,
   onRemoveSearchTag,
 }: SearchBarProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [isFocused, setIsFocused] = useState(false);
+
+  // フォーカスが子要素にあるかを監視して、motion用の状態に反映
+  useEffect(() => {
+    const handler = () => {
+      const el = containerRef.current;
+      if (!el) return;
+      const active = document.activeElement;
+      setIsFocused(!!(active && el.contains(active)));
+    };
+    window.addEventListener('focusin', handler);
+    window.addEventListener('focusout', handler);
+    return () => {
+      window.removeEventListener('focusin', handler);
+      window.removeEventListener('focusout', handler);
+    };
+  }, []);
+
   return (
     <>
       <div className="flex items-center justify-end gap-4 pl-6 pr-0 pb-4 flex-shrink-0">
         {/* 検索バー */}
-        <div className="flex flex-wrap items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent bg-white min-h-[42px] w-80">
+        <motion.div
+          ref={containerRef}
+          className="flex flex-wrap items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg bg-white min-h-[42px] w-80"
+          animate={{
+            boxShadow: isFocused ? 'inset 0 0 0 2px #3b82f6' : 'inset 0 0 0 0px rgba(0,0,0,0)',
+            borderColor: isFocused ? 'transparent' : '#d1d5db',
+          }}
+          transition={ANIMATION_THEME.SPRINGS.UI}
+        >
           <div className="flex items-center text-gray-400">
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -54,7 +83,7 @@ export default function SearchBar({
             placeholder={searchTags.length === 0 ? "検索..." : ""}
             className="flex-1 min-w-[120px] outline-none bg-transparent"
           />
-        </div>
+        </motion.div>
       </div>
 
       {/* 検索タグの説明 */}

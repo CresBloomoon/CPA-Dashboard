@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Todo } from '../../../api/types';
 import { todoApi } from '../../../api/api';
+import { TIMER_SETTINGS, UI_VISUALS } from '../../../config/appConfig';
 
 interface AnimatedCheckboxProps {
   todo: Todo;
@@ -46,7 +47,7 @@ export default function AnimatedCheckbox({
   todo, 
   subjectColor = '#3b82f6',
   onUpdate,
-  batchCompletionDelay = 1500,
+  batchCompletionDelay = TIMER_SETTINGS.CHECKBOX.BATCH_COMPLETION_DELAY_MS,
   size = 'md',
   className = ''
 }: AnimatedCheckboxProps) {
@@ -161,7 +162,7 @@ export default function AnimatedCheckbox({
     }
   };
 
-  const checkboxDiameter = size === 'sm' ? '25px' : '25px';
+  const checkboxDiameter = `${UI_VISUALS.CHECKBOX.DIAMETER_PX}px`;
   // globalCompletingIdsに含まれているか、または既に完了しているかで判定
   // ただし、globalUncompletingIdsに含まれている場合はチェックを外す
   const isChecked = (todo.completed || globalCompletingIds.has(todo.id)) && !globalUncompletingIds.has(todo.id);
@@ -183,7 +184,7 @@ export default function AnimatedCheckbox({
           '--checkbox-diameter': checkboxDiameter,
           '--checkbox-border-radius': '50%',
           '--checkbox-border-color': subjectColor,
-          '--checkbox-border-width': '1px',
+          '--checkbox-border-width': `${UI_VISUALS.CHECKBOX.BORDER_WIDTH_PX}px`,
           '--checkbox-border-style': 'solid',
         } as React.CSSProperties}
       />

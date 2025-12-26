@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Dialog } from '@headlessui/react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { ANIMATION_THEME } from '../../../config/appConfig';
 import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
 import { addDays, format } from 'date-fns';
@@ -212,7 +213,7 @@ export default function TodoCreateModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: ANIMATION_THEME.DURATIONS_S.FADE }}
             onClick={closeModal}
           />
 
@@ -224,7 +225,7 @@ export default function TodoCreateModal({
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              transition={ANIMATION_THEME.SPRINGS.MODAL}
               onClick={(e: React.MouseEvent) => e.stopPropagation()}
             >
               <div className="p-6">

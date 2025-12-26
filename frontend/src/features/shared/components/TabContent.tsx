@@ -1,6 +1,5 @@
 import { calculateTodoCounts } from '../../../utils/todoCounts';
 import type { StudyProgress, Subject, Project, Todo } from '../../../api/types';
-import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import SummaryCards from '../../timer/components/SummaryCards';
 import Heatmap from '../../calendar/components/Heatmap';
 import StudyTimer from '../../timer/components/StudyTimer';
@@ -50,34 +49,9 @@ export default function TabContent({
     ? progressList.reduce((sum, p) => sum + p.progress_percent, 0) / progressList.length
     : 0;
 
-  const transition = {
-    type: 'spring' as const,
-    stiffness: 300,
-    damping: 30,
-  };
-  const variants = {
-    // 右から入る
-    initial: { opacity: 0, x: 20 },
-    // 定位置へ
-    animate: { opacity: 1, x: 0 },
-    // 左へ消える
-    exit: { opacity: 0, x: -20 },
-  };
-
   return (
-    <MotionConfig reducedMotion="never">
-      <div className="relative overflow-hidden">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={activeTab}
-            variants={variants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={transition}
-            className="w-full"
-          >
-          {activeTab === 'dashboard' && (
+    <div className="w-full">
+      {activeTab === 'dashboard' && (
         <div className="space-y-6">
           <SummaryCards
             totalHours={totalHours}
@@ -95,7 +69,8 @@ export default function TabContent({
       )}
 
       {activeTab === 'timer' && (
-        <div className="max-w-2xl mx-auto">
+        <div className="w-full">
+          {/* 学習時間タブは背景コンテナ（ネイビー）を他タブのメイン領域に近い幅まで広げる */}
           <StudyTimer onRecorded={onFetchData} subjects={subjects} subjectsWithColors={subjectsWithColors} />
         </div>
       )}
@@ -141,10 +116,7 @@ export default function TabContent({
           />
         </div>
       )}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-    </MotionConfig>
+    </div>
   );
 }
 
