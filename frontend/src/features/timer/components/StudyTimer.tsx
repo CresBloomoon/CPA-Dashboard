@@ -146,11 +146,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     return `pomodoro-ring-${timerState.selectedSubject || 'default'}`;
   }, [timerState.mode, timerState.selectedSubject]);
 
-  // 手動入力モードのアニメーション用キー
-  const manualModeIntroKey = useMemo(() => {
-    if (timerState.mode !== 'manual') return 'no-manual';
-    return `manual-mode-${timerState.manualHours}-${timerState.manualMinutes}`;
-  }, [timerState.mode, timerState.manualHours, timerState.manualMinutes]);
 
   const circleIsInteractive = timerState.mode !== 'manual';
   const immersiveEligible =
@@ -658,13 +653,13 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             {/* 中央の時間表示（数字のみ hover トリガー） */}
             <motion.div
               key={timerState.mode === 'manual' 
-                ? `manual-content-${manualModeIntroKey}`
+                ? `manual-content-${timerState.mode}`
                 : `pomodoro-content-${pomodoroRingIntroKey}`}
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
               style={{ transformOrigin: '50% 50%' }}
-              initial={{ scale: ANIMATION_THEME.SCALES.POMODORO.CONTENT_INTRO_START, opacity: 0 }}
+              initial={timerState.mode === 'manual' ? { scale: 1, opacity: 1 } : { scale: ANIMATION_THEME.SCALES.POMODORO.CONTENT_INTRO_START, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              transition={{
+              transition={timerState.mode === 'manual' ? { duration: 0 } : {
                 duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
                 ease: ANIMATION_THEME.EASINGS.OUT_BACK,
               }}
