@@ -644,9 +644,18 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             {/* セット進行状況表示（ポモドーロのみ / サークル上部） */}
             {timerState.mode === 'pomodoro' && (
               <div className="absolute top-8 left-1/2 -translate-x-1/2 pointer-events-none">
-                <div className="text-xs text-slate-200/50 tabular-nums">
+                <motion.div
+                  key={`pomodoro-set-${timerState.pomodoroCurrentSet}-${timerState.pomodoroSets}`}
+                  className="text-xs text-slate-200/50 tabular-nums"
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    duration: ANIMATION_THEME.DURATIONS_S.POPOVER,
+                    ease: 'easeOut',
+                  }}
+                >
                   {timerState.pomodoroCurrentSet}/{timerState.pomodoroSets}
-                </div>
+                </motion.div>
               </div>
             )}
 
