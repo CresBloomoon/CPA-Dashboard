@@ -906,6 +906,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         strokeDasharray: [`${ringCircumference * progressInMinute} ${ringCircumference}`, `${ringCircumference} ${ringCircumference}`],
                       }}
                       transition={{ ease: 'linear', duration: 1 }}
+                      filter={`url(#glow-${stopwatchRingGradientId})`}
                     />
                     {/* 先端ハイライト */}
                     {progressLength > 0 && (
