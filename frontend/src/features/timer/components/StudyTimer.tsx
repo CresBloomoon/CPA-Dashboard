@@ -205,6 +205,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordSuccess, setIsRecordSuccess] = useState(false);
+  const [shouldSlideOutTimer, setShouldSlideOutTimer] = useState(false);
   const gradientSeed = useId();
   const idleTimerRef = useRef<number | null>(null);
   const [isImmersiveHidden, setIsImmersiveHidden] = useState(false);
@@ -264,9 +265,14 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     // 成功時のアニメーション
     if (result.success) {
       setIsRecordSuccess(true);
+      // タイマー数字の「吸い込み」アニメーション
+      setShouldSlideOutTimer(true);
+      setTimeout(() => {
+        setShouldSlideOutTimer(false);
+      }, 600); // 0.6秒でスライドアウト完了
       setTimeout(() => {
         setIsRecordSuccess(false);
-      }, 2000); // 2秒後に元に戻す
+      }, 1500); // 1.5秒後に元に戻す
     }
     
     // トースト通知を表示
@@ -916,13 +922,19 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
               style={{ transformOrigin: '50% 50%' }}
               initial={{ scale: ANIMATION_THEME.SCALES.POMODORO.CONTENT_INTRO_START, opacity: 0 }}
-              animate={{ scale: 1, opacity: shouldShowMainCount ? 1 : 0 }}
-              transition={shouldShowMainCount
-                ? {
-                    duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
-                    ease: ANIMATION_THEME.EASINGS.OUT_BACK,
-                  }
-                : fadeTransition}
+              animate={{ 
+                scale: 1, 
+                opacity: shouldShowMainCount && !shouldSlideOutTimer ? 1 : 0,
+                y: shouldSlideOutTimer ? -20 : 0
+              }}
+              transition={shouldSlideOutTimer
+                ? { duration: 0.6, ease: 'easeOut' }
+                : shouldShowMainCount
+                  ? {
+                      duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
+                      ease: ANIMATION_THEME.EASINGS.OUT_BACK,
+                    }
+                  : fadeTransition}
             >
               <div className="relative flex items-center justify-center">
                 {/* ステータス背景アイコン（再生/一時停止） */}
@@ -1270,37 +1282,69 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             className={`w-full px-6 py-3 rounded-full font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 shadow-[0_16px_40px_rgba(0,0,0,0.50)] ${recordButtonFeedback.activeClass}`}
             animate={{
               backgroundColor: isRecordSuccess 
-                ? 'rgba(34, 197, 94, 0.9)' // green-500
+                ? (() => {
+                    const color = getSubjectColor(timerState.selectedSubject);
+                    // 科目カラーをrgba形式に変換（淡く光らせる）
+                    if (color) {
+                      const r = parseInt(color.slice(1, 3), 16);
+                      const g = parseInt(color.slice(3, 5), 16);
+                      const b = parseInt(color.slice(5, 7), 16);
+                      return `rgba(${r}, ${g}, ${b}, 0.7)`;
+                    }
+                    return 'rgba(34, 197, 94, 0.9)'; // fallback to green-500
+                  })()
                 : 'rgba(30, 41, 59, 0.45)', // slate-800/45
               borderColor: isRecordSuccess
-                ? 'rgba(34, 197, 94, 0.4)'
+                ? (() => {
+                    const color = getSubjectColor(timerState.selectedSubject);
+                    if (color) {
+                      const r = parseInt(color.slice(1, 3), 16);
+                      const g = parseInt(color.slice(3, 5), 16);
+                      const b = parseInt(color.slice(5, 7), 16);
+                      return `rgba(${r}, ${g}, ${b}, 0.5)`;
+                    }
+                    return 'rgba(34, 197, 94, 0.4)';
+                  })()
                 : 'rgba(186, 230, 253, 0.15)', // sky-200/15
+              scale: isRecordSuccess ? 1.02 : 1,
+              boxShadow: isRecordSuccess
+                ? (() => {
+                    const color = getSubjectColor(timerState.selectedSubject);
+                    if (color) {
+                      const r = parseInt(color.slice(1, 3), 16);
+                      const g = parseInt(color.slice(3, 5), 16);
+                      const b = parseInt(color.slice(5, 7), 16);
+                      return `0 0 30px rgba(${r}, ${g}, ${b}, 0.5), 0 16px 40px rgba(0,0,0,0.50)`;
+                    }
+                    return '0 0 30px rgba(34, 197, 94, 0.5), 0 16px 40px rgba(0,0,0,0.50)';
+                  })()
+                : '0 16px 40px rgba(0,0,0,0.50)',
             }}
             transition={{ duration: 0.3 }}
           >
-            <span className="flex items-center justify-center gap-2">
+            <span className="flex items-center justify-center">
               {isRecording ? (
                 '記録中...'
               ) : isRecordSuccess ? (
-                <>
-                  <motion.svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={{ 
-                      type: "spring",
-                      stiffness: 260,
-                      damping: 20,
-                      duration: 0.5
-                    }}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                  </motion.svg>
-                  記録完了！
-                </>
+                <motion.svg
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="white"
+                  viewBox="0 0 24 24"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.2, ease: 'easeOut' }}
+                >
+                  <motion.path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={3}
+                    d="M5 13l4 4L19 7"
+                    initial={{ pathLength: 0 }}
+                    animate={{ pathLength: 1 }}
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                  />
+                </motion.svg>
               ) : (
                 '記録'
               )}
