@@ -204,9 +204,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [isRecordSuccess, setIsRecordSuccess] = useState(false);
-  const [isRecordSuccessGlow, setIsRecordSuccessGlow] = useState(false);
-  const [shouldSlideOutTimer, setShouldSlideOutTimer] = useState(false);
   const gradientSeed = useId();
   const idleTimerRef = useRef<number | null>(null);
   const [isImmersiveHidden, setIsImmersiveHidden] = useState(false);
@@ -262,25 +259,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     setIsRecording(true);
     const result = await saveRecord(onRecorded);
     setIsRecording(false);
-    
-    // 成功時のアニメーション
-    if (result.success) {
-      setIsRecordSuccess(true);
-      // 最初は強く光らせる（グロウ効果）
-      setIsRecordSuccessGlow(true);
-      // タイマー数字の「吸い込み」アニメーション
-      setShouldSlideOutTimer(true);
-      setTimeout(() => {
-        setShouldSlideOutTimer(false);
-      }, 600); // 0.6秒でスライドアウト完了
-      // 0.3秒後からゆっくり元の色に戻す
-      setTimeout(() => {
-        setIsRecordSuccessGlow(false);
-      }, 300);
-      setTimeout(() => {
-        setIsRecordSuccess(false);
-      }, 1500); // 1.5秒後に元に戻す
-    }
     
     // トースト通知を表示
     setToastMessage(result.message);
@@ -413,8 +391,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     [isRecording, timerState.isRunning, timerState.selectedSubject, timerState.mode, timerState.elapsedTime, timerState.manualHours, timerState.manualMinutes, pomodoroElapsedFocusSeconds]
   );
 
-  // 記録ボタンのクリックフィードバック
-  const recordButtonFeedback = useClickFeedback(handleRecord, isRecordButtonDisabled);
+  // 記録ボタンはシンプルに：表示切り替えや成功演出は行わない
 
 
 
@@ -929,19 +906,13 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
               style={{ transformOrigin: '50% 50%' }}
               initial={{ scale: ANIMATION_THEME.SCALES.POMODORO.CONTENT_INTRO_START, opacity: 0 }}
-              animate={{ 
-                scale: 1, 
-                opacity: shouldShowMainCount && !shouldSlideOutTimer ? 1 : 0,
-                y: shouldSlideOutTimer ? -20 : 0
-              }}
-              transition={shouldSlideOutTimer
-                ? { duration: 0.6, ease: 'easeOut' }
-                : shouldShowMainCount
-                  ? {
-                      duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
-                      ease: ANIMATION_THEME.EASINGS.OUT_BACK,
-                    }
-                  : fadeTransition}
+              animate={{ scale: 1, opacity: shouldShowMainCount ? 1 : 0 }}
+              transition={shouldShowMainCount
+                ? {
+                    duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
+                    ease: ANIMATION_THEME.EASINGS.OUT_BACK,
+                  }
+                : fadeTransition}
             >
               <div className="relative flex items-center justify-center">
                 {/* ステータス背景アイコン（再生/一時停止） */}
@@ -1278,100 +1249,13 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
           transition={fadeTransition}
           style={{ pointerEvents: isImmersiveHidden ? 'none' : 'auto' }}
         >
-          <motion.button
+          <button
             disabled={isRecordButtonDisabled}
-            onKeyDown={recordButtonFeedback.handleKeyDown}
-            onKeyUp={recordButtonFeedback.handleKeyUp}
-            onBlur={recordButtonFeedback.handleBlur}
-            onPointerDown={recordButtonFeedback.handlePointerDown}
-            onPointerUp={recordButtonFeedback.handlePointerUp}
-            onPointerLeave={recordButtonFeedback.handlePointerLeave}
-            className={`w-full px-6 py-3 rounded-full font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 shadow-[0_16px_40px_rgba(0,0,0,0.50)] ${recordButtonFeedback.activeClass}`}
-            animate={{
-              backgroundColor: isRecordSuccess 
-                ? (() => {
-                    const color = getSubjectColor(timerState.selectedSubject);
-                    if (color) {
-                      const r = parseInt(color.slice(1, 3), 16);
-                      const g = parseInt(color.slice(3, 5), 16);
-                      const b = parseInt(color.slice(5, 7), 16);
-                      // 最初は強く光らせ、その後ゆっくり元に戻す
-                      return isRecordSuccessGlow 
-                        ? `rgba(${r}, ${g}, ${b}, 0.8)` // 一瞬強く光る
-                        : `rgba(${r}, ${g}, ${b}, 0.5)`; // その後薄くなる
-                    }
-                    return isRecordSuccessGlow 
-                      ? 'rgba(34, 197, 94, 0.9)' // fallback to green-500
-                      : 'rgba(34, 197, 94, 0.6)';
-                  })()
-                : 'rgba(30, 41, 59, 0.45)', // slate-800/45
-              borderColor: isRecordSuccess
-                ? (() => {
-                    const color = getSubjectColor(timerState.selectedSubject);
-                    if (color) {
-                      const r = parseInt(color.slice(1, 3), 16);
-                      const g = parseInt(color.slice(3, 5), 16);
-                      const b = parseInt(color.slice(5, 7), 16);
-                      return isRecordSuccessGlow 
-                        ? `rgba(${r}, ${g}, ${b}, 0.7)`
-                        : `rgba(${r}, ${g}, ${b}, 0.4)`;
-                    }
-                    return isRecordSuccessGlow 
-                      ? 'rgba(34, 197, 94, 0.7)'
-                      : 'rgba(34, 197, 94, 0.4)';
-                  })()
-                : 'rgba(186, 230, 253, 0.15)', // sky-200/15
-              scale: isRecordSuccess ? 1.02 : 1,
-              boxShadow: isRecordSuccess
-                ? (() => {
-                    const color = getSubjectColor(timerState.selectedSubject);
-                    if (color) {
-                      const r = parseInt(color.slice(1, 3), 16);
-                      const g = parseInt(color.slice(3, 5), 16);
-                      const b = parseInt(color.slice(5, 7), 16);
-                      return isRecordSuccessGlow
-                        ? `0 0 40px rgba(${r}, ${g}, ${b}, 0.7), 0 16px 40px rgba(0,0,0,0.50)` // 強く光る
-                        : `0 0 25px rgba(${r}, ${g}, ${b}, 0.4), 0 16px 40px rgba(0,0,0,0.50)`; // その後薄くなる
-                    }
-                    return isRecordSuccessGlow
-                      ? '0 0 40px rgba(34, 197, 94, 0.7), 0 16px 40px rgba(0,0,0,0.50)'
-                      : '0 0 25px rgba(34, 197, 94, 0.4), 0 16px 40px rgba(0,0,0,0.50)';
-                  })()
-                : '0 16px 40px rgba(0,0,0,0.50)',
-            }}
-            transition={{ 
-              duration: isRecordSuccessGlow ? 0.2 : 0.8, // 最初は速く、その後ゆっくり
-              ease: 'easeOut' 
-            }}
+            onClick={handleRecord}
+            className="w-full px-6 py-3 rounded-full font-medium text-slate-200/90 bg-slate-800/50 hover:bg-slate-800/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_16px_40px_rgba(0,0,0,0.50)]"
           >
-            <span className="flex items-center justify-center">
-              {isRecording ? (
-                '記録中...'
-              ) : isRecordSuccess ? (
-                <motion.svg
-                  className="w-6 h-6"
-                  fill="none"
-                  stroke="white"
-                  viewBox="0 0 24 24"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2, ease: 'easeOut' }}
-                >
-                  <motion.path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={3}
-                    d="M5 13l4 4L19 7"
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ duration: 0.6, ease: 'easeOut' }}
-                  />
-                </motion.svg>
-              ) : (
-                '記録'
-              )}
-            </span>
-          </motion.button>
+            <span className="flex items-center justify-center">記録</span>
+          </button>
         </motion.div>
 
         {/* トースト通知 */}
