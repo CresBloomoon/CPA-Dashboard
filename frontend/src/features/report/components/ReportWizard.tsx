@@ -4,21 +4,13 @@ import { format, parseISO } from 'date-fns';
 import type { StudyProgress, Subject, Todo } from '../../../api/types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
-
-type ScoreRow = {
-  name: string;
-  score: string; // 空文字を許容
-  fullScore: string; // 空文字を許容
-};
-
-export type ReportData = {
-  reflection: string;
-  scores: ScoreRow[];
-  issues: string;
-  solutions: string;
-  nextWeekPlan: string;
-  questions: string;
-};
+import { ChevronDown } from 'lucide-react';
+import type { ReportData, UpdateReportData } from '../types/reportWizard';
+import { ReportStep1 } from './steps/ReportStep1';
+import { ReportStep2 } from './steps/ReportStep2';
+import { ReportStep3 } from './steps/ReportStep3';
+import { ReportStep4 } from './steps/ReportStep4';
+import type { SubjectHoursRow } from './steps/ReportStep1';
 
 export default function ReportWizard({
   reportStartDay: _reportStartDay,
@@ -47,7 +39,7 @@ export default function ReportWizard({
     [periodStart, periodEnd]
   );
 
-  const [step, setStep] = useState(0); // 0..3
+  const [step, setStep] = useState(0); // 0..N-1
   const [toast, setToast] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
   const [isCopySuccess, setIsCopySuccess] = useState(false);
@@ -62,8 +54,6 @@ export default function ReportWizard({
     primaryFooterButtonRef.current?.focus();
   };
 
-  const finalCopyButtonRef = useRef<HTMLButtonElement | null>(null);
-
   const [reportData, setReportData] = useState<ReportData>({
     reflection: '',
     scores: [{ name: '', score: '', fullScore: '' }],
@@ -76,6 +66,10 @@ export default function ReportWizard({
   // ダッシュボード側の集計ロジック（yyyy-MM-ddのキー比較）と揃える
   const periodStartKey = useMemo(() => format(periodStart, 'yyyy-MM-dd'), [periodStart]);
   const periodEndKey = useMemo(() => format(periodEnd, 'yyyy-MM-dd'), [periodEnd]);
+
+  const updateData: UpdateReportData = (patch) => {
+    setReportData((prev: ReportData) => ({ ...prev, ...patch }));
+  };
 
   const lastWeekHoursDebug = useMemo(() => {
     let matched = 0;
@@ -92,12 +86,30 @@ export default function ReportWizard({
 
   const lastWeekTotalHours = lastWeekHoursDebug.sum;
 
-  useEffect(() => {
-    // Step 4 では Enter 一発で「コピーして終了」できるよう、初期フォーカスを当てる
-    if (step === 3) {
-      window.setTimeout(() => finalCopyButtonRef.current?.focus(), 0);
+  const subjectHours = useMemo<SubjectHoursRow[]>(() => {
+    // 表示順：subjectsWithColorsにある科目→その他
+    const order = subjectsWithColors.map((s) => s.name);
+    const sums = new Map<string, number>();
+    for (const p of progressList) {
+      const key = format(parseISO(p.created_at), 'yyyy-MM-dd');
+      if (key < periodStartKey || key > periodEndKey) continue;
+      const subj = (p.subject || '').trim() || '未分類';
+      sums.set(subj, (sums.get(subj) ?? 0) + p.study_hours);
     }
-  }, [step]);
+
+    const result: SubjectHoursRow[] = [];
+    for (const s of order) {
+      const v = sums.get(s);
+      if (v && v > 0) result.push({ subject: s, hours: v });
+      sums.delete(s);
+    }
+    Array.from(sums.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+      .forEach(([subject, hours]) => {
+        if (hours > 0) result.push({ subject, hours });
+      });
+    return result;
+  }, [progressList, subjectsWithColors, periodStartKey, periodEndKey]);
 
   const completedTodosBySubject = useMemo(() => {
     const subjectOrder = subjectsWithColors.map((s) => s.name);
@@ -142,7 +154,7 @@ export default function ReportWizard({
   const todoListText = useMemo(() => {
     if (completedTodosBySubject.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
     return completedTodosBySubject
-      .map(([subject, items]) => {
+      .map(([subject, items]: [string, string[]]) => {
         const lines = items.map((t) => `${IND1}・${t}`).join('\n');
         return `${IND1}（${subject}）\n${lines}`;
       })
@@ -171,22 +183,23 @@ export default function ReportWizard({
   };
 
   const scoresText = useMemo(() => {
+    type LocalScoreRow = ReportData['scores'][number];
     const rows = reportData.scores
-      .map((r) => ({
+      .map((r: LocalScoreRow) => ({
         name: r.name.trim(),
         score: r.score.trim(),
         fullScore: r.fullScore.trim(),
       }))
-      .filter((r) => r.name || r.score || r.fullScore);
+      .filter((r: { name: string; score: string; fullScore: string }) => r.name || r.score || r.fullScore);
     if (rows.length === 0) return `${IND1}（未入力）`;
 
-    const labels = rows.map((r) => r.name || '（答練名未入力）');
+    const labels = rows.map((r: { name: string }) => r.name || '（答練名未入力）');
     // 目安: 全角15文字分（=30カラム）を最低幅として、最大の答練名に合わせて拡張
     const baseWidth = 30;
     const targetWidth = Math.max(baseWidth, ...labels.map(getDisplayWidth));
 
     return rows
-      .map((r, idx) => {
+      .map((r: { score: string; fullScore: string }, idx: number) => {
         const label = labels[idx];
         const pad = ' '.repeat(Math.max(0, targetWidth - getDisplayWidth(label)));
         const s = r.score || '-';
@@ -225,7 +238,64 @@ export default function ReportWizard({
     ].join('\n');
   }, [todoListText, scoresText, lastWeekTotalHours, reportData]);
 
-  const progressPct = ((step + 1) / 4) * 100;
+  const steps = useMemo(() => {
+    return [
+      {
+        id: 'step-1',
+        render: () => (
+          <ReportStep1
+            theme={theme}
+            colors={colors}
+            reportData={reportData}
+            updateData={updateData}
+            lastWeekTotalHours={lastWeekTotalHours}
+            subjectHours={subjectHours}
+            todoListText={todoListText}
+            periodStartKey={periodStartKey}
+            periodEndKey={periodEndKey}
+            matchedCount={lastWeekHoursDebug.matched}
+            onTabToNext={focusPrimaryFooterButton}
+          />
+        ),
+      },
+      {
+        id: 'step-2',
+        render: () => (
+          <ReportStep2 theme={theme} colors={colors} reportData={reportData} updateData={updateData} onTabToNext={focusPrimaryFooterButton} />
+        ),
+      },
+      {
+        id: 'step-3',
+        render: () => (
+          <ReportStep3 theme={theme} colors={colors} reportData={reportData} updateData={updateData} onTabToNext={focusPrimaryFooterButton} />
+        ),
+      },
+      {
+        id: 'step-4',
+        render: () => <ReportStep4 theme={theme} colors={colors} reportData={reportData} updateData={updateData} />,
+      },
+    ] as const;
+  }, [
+    theme,
+    colors,
+    reportData,
+    updateData,
+    lastWeekTotalHours,
+    subjectHours,
+    todoListText,
+    periodStartKey,
+    periodEndKey,
+    lastWeekHoursDebug.matched,
+  ]);
+
+  const isFinalStep = step === steps.length - 1;
+
+  useEffect(() => {
+    // 最終ステップは Enter 一発で確定できるよう、主要ボタンにフォーカス
+    if (isFinalStep) window.setTimeout(() => primaryFooterButtonRef.current?.focus(), 0);
+  }, [isFinalStep]);
+
+  const progressPct = ((step + 1) / steps.length) * 100;
 
   const showToast = (message: string) => {
     setToast(message);
@@ -301,12 +371,13 @@ export default function ReportWizard({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-3 py-2 rounded-lg transition-colors"
+                aria-label="閉じる"
+                className="p-2 rounded-lg transition-colors"
                 style={{ color: colors.textSecondary }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.cardHover)}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                閉じる
+                ×
               </button>
             </div>
 
@@ -322,7 +393,7 @@ export default function ReportWizard({
                 />
               </div>
               <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
-                Step {step + 1} / 4
+                Step {step + 1} / {steps.length}
               </p>
             </div>
           </div>
@@ -330,342 +401,20 @@ export default function ReportWizard({
           {/* body */}
           <div className="p-8 flex-1 overflow-y-auto">
             <div
-              className={`grid grid-cols-1 gap-8 ${step === 3 ? 'md:grid-cols-[0.80fr_1.20fr]' : 'md:grid-cols-[1.05fr_0.95fr]'}`}
+              className={`grid grid-cols-1 gap-8 ${isFinalStep ? 'md:grid-cols-[0.80fr_1.20fr]' : 'md:grid-cols-[1.05fr_0.95fr]'}`}
             >
               {/* 左：入力（ステップごと） */}
               <div className="min-w-0">
                 <AnimatePresence mode="wait">
-                  {step === 0 && (
-                    <motion.div
-                      key="step-1"
-                      initial={{ opacity: 0, x: 18 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -18 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                    >
-                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                        Step 1: 実績（自動抽出）
-                      </h3>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                        <div className="rounded-xl p-4" style={{ backgroundColor: colors.backgroundSecondary }}>
-                          <p className="text-xs" style={{ color: colors.textSecondary }}>
-                            先週の総勉強時間
-                          </p>
-                          <p className="text-3xl font-bold mt-1" style={{ color: colors.textPrimary }}>
-                            {lastWeekTotalHours.toFixed(1)} 時間
-                          </p>
-                        </div>
-                        <div className="rounded-xl p-4" style={{ backgroundColor: colors.backgroundSecondary }}>
-                          <p className="text-xs" style={{ color: colors.textSecondary }}>
-                            完了したリマインダ（科目別）
-                          </p>
-                          <pre
-                            className="text-xs mt-2 whitespace-pre-wrap max-h-28 overflow-auto"
-                            style={{ color: colors.textPrimary }}
-                          >
-                            {todoListText}
-                          </pre>
-                        </div>
-                      </div>
-
-                      {/* Debug（開発用）: 集計対象期間 */}
-                      <div className="mt-2 text-[10px] text-right" style={{ color: colors.textTertiary }}>
-                        {periodStartKey}〜{periodEndKey} / matched: {lastWeekHoursDebug.matched}
-                      </div>
-
-                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                        先週の振り返り
-                      </label>
-                      <textarea
-                        value={reportData.reflection}
-                        onChange={(e) => setReportData((prev) => ({ ...prev, reflection: e.target.value }))}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Tab' && !e.shiftKey) {
-                            e.preventDefault();
-                            focusPrimaryFooterButton();
-                          }
-                        }}
-                        rows={8}
-                        className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                        style={{
-                          borderColor: colors.border,
-                          backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                          color: colors.textPrimary,
-                        }}
-                      />
-                    </motion.div>
-                  )}
-
-                  {step === 1 && (
-                    <motion.div
-                      key="step-2"
-                      initial={{ opacity: 0, x: 18 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -18 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                    >
-                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                        Step 2: 答練点数
-                      </h3>
-
-                      <div className="space-y-3">
-                        {reportData.scores.map((row, idx) => (
-                          <div
-                            key={idx}
-                            className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-xl p-3 border"
-                            style={{ borderColor: colors.border, backgroundColor: colors.backgroundSecondary }}
-                          >
-                            <div className="md:col-span-2">
-                              <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                                答練名
-                              </label>
-                              <input
-                                value={row.name}
-                                onChange={(e) =>
-                                  setReportData((prev) => ({
-                                    ...prev,
-                                    scores: prev.scores.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)),
-                                  }))
-                                }
-                                className="w-full max-w-2xl px-3 py-2 rounded-lg border focus:outline-none"
-                                style={{
-                                  borderColor: colors.border,
-                                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                                  color: colors.textPrimary,
-                                }}
-                                placeholder="例：財務会計レギュラー答練第1回"
-                              />
-                            </div>
-                            <div className="md:col-span-1">
-                              <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                                得点
-                              </label>
-                              <input
-                                value={row.score}
-                                onChange={(e) =>
-                                  setReportData((prev) => ({
-                                    ...prev,
-                                    scores: prev.scores.map((r, i) => (i === idx ? { ...r, score: e.target.value } : r)),
-                                  }))
-                                }
-                                inputMode="numeric"
-                                className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
-                                style={{
-                                  borderColor: colors.border,
-                                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                                  color: colors.textPrimary,
-                                }}
-                                placeholder="得点（例: 80）"
-                              />
-                            </div>
-                            <div className="md:col-span-1">
-                              <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                                満点
-                              </label>
-                              <input
-                                value={row.fullScore}
-                                onChange={(e) =>
-                                  setReportData((prev) => ({
-                                    ...prev,
-                                    scores: prev.scores.map((r, i) => (i === idx ? { ...r, fullScore: e.target.value } : r)),
-                                  }))
-                                }
-                                onKeyDown={(e) => {
-                                  // Step2の「最後の入力（最終行の満点）」→ Tabで「次へ」へ
-                                  if (idx === reportData.scores.length - 1 && e.key === 'Tab' && !e.shiftKey) {
-                                    e.preventDefault();
-                                    focusPrimaryFooterButton();
-                                  }
-                                }}
-                                inputMode="numeric"
-                                className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
-                                style={{
-                                  borderColor: colors.border,
-                                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                                  color: colors.textPrimary,
-                                }}
-                                placeholder="満点（例: 100）"
-                              />
-                            </div>
-                            <div className="md:col-span-1 flex items-end">
-                              <button
-                                type="button"
-                                aria-label="行を削除"
-                                onClick={() => {
-                                  setReportData((prev) => {
-                                    const next = prev.scores.filter((_, i) => i !== idx);
-                                    return { ...prev, scores: next.length ? next : [{ name: '', score: '', fullScore: '' }] };
-                                  });
-                                }}
-                                className="w-full px-3 py-2 rounded-lg transition-colors"
-                                style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
-                              >
-                                削除
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="mt-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setReportData((prev) => ({ ...prev, scores: [...prev.scores, { name: '', score: '', fullScore: '' }] }))
-                          }
-                          className="px-4 py-2 rounded-lg font-semibold transition-colors"
-                          style={{ backgroundColor: colors.accent, color: colors.textInverse }}
-                        >
-                          ＋答練を追加
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {step === 2 && (
-                    <motion.div
-                      key="step-3"
-                      initial={{ opacity: 0, x: 18 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -18 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                    >
-                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                        Step 3: 課題とアクション
-                      </h3>
-
-                      <div className="grid grid-cols-1 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                            現状課題と解決策
-                          </label>
-                          <textarea
-                            value={reportData.issues}
-                            onChange={(e) => setReportData((prev) => ({ ...prev, issues: e.target.value }))}
-                            rows={3}
-                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 mb-2"
-                            style={{
-                              borderColor: colors.border,
-                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                              color: colors.textPrimary,
-                            }}
-                            placeholder="（課題）"
-                          />
-                          <textarea
-                            value={reportData.solutions}
-                            onChange={(e) => setReportData((prev) => ({ ...prev, solutions: e.target.value }))}
-                            rows={3}
-                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                            style={{
-                              borderColor: colors.border,
-                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                              color: colors.textPrimary,
-                            }}
-                            placeholder="（解決策）"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                            今週実施すること
-                          </label>
-                          <textarea
-                            value={reportData.nextWeekPlan}
-                            onChange={(e) => setReportData((prev) => ({ ...prev, nextWeekPlan: e.target.value }))}
-                            rows={3}
-                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                            style={{
-                              borderColor: colors.border,
-                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                              color: colors.textPrimary,
-                            }}
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                            相談したいこと
-                          </label>
-                          <textarea
-                            value={reportData.questions}
-                            onChange={(e) => setReportData((prev) => ({ ...prev, questions: e.target.value }))}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Tab' && !e.shiftKey) {
-                                e.preventDefault();
-                                focusPrimaryFooterButton();
-                              }
-                            }}
-                            rows={3}
-                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                            style={{
-                              borderColor: colors.border,
-                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                              color: colors.textPrimary,
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-
-                  {step === 3 && (
-                    <motion.div
-                      key="step-4"
-                      initial={{ opacity: 0, x: 18 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: -18 }}
-                      transition={{ duration: 0.25, ease: 'easeOut' }}
-                    >
-                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                        Step 4: 最終確認
-                      </h3>
-
-                      <div className="rounded-xl p-4 border"
-                        style={{
-                          borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
-                          backgroundColor: colors.backgroundSecondary,
-                        }}
-                      >
-                        <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                          お疲れ様でした！この内容で報告書を完成させますか？
-                        </p>
-                        <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
-                          右側のプレビューを最終チェックして、「コピーして終了」を押してください。（EnterでもOK）
-                        </p>
-                      </div>
-
-                      <div className="mt-6">
-                        <motion.button
-                          ref={finalCopyButtonRef}
-                          type="button"
-                          onClick={handleCopyAndClose}
-                          disabled={isCopying}
-                          className="w-full px-5 py-4 rounded-xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                          animate={{
-                            scale: isCopyGlow ? 1.02 : 1,
-                            backgroundColor: isCopyGlow ? 'rgba(34, 197, 94, 0.92)' : colors.accent,
-                            boxShadow: isCopyGlow ? '0 0 22px rgba(34, 197, 94, 0.35)' : '0 16px 40px rgba(0,0,0,0.45)',
-                          }}
-                          transition={{ type: 'spring', stiffness: 520, damping: 28 }}
-                          style={{ color: colors.textInverse }}
-                        >
-                          <AnimatePresence mode="wait" initial={false}>
-                            <motion.span
-                              key={isCopying ? 'copying' : isCopySuccess ? 'success' : 'idle-final'}
-                              initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                              animate={{ opacity: 1, y: 0, scale: 1 }}
-                              exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                              transition={{ type: 'spring', stiffness: 520, damping: 30 }}
-                              className="inline-block"
-                            >
-                              {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！ ✅' : 'コピーして終了'}
-                            </motion.span>
-                          </AnimatePresence>
-                        </motion.button>
-                      </div>
-                    </motion.div>
-                  )}
+                  <motion.div
+                    key={steps[step]?.id ?? `step-${step}`}
+                    initial={{ opacity: 0, x: 18 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -18 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                  >
+                    {steps[step]?.render()}
+                  </motion.div>
                 </AnimatePresence>
               </div>
 
@@ -674,7 +423,7 @@ export default function ReportWizard({
                 <div
                   className="rounded-2xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
                   style={{
-                    borderColor: step === 3
+                    borderColor: isFinalStep
                       ? (theme === 'modern' ? 'rgba(34, 197, 94, 0.30)' : colors.border)
                       : (theme === 'modern' ? 'rgba(255,255,255,0.12)' : colors.border),
                     backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.65)' : colors.backgroundSecondary,
@@ -727,10 +476,10 @@ export default function ReportWizard({
                         borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
                         backgroundColor: theme === 'modern' ? 'rgba(2, 6, 23, 0.45)' : colors.card,
                         color: colors.textPrimary,
-                        maxHeight: step === 3 ? '74vh' : '68vh',
+                        maxHeight: isFinalStep ? '74vh' : '68vh',
                       }}
                     >
-                      <pre className={`${step === 3 ? 'text-sm' : 'text-xs'} font-mono whitespace-pre-wrap leading-relaxed`}>{outputText}</pre>
+                      <pre className={`${isFinalStep ? 'text-sm' : 'text-xs'} font-mono whitespace-pre-wrap leading-relaxed`}>{outputText}</pre>
                     </div>
                   </div>
                 </div>
@@ -740,37 +489,62 @@ export default function ReportWizard({
 
           {/* footer */}
           <div className="p-8 border-t flex items-center justify-between gap-3" style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}>
-            <button
-              type="button"
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
-              disabled={step === 0}
-              className="px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
-            >
-              戻る
-            </button>
-
             <div className="flex items-center gap-2">
-              {step < 3 ? (
+              {step > 0 ? (
                 <button
                   type="button"
-                  onClick={() => setStep((s) => Math.min(3, s + 1))}
-                  ref={primaryFooterButtonRef}
-                  className="px-4 py-2 rounded-lg font-semibold transition-colors"
-                  style={{ backgroundColor: colors.accent, color: colors.textInverse }}
+                  aria-label="前へ"
+                  onClick={() => setStep((s: number) => Math.max(0, s - 1))}
+                  className="p-2 rounded-lg transition-colors"
+                  style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
                 >
-                  次へ
+                  <ChevronDown size={18} className="rotate-90" />
                 </button>
               ) : (
+                <div />
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!isFinalStep ? (
                 <button
                   type="button"
-                  onClick={onClose}
+                  aria-label="次へ"
+                  onClick={() => setStep((s: number) => Math.min(steps.length - 1, s + 1))}
                   ref={primaryFooterButtonRef}
-                  className="px-4 py-2 rounded-lg font-semibold transition-colors"
+                  className="p-2 rounded-lg transition-colors"
                   style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                 >
-                  閉じる
+                  <ChevronDown size={18} className="-rotate-90" />
                 </button>
+              ) : (
+                <motion.button
+                  type="button"
+                  onClick={handleCopyAndClose}
+                  disabled={isCopying}
+                  ref={primaryFooterButtonRef}
+                  className="px-5 py-3 rounded-xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                  animate={{
+                    scale: isCopyGlow ? 1.02 : 1,
+                    backgroundColor: isCopyGlow ? 'rgba(34, 197, 94, 0.92)' : colors.accent,
+                    boxShadow: isCopyGlow ? '0 0 22px rgba(34, 197, 94, 0.35)' : '0 16px 40px rgba(0,0,0,0.45)',
+                  }}
+                  transition={{ type: 'spring', stiffness: 520, damping: 28 }}
+                  style={{ color: colors.textInverse, minWidth: 220 }}
+                >
+                  <AnimatePresence mode="wait" initial={false}>
+                    <motion.span
+                      key={isCopying ? 'copying' : isCopySuccess ? 'success' : 'idle-final'}
+                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                      transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+                      className="inline-block"
+                    >
+                      {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！ ✅' : '確定して終了'}
+                    </motion.span>
+                  </AnimatePresence>
+                </motion.button>
               )}
             </div>
           </div>
