@@ -258,39 +258,38 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       if (subjectsSetting) {
         try {
           const parsedSubjects = JSON.parse(subjectsSetting.value);
-          if (Array.isArray(parsedSubjects) && parsedSubjects.length > 0) {
-            // Subject型の配列か、文字列の配列かを判定
-            if (parsedSubjects[0] && typeof parsedSubjects[0] === 'object' && 'id' in parsedSubjects[0]) {
-              setSubjects(parsedSubjects as Subject[]);
-              onSubjectsChange((parsedSubjects as Subject[]).map(s => s.name));
+          if (Array.isArray(parsedSubjects)) {
+            // 空配列も正常な状態として扱う（ユーザーが全削除した場合）
+            if (parsedSubjects.length === 0) {
+              setSubjects([]);
+              onSubjectsChange([]);
               if (onSubjectsWithColorsChange) {
-                onSubjectsWithColorsChange(parsedSubjects as Subject[]);
+                onSubjectsWithColorsChange([]);
               }
             } else {
-              // 文字列配列の場合はSubject型に変換
-              const convertedSubjects: Subject[] = (parsedSubjects as string[]).map((name, index) => ({
-                id: index + 1,
-                name,
-                color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
-              }));
-              setSubjects(convertedSubjects);
-              onSubjectsChange(convertedSubjects.map(s => s.name));
-              if (onSubjectsWithColorsChange) {
-                onSubjectsWithColorsChange(convertedSubjects);
+              // Subject型の配列か、文字列の配列かを判定
+              if (parsedSubjects[0] && typeof parsedSubjects[0] === 'object' && 'id' in parsedSubjects[0]) {
+                setSubjects(parsedSubjects as Subject[]);
+                onSubjectsChange((parsedSubjects as Subject[]).map(s => s.name));
+                if (onSubjectsWithColorsChange) {
+                  onSubjectsWithColorsChange(parsedSubjects as Subject[]);
+                }
+              } else {
+                // 文字列配列の場合はSubject型に変換
+                const convertedSubjects: Subject[] = (parsedSubjects as string[]).map((name, index) => ({
+                  id: index + 1,
+                  name,
+                  color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
+                }));
+                setSubjects(convertedSubjects);
+                onSubjectsChange(convertedSubjects.map(s => s.name));
+                if (onSubjectsWithColorsChange) {
+                  onSubjectsWithColorsChange(convertedSubjects);
+                }
+                // 変換したデータを保存
+                await saveSubjects(convertedSubjects);
               }
-              // 変換したデータを保存
-              await saveSubjects(convertedSubjects);
             }
-          } else {
-            // デフォルト値を使用（科目マスタは共通定数に一元化）
-            const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
-            setSubjects(defaultSubjects);
-            onSubjectsChange(defaultSubjects.map(s => s.name));
-            if (onSubjectsWithColorsChange) {
-              onSubjectsWithColorsChange(defaultSubjects);
-            }
-            // DBにも保存しておく（ソースをDBに一本化）
-            await saveSubjects(defaultSubjects);
           }
         } catch (parseError) {
           console.error('Error parsing subjects:', parseError);

@@ -18,22 +18,28 @@ export const useAppSettings = () => {
       if (subjectsSetting) {
         const parsedSubjects: unknown = JSON.parse(subjectsSetting.value);
         // Subject型の配列か、文字列の配列かを判定
-        if (Array.isArray(parsedSubjects) && parsedSubjects.length > 0) {
-          const first = parsedSubjects[0] as unknown;
-          if (first && typeof first === 'object' && first !== null && 'id' in (first as Record<string, unknown>)) {
-            const nextSubjects = parsedSubjects as Subject[];
-            setSubjectsWithColors(nextSubjects);
-            setSubjects(nextSubjects.map(s => s.name));
+        if (Array.isArray(parsedSubjects)) {
+          // 空配列も正常な状態として扱う（ユーザーが全削除した場合）
+          if (parsedSubjects.length === 0) {
+            setSubjectsWithColors([]);
+            setSubjects([]);
           } else {
-            // 文字列配列の場合は名前のみを設定（色情報なし）
-            const names = parsedSubjects as string[];
-            const converted: Subject[] = names.map((name, index) => ({
-              id: index + 1,
-              name,
-              color: SUBJECT_COLOR_PALETTE[index % SUBJECT_COLOR_PALETTE.length] ?? SUBJECT_COLOR_PALETTE[0]!,
-            }));
-            setSubjectsWithColors(converted);
-            setSubjects(converted.map((s) => s.name));
+            const first = parsedSubjects[0] as unknown;
+            if (first && typeof first === 'object' && first !== null && 'id' in (first as Record<string, unknown>)) {
+              const nextSubjects = parsedSubjects as Subject[];
+              setSubjectsWithColors(nextSubjects);
+              setSubjects(nextSubjects.map(s => s.name));
+            } else {
+              // 文字列配列の場合は名前のみを設定（色情報なし）
+              const names = parsedSubjects as string[];
+              const converted: Subject[] = names.map((name, index) => ({
+                id: index + 1,
+                name,
+                color: SUBJECT_COLOR_PALETTE[index % SUBJECT_COLOR_PALETTE.length] ?? SUBJECT_COLOR_PALETTE[0]!,
+              }));
+              setSubjectsWithColors(converted);
+              setSubjects(converted.map((s) => s.name));
+            }
           }
         }
       } else {

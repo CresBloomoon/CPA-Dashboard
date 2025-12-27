@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitForElementToBeRemoved, within } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Settings, Subject, Todo } from '../../api/types';
 import { TimerProvider } from '../../features/timer/hooks/TimerContext';
@@ -203,6 +203,42 @@ describe('科目（id/name/color）の統合反映', () => {
     const dropdownOption =
       options.find((b) => (b as HTMLElement).className.includes('text-left')) ?? options[0];
     expect(dropdownOption).toBeInTheDocument();
+  });
+
+  it('空配列で保存した科目リストが、タブ切り替え後もデフォルト科目に復活しない', async () => {
+    // 空配列の設定を返すモック
+    vi.mocked(settingsApi.getAll).mockResolvedValue([
+      {
+        id: 1,
+        key: 'subjects',
+        value: '[]', // 空配列
+        created_at: '2025-01-01T00:00:00Z',
+      },
+    ]);
+
+    const { user } = await renderApp();
+
+    // 設定画面に移動
+    await user.click(screen.getByRole('button', { name: '設定' }));
+    await waitFor(() => {
+      expect(screen.getByText('科目が登録されていません')).toBeInTheDocument();
+    });
+
+    // 別タブに移動
+    await user.click(screen.getByRole('button', { name: '学習時間' }));
+    await waitFor(() => {
+      expect(screen.getByText('学習時間')).toBeInTheDocument();
+    });
+
+    // 再び設定画面に戻る
+    await user.click(screen.getByRole('button', { name: '設定' }));
+
+    // 空配列のまま維持され、デフォルト科目が復活していないことを確認
+    await waitFor(() => {
+      expect(screen.getByText('科目が登録されていません')).toBeInTheDocument();
+      expect(screen.queryByText('財務会計')).not.toBeInTheDocument();
+      expect(screen.queryByText('管理会計')).not.toBeInTheDocument();
+    });
   });
 });
 
