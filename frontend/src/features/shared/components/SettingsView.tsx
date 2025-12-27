@@ -340,9 +340,11 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       if (onSubjectsWithColorsChange) {
         onSubjectsWithColorsChange(subjectsToSave);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('[SettingsView] Error saving settings:', error);
-      alert('科目の保存に失敗しました。ネットワークを確認してください。');
+      const message = error.userMessage || '科目の保存に失敗しました。ネットワークを確認してください。';
+      alert(message);
+      throw error; // エラーを再スローして、呼び出し元で処理できるようにする
     } finally {
       setIsSaving(false);
     }

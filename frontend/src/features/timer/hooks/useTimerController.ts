@@ -213,8 +213,10 @@ export function useTimerController(): UseTimerControllerResult {
       setManualMinutes(0);
       onRecorded();
       return { success: true, message: '学習時間を記録しました' };
-    } catch {
-      return { success: false, message: '記録に失敗しました' };
+    } catch (error: any) {
+      console.error('[useTimerController] Error saving record:', error);
+      const message = error.userMessage || '記録に失敗しました';
+      return { success: false, message };
     }
   };
 
