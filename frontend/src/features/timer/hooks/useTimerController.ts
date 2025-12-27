@@ -40,6 +40,8 @@ function getTimerDefaults(): TimerDefaults {
 function getTimerRanges(): TimerRanges {
   return {
     sets: { min: TIMER_SETTINGS.POMODORO.RANGE.SETS.MIN, max: TIMER_SETTINGS.POMODORO.RANGE.SETS.MAX },
+    focus: { min: TIMER_SETTINGS.POMODORO.RANGE.FOCUS.MIN_MINUTES, max: TIMER_SETTINGS.POMODORO.RANGE.FOCUS.MAX_MINUTES },
+    break: { min: TIMER_SETTINGS.POMODORO.RANGE.BREAK.MIN_MINUTES, max: TIMER_SETTINGS.POMODORO.RANGE.BREAK.MAX_MINUTES },
     manualHours: { min: 0, max: 24 },
     manualMinutes: { min: 0, max: 59 },
   };

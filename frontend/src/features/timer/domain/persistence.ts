@@ -48,10 +48,24 @@ export function deserializeTimerState(
   if (!raw || typeof raw !== 'object') return base;
   const state = raw as Record<string, unknown>;
 
-  const focusMinutes = typeof state.pomodoroFocusMinutes === 'number' && state.pomodoroFocusMinutes >= 0
+  // 値の検証と範囲チェック：不正な値の場合はデフォルト値にフォールバック
+  const focusMin = ranges.focus?.min ?? 0;
+  const focusMax = ranges.focus?.max ?? Infinity;
+  const breakMin = ranges.break?.min ?? 0;
+  const breakMax = ranges.break?.max ?? Infinity;
+  
+  const focusMinutes = typeof state.pomodoroFocusMinutes === 'number' && 
+                       !Number.isNaN(state.pomodoroFocusMinutes) &&
+                       Number.isFinite(state.pomodoroFocusMinutes) &&
+                       state.pomodoroFocusMinutes >= focusMin &&
+                       state.pomodoroFocusMinutes <= focusMax
     ? Math.floor(state.pomodoroFocusMinutes)
     : base.pomodoroFocusMinutes;
-  const breakMinutes = typeof state.pomodoroBreakMinutes === 'number' && state.pomodoroBreakMinutes >= 0
+  const breakMinutes = typeof state.pomodoroBreakMinutes === 'number' && 
+                       !Number.isNaN(state.pomodoroBreakMinutes) &&
+                       Number.isFinite(state.pomodoroBreakMinutes) &&
+                       state.pomodoroBreakMinutes >= breakMin &&
+                       state.pomodoroBreakMinutes <= breakMax
     ? Math.floor(state.pomodoroBreakMinutes)
     : base.pomodoroBreakMinutes;
   const sets = typeof state.pomodoroSets === 'number'

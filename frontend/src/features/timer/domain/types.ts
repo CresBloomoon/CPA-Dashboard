@@ -35,6 +35,8 @@ export interface TimerDefaults {
 
 export interface TimerRanges {
   sets: { min: number; max: number };
+  focus?: { min: number; max: number };
+  break?: { min: number; max: number };
   manualHours: { min: number; max: number };
   manualMinutes: { min: number; max: number };
 }

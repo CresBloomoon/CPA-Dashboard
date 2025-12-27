@@ -9,6 +9,18 @@ import { useTheme } from './contexts/ThemeContext';
 import { getThemeColors } from './styles/theme';
 
 function App() {
+  // 開発モードでのLocalStorageリセット機能（?reset=true）
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('reset') === 'true') {
+        console.log('[App] Development mode: Clearing localStorage...');
+        localStorage.clear();
+        // リダイレクトしてクエリパラメータを削除
+        window.location.href = window.location.pathname;
+      }
+    }
+  }, []);
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   
