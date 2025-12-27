@@ -175,9 +175,10 @@ export default function SummaryCards({
   };
 
   return (
-    <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="mb-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* 左側: 1週間の学習時間グラフ */}
       <div 
-        className="md:col-span-2 rounded-lg shadow-lg p-6"
+        className="lg:col-span-2 rounded-lg shadow-lg p-6"
         style={{
           backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
           backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
@@ -227,21 +228,19 @@ export default function SummaryCards({
         <div className="h-64">
           <Bar data={chartData} options={options} />
         </div>
-
-        {/* コンパクトストリークカレンダー（グラフの下） */}
-        <div className="mt-4">
-          <CompactStreakCalendar progressList={progressList} compact={true} />
-        </div>
       </div>
 
-      <div 
-        className="md:col-span-1 rounded-lg shadow-lg p-6"
-        style={{
-          backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
-          backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
-          border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
-        }}
-      >
+      {/* 右側: リマインダとストリークカレンダー */}
+      <div className="lg:col-span-1 flex flex-col gap-6">
+        {/* リマインダカード */}
+        <div 
+          className="rounded-lg shadow-lg p-6"
+          style={{
+            backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+            backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+            border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+          }}
+        >
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 

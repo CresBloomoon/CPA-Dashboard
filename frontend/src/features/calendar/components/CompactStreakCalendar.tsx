@@ -254,9 +254,9 @@ export default function CompactStreakCalendar({ progressList, compact = true }: 
 
   const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
 
-  // コンパクトモード用のセルサイズ（最小限のサイズでストリークの繋がりを強調）
-  const cellSize = compact ? 'w-2.5 h-2.5' : 'w-8 h-8';
-  const textSize = compact ? 'text-[0px]' : 'text-sm'; // コンパクトモードでは数字を完全に非表示
+  // セルサイズの設定（コンパクトモードでは最小、通常モードでは右側カラムに合わせて自動調整）
+  const cellSize = compact ? 'w-2.5 h-2.5' : 'w-full aspect-square'; // 通常モードではAspect Ratio 1:1で自動調整
+  const textSize = compact ? 'text-[0px]' : 'text-xs'; // 通常モードでは小さめの文字サイズ
 
   return (
     <div 
