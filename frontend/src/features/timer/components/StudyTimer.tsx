@@ -149,17 +149,36 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   // DB初期化後でもUIがズレないよう、LocalStorage由来の旧科目名を正規化する
   useEffect(() => {
     const selected = timerState.selectedSubject;
-    if (!selected) return;
     const validNames = (subjectsWithColors.length > 0 ? subjectsWithColors.map((s) => s.name) : subjects).filter(Boolean);
-    if (validNames.includes(selected)) return;
-
-    const mapped = SUBJECT_NAME_ALIASES[selected] || '';
-    if (mapped && validNames.includes(mapped)) {
-      setSelectedSubject(mapped);
-      return;
+    
+    // 科目が存在する場合
+    if (validNames.length > 0) {
+      // 選択されている科目が有効な場合、そのまま使用
+      if (selected && validNames.includes(selected)) return;
+      
+      // エイリアスで解決を試みる
+      if (selected) {
+        const mapped = SUBJECT_NAME_ALIASES[selected] || '';
+        if (mapped && validNames.includes(mapped)) {
+          setSelectedSubject(mapped);
+          return;
+        }
+      }
+      
+      // 未選択の場合は、最初の科目を自動選択
+      if (!selected) {
+        setSelectedSubject(validNames[0] || '');
+        return;
+      }
+      
+      // どれにも一致しない場合は最初の科目を選択
+      setSelectedSubject(validNames[0] || '');
+    } else {
+      // 科目が存在しない場合は未選択に戻す
+      if (selected) {
+        setSelectedSubject('');
+      }
     }
-    // どれにも一致しない場合は未選択に戻す（色/名称の不整合を回避）
-    setSelectedSubject('');
   }, [subjects, subjectsWithColors, timerState.selectedSubject, setSelectedSubject]);
 
   // 時間を記録
@@ -611,7 +630,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                 />
               )}
               <span className="text-sm">
-                {subjects.length === 0 ? '科目が未登録です' : (timerState.selectedSubject || '科目を選択')}
+                {subjects.length === 0 ? '科目が未登録です' : (timerState.selectedSubject || '科目を選択中...')}
               </span>
             </button>
             
@@ -620,21 +639,22 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="absolute z-20 w-full mt-2 bg-amber-500/90 backdrop-blur-md rounded-xl shadow-xl p-4 ring-1 ring-amber-400/30"
+                transition={{ duration: ANIMATION_THEME.DURATIONS_S.FADE, ease: 'easeOut' }}
+                className="absolute z-20 w-full mt-2 bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
               >
                 <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-white flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  <svg className="w-5 h-5 text-sky-200/70 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="flex-1">
-                    <p className="text-white font-medium text-sm mb-2">科目を登録してください</p>
-                    <p className="text-white/90 text-xs mb-3">タイマーを使用するには、まず科目を登録する必要があります。</p>
+                    <p className="text-slate-200/80 font-medium text-sm mb-2">科目を登録してください</p>
+                    <p className="text-slate-300/60 text-xs mb-3">タイマーを使用するには、まず科目を登録する必要があります。</p>
                     <button
                       onClick={() => {
                         const settingsButton = document.querySelector('[title="設定"]') as HTMLButtonElement;
                         if (settingsButton) settingsButton.click();
                       }}
-                      className="px-4 py-2 bg-white text-amber-600 rounded-lg text-sm font-medium hover:bg-amber-50 transition-colors"
+                      className="group px-4 py-2 bg-slate-800/40 hover:bg-slate-800/60 text-slate-200/80 hover:text-slate-200 rounded-full text-sm font-medium transition-all duration-200 border border-white/10 hover:border-white/20 hover:shadow-[0_0_15px_rgba(186,230,253,0.15)]"
                     >
                       設定画面で科目を登録する →
                     </button>
