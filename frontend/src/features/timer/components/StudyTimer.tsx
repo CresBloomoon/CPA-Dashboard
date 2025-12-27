@@ -332,6 +332,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
 
   const handleToggle = () => {
+    // 手動入力モードではタイマーサークルのクリックは無効（手動入力は数字部分で操作）
+    if (timerState.mode === 'manual') return;
     if (subjects.length === 0) return;
     if (!timerState.selectedSubject) return;
     if (!circleIsInteractive) return;
