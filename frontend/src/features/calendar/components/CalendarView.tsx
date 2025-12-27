@@ -12,7 +12,7 @@ import {
   useDraggable,
   useDroppable,
 } from '@dnd-kit/core';
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek } from 'date-fns';
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, addMonths, subMonths, startOfWeek, endOfWeek, parseISO } from 'date-fns';
 import { ja } from 'date-fns/locale';
 import { todoApi } from '../../../api/api';
 import type { Todo, Subject } from '../../../api/types';
@@ -372,7 +372,7 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
       return;
     }
 
-    const currentDateStr = format(new Date(todo.due_date), 'yyyy-MM-dd');
+    const currentDateStr = format(parseISO(todo.due_date), 'yyyy-MM-dd');
     if (currentDateStr === targetDateId) {
       return;
     }

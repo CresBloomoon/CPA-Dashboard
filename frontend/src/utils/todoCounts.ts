@@ -1,4 +1,4 @@
-import { startOfDay, isSameDay, isBefore } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { Todo } from '../api/types';
 
 export interface TodoCounts {
@@ -13,14 +13,14 @@ export interface TodoCounts {
  * @returns 各フィルターの件数
  */
 export function calculateTodoCounts(todos: Todo[]): TodoCounts {
-  const todayDate = startOfDay(new Date());
+  const todayKey = format(new Date(), 'yyyy-MM-dd');
   
   // 「今日」フィルターの件数（未完了のみ）
   const today = todos.filter(todo => {
     if (todo.completed) return false; // 完了済みを除外
     if (!todo.due_date) return false;
-    const dueDate = startOfDay(new Date(todo.due_date));
-    return isSameDay(dueDate, todayDate) || isBefore(dueDate, todayDate);
+    const dueDateKey = format(parseISO(todo.due_date), 'yyyy-MM-dd');
+    return dueDateKey <= todayKey;
   }).length;
 
   // 「すべて」フィルターの件数（未完了のみ）

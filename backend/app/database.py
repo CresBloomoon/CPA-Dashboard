@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 import os
 
 # SQLiteデータベースのパス
+# 環境変数DATABASE_URLが設定されている場合はそれを使用、なければデフォルトパスを使用
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./cpa_dashboard.db")
 
 # SQLite用のエンジン設定

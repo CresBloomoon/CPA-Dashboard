@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { isSameDay, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { Todo } from '../api/types';
 
 export type FilterType = 'today' | 'all' | 'completed';
@@ -21,11 +21,11 @@ export const useTodoFilters = (todos: Todo[], filterType: FilterType) => {
     }
     
     // 「今日」フィルター：期限が今日までのリマインダ（期限切れ含む、未完了のみ）
-    const today = startOfDay(new Date());
+    const todayKey = format(new Date(), 'yyyy-MM-dd');
     return incompleteTodos.filter(todo => {
       if (!todo.due_date) return false;
-      const dueDate = startOfDay(new Date(todo.due_date));
-      return isSameDay(dueDate, today) || isBefore(dueDate, today);
+      const dueDateKey = format(parseISO(todo.due_date), 'yyyy-MM-dd');
+      return dueDateKey <= todayKey;
     });
   }, [todos, filterType]);
 

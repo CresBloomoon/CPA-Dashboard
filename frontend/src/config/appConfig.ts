@@ -246,6 +246,22 @@ export const UI_VISUALS = {
       CLASS: 'text-4xl font-medium text-slate-200 tracking-[0.02em]',
     },
   },
+  /**
+   * ボタンクリックフィードバックのスタイル定義（一元化）。
+   * タイマーサークル、科目選択ボタン、記録ボタンなどで統一された押下感を提供。
+   */
+  BUTTON_CLICK_FEEDBACK: {
+    /**
+     * 押下時のスタイルクラス（一元化）。
+     * scale-[0.985]: 少し縮小（押し込む感）
+     * translate-y-[1px]: 少し下に移動（沈む感）
+     * bg-slate-900/45: 背景色を少し濃く
+     * shadow-inner: 内側の影（凹み感）
+     * 
+     * この定義を変更するだけで、すべてのボタンの押下フィードバックが連動して変わります。
+     */
+    ACTIVE_CLASS: 'scale-[0.985] translate-y-[1px] bg-slate-900/45 shadow-inner',
+  },
 } as const;
 
 export const APP_LIMITS = {

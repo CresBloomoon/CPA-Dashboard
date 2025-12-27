@@ -9,7 +9,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { startOfWeek, endOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { startOfWeek, endOfWeek, eachDayOfInterval, format, parseISO } from 'date-fns';
 import type { StudyProgress, Subject } from '../../../api/types';
 
 ChartJS.register(
@@ -57,25 +57,31 @@ export default function SummaryCards({
     const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
     const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-    // 英語の曜日略語マッピング
+    // 英語の曜日略語マッピング（getDay()の0(日)〜6(土)に対応）
     const dayAbbreviations = ['Sun.', 'Mon.', 'Tue.', 'Wed.', 'Thu.', 'Fri.', 'Sat.'];
     
-    // 各日のデータを初期化
+    // 各日のデータを初期化（daysは[月, 火, 水, 木, 金, 土, 日]の順）
     const dailyData = days.map(day => {
       const dayOfWeek = day.getDay(); // 0 (Sunday) から 6 (Saturday)
       const dayLabel = dayAbbreviations[dayOfWeek];
       return {
         label: dayLabel,
         dateObj: day,
+        dateKey: format(day, 'yyyy-MM-dd'), // デバッグと比較用に事前計算
         subjects: {} as Record<string, number>,
         total: 0
       };
     });
 
-    // 進捗データを日付ごとに集計
+    // 進捗データを日付ごとに集計（JSTで日付を比較）
     progressList.forEach(progress => {
-      const progressDate = new Date(progress.created_at);
-      const dayIndex = dailyData.findIndex(d => isSameDay(d.dateObj, progressDate));
+      // parseISOを使用してタイムゾーン情報を考慮してパース
+      // その後、formatでローカルタイムゾーンの日付としてフォーマット
+      const progressDate = parseISO(progress.created_at);
+      // ローカルタイムゾーン（JST）の日付（yyyy-MM-dd）を取得して比較
+      const progressDateKey = format(progressDate, 'yyyy-MM-dd');
+      // dateKeyで直接検索（事前計算済み）
+      const dayIndex = dailyData.findIndex(d => d.dateKey === progressDateKey);
       
       if (dayIndex >= 0) {
         const subject = progress.subject;
@@ -92,10 +98,10 @@ export default function SummaryCards({
     const allSubjects = Array.from(new Set(progressList.map(p => p.subject)))
       .filter(subject => validSubjects.includes(subject));
 
-    // ラベル（曜日）を取得
+    // ラベル（曜日）を取得 - dailyDataの順序のまま（[Mon., Tue., ..., Sun.]）
     const labels = dailyData.map(day => day.label);
 
-    // 各科目のデータセットを作成
+    // 各科目のデータセットを作成 - dailyDataの順序のまま
     const datasets = allSubjects.map(subject => ({
       label: subject,
       data: dailyData.map(day => day.subjects[subject] || 0),
@@ -110,21 +116,27 @@ export default function SummaryCards({
     };
   }, [progressList, subjectsWithColors]);
 
-  // 今日と今週の学習時間を計算
+  // 今日と今週の学習時間を計算（JSTで日付を比較）
   const todayHours = useMemo(() => {
     const today = new Date();
+    const todayKey = format(today, 'yyyy-MM-dd');
     return progressList
-      .filter(p => isSameDay(new Date(p.created_at), today))
+      .filter(p => {
+        const progressDateKey = format(parseISO(p.created_at), 'yyyy-MM-dd');
+        return progressDateKey === todayKey;
+      })
       .reduce((sum, p) => sum + p.study_hours, 0);
   }, [progressList]);
 
   const thisWeekHours = useMemo(() => {
     const today = new Date();
     const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // 月曜日から
+    const weekStartKey = format(weekStart, 'yyyy-MM-dd');
+    const todayKey = format(today, 'yyyy-MM-dd');
     return progressList
       .filter(p => {
-        const progressDate = new Date(p.created_at);
-        return progressDate >= weekStart && progressDate <= today;
+        const progressDateKey = format(parseISO(p.created_at), 'yyyy-MM-dd');
+        return progressDateKey >= weekStartKey && progressDateKey <= todayKey;
       })
       .reduce((sum, p) => sum + p.study_hours, 0);
   }, [progressList]);

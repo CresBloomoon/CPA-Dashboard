@@ -1,9 +1,10 @@
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Subject } from '../../../api/types';
 import { ANIMATION_THEME, TIMER_SETTINGS, UI_VISUALS } from '../../../config/appConfig';
 import { useTimer } from '../hooks/TimerContext';
+import { useClickFeedback } from '../hooks/useClickFeedback';
 import {
   adjustByStep,
   adjustPomodoroMinutes,
@@ -13,7 +14,6 @@ import {
   formatClockFromSeconds,
   getPomodoroPhaseTotalSeconds,
   isPomodoroAwaitingPhaseStart,
-  isPomodoroStarted,
 } from '../domain';
 import TimerModeTabs from './TimerModeTabs';
 
@@ -82,7 +82,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
-  const [isKeyPressingCircle, setIsKeyPressingCircle] = useState(false);
   const gradientSeed = useId();
   const idleTimerRef = useRef<number | null>(null);
   const [isImmersiveHidden, setIsImmersiveHidden] = useState(false);
@@ -122,8 +121,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     () => computePomodoroElapsedFocusSeconds(timerState),
     [timerState]
   );
-
-  const pomodoroHasStarted = useMemo(() => isPomodoroStarted(timerState), [timerState]);
 
   const canEditSettings = useMemo(() => canEditPomodoroSettings(timerState), [timerState]);
 
@@ -210,22 +207,28 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     }
   };
 
-  const handleToggleKeyDown = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.repeat) return;
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      setIsKeyPressingCircle(true);
-    }
-  };
+  // タイマーサークルのクリックフィードバック
+  const circleClickFeedback = useClickFeedback(handleToggle, !circleIsInteractive);
 
-  const handleToggleKeyUp = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      // 「押し込みが戻った」タイミングで切り替える（遅延感を減らす）
-      setIsKeyPressingCircle(false);
-      handleToggle();
-    }
-  };
+  // 科目選択ボタンのクリックフィードバック
+  const subjectSelectFeedback = useClickFeedback(
+    () => setIsSubjectDropdownOpen((prev) => !prev),
+    timerState.isRunning
+  );
+
+  // 記録ボタンのdisabled条件
+  const isRecordButtonDisabled = useMemo(() => 
+    isRecording ||
+    timerState.isRunning ||
+    !timerState.selectedSubject ||
+    (timerState.mode === 'stopwatch' && timerState.elapsedTime === 0) ||
+    (timerState.mode === 'pomodoro' && pomodoroElapsedFocusSeconds === 0) ||
+    (timerState.mode === 'manual' && timerState.manualHours === 0 && timerState.manualMinutes === 0),
+    [isRecording, timerState.isRunning, timerState.selectedSubject, timerState.mode, timerState.elapsedTime, timerState.manualHours, timerState.manualMinutes, pomodoroElapsedFocusSeconds]
+  );
+
+  // 記録ボタンのクリックフィードバック
+  const recordButtonFeedback = useClickFeedback(handleRecord, isRecordButtonDisabled);
 
 
 
@@ -419,11 +422,16 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
           <div className="mb-8 relative">
             <button
               type="button"
-              onClick={() => !timerState.isRunning && setIsSubjectDropdownOpen(!isSubjectDropdownOpen)}
               disabled={timerState.isRunning}
+              onKeyDown={subjectSelectFeedback.handleKeyDown}
+              onKeyUp={subjectSelectFeedback.handleKeyUp}
+              onBlur={subjectSelectFeedback.handleBlur}
+              onPointerDown={subjectSelectFeedback.handlePointerDown}
+              onPointerUp={subjectSelectFeedback.handlePointerUp}
+              onPointerLeave={subjectSelectFeedback.handlePointerLeave}
               className={`w-full px-4 py-3 rounded-full text-slate-200/90 bg-slate-800/50 hover:bg-slate-800/60 transition-colors flex items-center justify-center gap-2 backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_10px_30px_rgba(0,0,0,0.45)] ${
                 timerState.isRunning ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
+              } ${subjectSelectFeedback.activeClass}`}
             >
               {timerState.selectedSubject && subjectColor && (
                 <span
@@ -434,52 +442,56 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               <span className="text-sm">
                 {timerState.selectedSubject || '科目を選択'}
               </span>
-              {!timerState.isRunning && (
-                <svg
-                  className={`w-4 h-4 transition-transform ${isSubjectDropdownOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              )}
             </button>
             
-            {isSubjectDropdownOpen && !timerState.isRunning && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setIsSubjectDropdownOpen(false)}
-                />
-                <div className="absolute z-20 w-full mt-2 bg-slate-900/60 backdrop-blur-md rounded-2xl shadow-2xl max-h-60 overflow-auto ring-1 ring-sky-200/15">
-                  {subjects.map((subject) => {
-                    const color = getSubjectColor(subject);
-                    return (
-                      <button
-                        key={subject}
-                        type="button"
-                        onClick={() => {
-                          setSelectedSubject(subject);
-                          setIsSubjectDropdownOpen(false);
-                        }}
-                        className={`w-full text-left px-4 py-3 hover:bg-white/6 flex items-center gap-3 transition-colors ${
-                          timerState.selectedSubject === subject ? 'bg-white/10' : ''
-                        }`}
-                      >
-                        {color && (
-                          <span
-                            className="w-3 h-3 rounded-full flex-shrink-0"
-                            style={{ backgroundColor: color }}
-                          />
-                        )}
-                        <span className="text-slate-200">{subject}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+            <AnimatePresence>
+              {isSubjectDropdownOpen && !timerState.isRunning && (
+                <>
+                  <motion.div
+                    className="fixed inset-0 z-10"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: ANIMATION_THEME.DURATIONS_S.FADE }}
+                    onClick={() => setIsSubjectDropdownOpen(false)}
+                  />
+                  <motion.div
+                    className="absolute z-20 w-full mt-2 bg-slate-900/60 backdrop-blur-md rounded-2xl shadow-2xl max-h-60 overflow-auto ring-1 ring-sky-200/15 subject-dropdown-scroll"
+                    initial={{ y: -20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: -20, opacity: 0 }}
+                    transition={ANIMATION_THEME.SPRINGS.TIMER_MODE_TABS}
+                  >
+                    {subjects.map((subject) => {
+                      const color = getSubjectColor(subject);
+                      return (
+                        <motion.button
+                          key={subject}
+                          type="button"
+                          onClick={() => {
+                            setSelectedSubject(subject);
+                            setIsSubjectDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-3 flex items-center gap-3 relative overflow-hidden ${
+                            timerState.selectedSubject === subject ? 'bg-white/10' : ''
+                          }`}
+                          whileHover={{ backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
+                          transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK }}
+                        >
+                          {color && (
+                            <span
+                              className="w-3 h-3 rounded-full flex-shrink-0"
+                              style={{ backgroundColor: color }}
+                            />
+                          )}
+                          <span className="text-slate-200 relative z-10">{subject}</span>
+                        </motion.button>
+                      );
+                    })}
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
 
@@ -531,19 +543,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                 ? (timerState.isRunning ? 'タイマーを停止' : 'タイマーを開始')
                 : '手動入力'
             }
-            onKeyDown={circleIsInteractive ? handleToggleKeyDown : undefined}
-            onKeyUp={circleIsInteractive ? handleToggleKeyUp : undefined}
-            onBlur={circleIsInteractive ? () => setIsKeyPressingCircle(false) : undefined}
-            onPointerDown={circleIsInteractive ? () => setIsKeyPressingCircle(true) : undefined}
-            onPointerUp={circleIsInteractive ? () => {
-              // 「押し込みが戻った」タイミングで切り替える（押下の凹み復帰と同期）
-              setIsKeyPressingCircle(false);
-              handleToggle();
-            } : undefined}
-            onPointerLeave={circleIsInteractive ? () => setIsKeyPressingCircle(false) : undefined}
+            onKeyDown={circleClickFeedback.handleKeyDown}
+            onKeyUp={circleClickFeedback.handleKeyUp}
+            onBlur={circleClickFeedback.handleBlur}
+            onPointerDown={circleClickFeedback.handlePointerDown}
+            onPointerUp={circleClickFeedback.handlePointerUp}
+            onPointerLeave={circleClickFeedback.handlePointerLeave}
             className={`relative w-80 h-80 rounded-full bg-slate-900/35 ring-1 ring-sky-200/22 shadow-[0_6px_12px_rgba(0,0,0,0.38),0_18px_70px_rgba(0,0,0,0.42),0_0_0_1px_rgba(186,230,253,0.22)] focus:outline-none focus:ring-2 focus:ring-sky-200/25 backdrop-blur-md ${
-              circleIsInteractive ? 'cursor-pointer hover:shadow-[0_8px_14px_rgba(0,0,0,0.40),0_22px_82px_rgba(0,0,0,0.45),0_0_0_1px_rgba(186,230,253,0.26)] hover:bg-slate-900/40 active:scale-[0.985] active:translate-y-[1px] active:bg-slate-900/45 active:shadow-inner' : 'cursor-default opacity-80'
-            } ${isKeyPressingCircle ? 'scale-[0.985] translate-y-[1px] bg-slate-900/45 shadow-inner' : ''}`}
+              circleIsInteractive ? 'cursor-pointer hover:shadow-[0_8px_14px_rgba(0,0,0,0.40),0_22px_82px_rgba(0,0,0,0.45),0_0_0_1px_rgba(186,230,253,0.26)] hover:bg-slate-900/40' : 'cursor-default opacity-80'
+            } ${circleClickFeedback.activeClass}`}
           >
             {/* フラットな質感（球体ハイライトは入れない） */}
             {/* 影をくっきり見せるための追加ドロップシャドウ（背景から浮かせる） */}
@@ -647,11 +655,11 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                 <motion.div
                   key={`pomodoro-set-${timerState.pomodoroCurrentSet}-${timerState.pomodoroSets}`}
                   className="text-xs text-slate-200/50 tabular-nums"
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
+                  initial={{ scale: ANIMATION_THEME.SCALES.POMODORO.CONTENT_INTRO_START, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
                   transition={{
-                    duration: ANIMATION_THEME.DURATIONS_S.POPOVER,
-                    ease: 'easeOut',
+                    duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
+                    ease: ANIMATION_THEME.EASINGS.OUT_BACK,
                   }}
                 >
                   {timerState.pomodoroCurrentSet}/{timerState.pomodoroSets}
@@ -969,16 +977,14 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
           style={{ pointerEvents: isImmersiveHidden ? 'none' : 'auto' }}
         >
           <button
-            onClick={handleRecord}
-            disabled={
-              isRecording ||
-              timerState.isRunning ||
-              !timerState.selectedSubject ||
-              (timerState.mode === 'stopwatch' && timerState.elapsedTime === 0) ||
-              (timerState.mode === 'pomodoro' && pomodoroElapsedFocusSeconds === 0) ||
-              (timerState.mode === 'manual' && timerState.manualHours === 0 && timerState.manualMinutes === 0)
-            }
-            className="w-full px-6 py-3 bg-slate-800/45 hover:bg-slate-800/55 text-slate-200 rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_16px_40px_rgba(0,0,0,0.50)]"
+            disabled={isRecordButtonDisabled}
+            onKeyDown={recordButtonFeedback.handleKeyDown}
+            onKeyUp={recordButtonFeedback.handleKeyUp}
+            onBlur={recordButtonFeedback.handleBlur}
+            onPointerDown={recordButtonFeedback.handlePointerDown}
+            onPointerUp={recordButtonFeedback.handlePointerUp}
+            onPointerLeave={recordButtonFeedback.handlePointerLeave}
+            className={`w-full px-6 py-3 bg-slate-800/45 hover:bg-slate-800/55 text-slate-200 rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_16px_40px_rgba(0,0,0,0.50)] ${recordButtonFeedback.activeClass}`}
           >
             {isRecording ? '記録中...' : toastMessage && toastMessage.includes('記録しました') ? '完了！' : '記録'}
           </button>
