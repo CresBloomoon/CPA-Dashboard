@@ -874,6 +874,7 @@ export default function KanbanBoard({
                   onToggleProject={handleToggleProject}
                   subjectsWithColors={subjectsWithColors}
                   activeId={activeId}
+                  colors={colors}
                 />
               );
             })}
