@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { format, isWithinInterval, parseISO } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import type { StudyProgress, Subject, Todo } from '../../../api/types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
@@ -60,25 +60,36 @@ export default function ReportWizard({
     questions: '',
   });
 
-  const lastWeekTotalHours = useMemo(() => {
-    return progressList
-      .filter((p) => {
-        const d = parseISO(p.created_at);
-        return isWithinInterval(d, { start: periodStart, end: periodEnd });
-      })
-      .reduce((sum, p) => sum + p.study_hours, 0);
-  }, [progressList, periodStart, periodEnd]);
+  // ダッシュボード側の集計ロジック（yyyy-MM-ddのキー比較）と揃える
+  const periodStartKey = useMemo(() => format(periodStart, 'yyyy-MM-dd'), [periodStart]);
+  const periodEndKey = useMemo(() => format(periodEnd, 'yyyy-MM-dd'), [periodEnd]);
+
+  const lastWeekHoursDebug = useMemo(() => {
+    let matched = 0;
+    let sum = 0;
+    for (const p of progressList) {
+      const key = format(parseISO(p.created_at), 'yyyy-MM-dd');
+      if (key >= periodStartKey && key <= periodEndKey) {
+        matched += 1;
+        sum += p.study_hours;
+      }
+    }
+    return { matched, sum };
+  }, [progressList, periodStartKey, periodEndKey]);
+
+  const lastWeekTotalHours = lastWeekHoursDebug.sum;
 
   const completedTodosBySubject = useMemo(() => {
     const subjectOrder = subjectsWithColors.map((s) => s.name);
     const map = new Map<string, string[]>();
 
-    const getCompletedDate = (t: Todo): Date => parseISO(t.updated_at || t.created_at);
+    const getCompletedDateKey = (t: Todo): string =>
+      format(parseISO(t.updated_at || t.created_at), 'yyyy-MM-dd');
 
     todos.forEach((t) => {
       if (!t.completed) return;
-      const d = getCompletedDate(t);
-      if (!isWithinInterval(d, { start: periodStart, end: periodEnd })) return;
+      const key = getCompletedDateKey(t);
+      if (key < periodStartKey || key > periodEndKey) return;
       const subject = t.subject?.trim() || '未分類';
       if (!map.has(subject)) map.set(subject, []);
       map.get(subject)!.push(t.title);
@@ -96,7 +107,7 @@ export default function ReportWizard({
       .forEach((e) => ordered.push(e));
 
     return ordered;
-  }, [todos, subjectsWithColors, periodStart, periodEnd]);
+  }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
 
   const todoListText = useMemo(() => {
     if (completedTodosBySubject.length === 0) return '（該当期間に完了したリマインダはありません）';
@@ -276,6 +287,11 @@ export default function ReportWizard({
                         {todoListText}
                       </pre>
                     </div>
+                  </div>
+
+                  {/* Debug（開発用）: 集計対象期間 */}
+                  <div className="mt-2 text-[10px] text-right" style={{ color: colors.textTertiary }}>
+                    {periodStartKey}〜{periodEndKey} / matched: {lastWeekHoursDebug.matched}
                   </div>
 
                   <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
