@@ -265,16 +265,29 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
 
   const handleToggle = () => {
-    if (!timerState.selectedSubject) return;
-    if (!circleIsInteractive) return;
+    console.log('[StudyTimer] handleToggle called', {
+      selectedSubject: timerState.selectedSubject,
+      circleIsInteractive,
+      isRunning: timerState.isRunning,
+    });
+    if (!timerState.selectedSubject) {
+      console.log('[StudyTimer] handleToggle: No subject selected, returning');
+      return;
+    }
+    if (!circleIsInteractive) {
+      console.log('[StudyTimer] handleToggle: Circle not interactive, returning');
+      return;
+    }
     // 設定ポップアップ表示中でも、開始操作は許可（押したらフェードアウトさせる）
     if (isPomodoroSettingsOpen) {
       setIsHoveringTimeText(false);
       closeSettingsImmediate();
     }
     if (timerState.isRunning) {
+      console.log('[StudyTimer] handleToggle: Stopping timer');
       stopTimer();
     } else {
+      console.log('[StudyTimer] handleToggle: Starting timer');
       startTimer();
     }
   };

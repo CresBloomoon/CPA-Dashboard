@@ -26,10 +26,15 @@ export function useClickFeedback<T extends HTMLElement = HTMLElement>(
 
   const handlePointerUp = useCallback(
     (e?: PointerEvent<T>) => {
-      if (disabled) return;
+      console.log('[useClickFeedback] handlePointerUp called', { disabled });
+      if (disabled) {
+        console.log('[useClickFeedback] handlePointerUp: disabled, returning');
+        return;
+      }
       e?.preventDefault();
       // 「押し込みが戻った」タイミングで処理を実行（押下の凹み復帰と同期）
       setIsPressed(false);
+      console.log('[useClickFeedback] handlePointerUp: calling onActivate');
       onActivate();
     },
     [disabled, onActivate]
