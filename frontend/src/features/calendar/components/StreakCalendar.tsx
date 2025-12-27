@@ -200,6 +200,28 @@ export default function StreakCalendar({ progressList }: StreakCalendarProps) {
     setTooltip(null);
   };
 
+  // 日付が連続ストリークの一部かどうかを判定（右側に線を表示するかどうか）
+  const shouldShowConnector = (day: Date, weekIndex: number, dayIndex: number): boolean => {
+    const dateKey = format(day, 'yyyy-MM-dd');
+    if (!achievedDates.has(dateKey)) return false;
+    
+    // 次の週の同じ日のインデックスの日付を取得
+    if (weekIndex + 1 >= weeks.length) return false;
+    
+    const nextWeek = weeks[weekIndex + 1];
+    if (dayIndex >= nextWeek.length) return false;
+    
+    const nextDay = nextWeek[dayIndex];
+    const nextKey = format(nextDay, 'yyyy-MM-dd');
+    
+    if (!achievedDates.has(nextKey)) return false;
+    
+    // 同じストリークグループに属しているか確認
+    const currentGroup = getStreakGroup(day);
+    const nextGroup = getStreakGroup(nextDay);
+    
+    return currentGroup !== null && nextGroup !== null && currentGroup === nextGroup;
+  };
 
   return (
     <div 
