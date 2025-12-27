@@ -379,7 +379,7 @@ export default function CompactStreakCalendar({ progressList, compact = true }: 
                   border: '1px dashed #FF4500',
                   opacity: 0.6,
                 };
-                if (!compact) cellClassName += ' animate-pulse';
+                // 静止UI：アニメーションは使わない
               } else if (isFutureDate || !isCurrentMonth) {
                 cellStyle = {
                   ...cellStyle,

@@ -413,7 +413,7 @@ export default function StreakCalendar({ progressList }: StreakCalendarProps) {
                   border: '2px dashed #FF4500',
                   opacity: 0.6,
                 };
-                cellClassName += ' animate-pulse';
+                // 静止UI：アニメーションは使わない
               } else if (isFutureDate || !isCurrentMonth) {
                 // 未来または今月以外：控えめなグレー
                 cellStyle = {

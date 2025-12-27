@@ -24,70 +24,78 @@ export function ReportStep3({ theme, colors, reportData, updateData, onTabToNext
           <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
             現状課題と解決策
           </label>
-          <textarea
-            value={reportData.issues}
-            onChange={(e) => updateData({ issues: e.target.value })}
-            rows={3}
-            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 mb-2"
-            style={{
-              borderColor: colors.border,
-              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-              color: colors.textPrimary,
-            }}
-            placeholder="（課題）"
-          />
-          <textarea
-            value={reportData.solutions}
-            onChange={(e) => updateData({ solutions: e.target.value })}
-            rows={3}
-            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-            style={{
-              borderColor: colors.border,
-              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-              color: colors.textPrimary,
-            }}
-            placeholder="（解決策）"
-          />
+          <div className="relative">
+            <textarea
+              value={reportData.issues}
+              onChange={(e) => updateData({ issues: e.target.value })}
+              rows={3}
+              className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 mb-2"
+              style={{
+                borderColor: colors.border,
+                backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                color: colors.textPrimary,
+              }}
+              placeholder="（課題）"
+            />
+          </div>
+          <div className="relative">
+            <textarea
+              value={reportData.solutions}
+              onChange={(e) => updateData({ solutions: e.target.value })}
+              rows={3}
+              className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+              style={{
+                borderColor: colors.border,
+                backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                color: colors.textPrimary,
+              }}
+              placeholder="（解決策）"
+            />
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
             今週実施すること
           </label>
-          <textarea
-            value={reportData.nextWeekPlan}
-            onChange={(e) => updateData({ nextWeekPlan: e.target.value })}
-            rows={3}
-            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-            style={{
-              borderColor: colors.border,
-              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-              color: colors.textPrimary,
-            }}
-          />
+          <div className="relative">
+            <textarea
+              value={reportData.nextWeekPlan}
+              onChange={(e) => updateData({ nextWeekPlan: e.target.value })}
+              rows={3}
+              className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+              style={{
+                borderColor: colors.border,
+                backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                color: colors.textPrimary,
+              }}
+            />
+          </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
             相談したいこと
           </label>
-          <textarea
-            value={reportData.questions}
-            onChange={(e) => updateData({ questions: e.target.value })}
-            onKeyDown={(e) => {
-              if (e.key === 'Tab' && !e.shiftKey) {
-                e.preventDefault();
-                onTabToNext();
-              }
-            }}
-            rows={3}
-            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-            style={{
-              borderColor: colors.border,
-              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-              color: colors.textPrimary,
-            }}
-          />
+          <div className="relative">
+            <textarea
+              value={reportData.questions}
+              onChange={(e) => updateData({ questions: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === 'Tab' && !e.shiftKey) {
+                  e.preventDefault();
+                  onTabToNext();
+                }
+              }}
+              rows={3}
+              className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+              style={{
+                borderColor: colors.border,
+                backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                color: colors.textPrimary,
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -17,6 +17,8 @@ import CompactStreakCalendar from '../../calendar/components/CompactStreakCalend
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
 import ReportWizard from '../../report/components/ReportWizard';
+import { ReportWelcomeModal } from '../../report/components/ReportWelcomeModal';
+import { useAccentMode } from '../../../contexts/AccentModeContext';
 
 ChartJS.register(
   CategoryScale,
@@ -57,6 +59,8 @@ export default function SummaryCards({
 }: SummaryCardsProps) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const { setAccentMode } = useAccentMode();
+  const [isWelcomeOpen, setIsWelcomeOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
 
   // 科目名から色を取得する関数
@@ -294,20 +298,24 @@ export default function SummaryCards({
             <button
               type="button"
               disabled={!devAlwaysEnableWizard && isReported}
-              onClick={() => setIsWizardOpen(true)}
+              onClick={() => {
+                setAccentMode('report');
+                setIsWelcomeOpen(true);
+              }}
               className="w-full px-4 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                backgroundColor: (!devAlwaysEnableWizard && isReported) ? colors.buttonDisabled : colors.accent,
-                color: colors.textInverse,
+                backgroundColor: (!devAlwaysEnableWizard && isReported) ? colors.buttonDisabled : '#FFB800',
+                color: '#111827',
+                boxShadow: (!devAlwaysEnableWizard && isReported) ? 'none' : '0 16px 40px rgba(0,0,0,0.35)',
               }}
               onMouseEnter={(e) => {
-                if (devAlwaysEnableWizard || !isReported) e.currentTarget.style.backgroundColor = colors.accentHover;
+                if (devAlwaysEnableWizard || !isReported) e.currentTarget.style.filter = 'brightness(0.9)';
               }}
               onMouseLeave={(e) => {
-                if (devAlwaysEnableWizard || !isReported) e.currentTarget.style.backgroundColor = colors.accent;
+                if (devAlwaysEnableWizard || !isReported) e.currentTarget.style.filter = 'none';
               }}
             >
-              {devAlwaysEnableWizard ? 'ウィザードを開始（開発用）' : (isReported ? '報告済み' : 'ウィザードを開始')}
+              {devAlwaysEnableWizard ? '作成開始（開発用）' : (isReported ? '報告済み' : '作成開始')}
             </button>
           </div>
         )}
@@ -321,7 +329,7 @@ export default function SummaryCards({
             border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
           }}
         >
-          <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 
               className="text-lg font-semibold mb-4"
@@ -506,7 +514,7 @@ export default function SummaryCards({
             </div>
           </div>
         </div>
-        </div>
+      </div>
 
         {/* ストリークカレンダーカード */}
         <div 
@@ -522,6 +530,18 @@ export default function SummaryCards({
       </div>
 
       {/* ウィザードモーダル */}
+      <ReportWelcomeModal
+        isOpen={isWelcomeOpen}
+        onClose={() => {
+          setIsWelcomeOpen(false);
+          setAccentMode('normal');
+        }}
+        onStart={() => {
+          setIsWelcomeOpen(false);
+          setIsWizardOpen(true);
+        }}
+      />
+
       {isWizardOpen && (
         <ReportWizard
           reportStartDay={reportStartDay}
@@ -530,7 +550,10 @@ export default function SummaryCards({
           progressList={progressList}
           todos={todos}
           subjectsWithColors={subjectsWithColors}
-          onClose={() => setIsWizardOpen(false)}
+          onClose={() => {
+            setIsWizardOpen(false);
+            setAccentMode('normal');
+          }}
           onCopied={(periodId) => {
             localStorage.setItem('reportWizard:lastReportedPeriodId', periodId);
           }}

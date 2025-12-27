@@ -395,28 +395,28 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                 onSubjectsWithColorsChange([]);
               }
             } else {
-              // Subject型の配列か、文字列の配列かを判定
-              if (parsedSubjects[0] && typeof parsedSubjects[0] === 'object' && 'id' in parsedSubjects[0]) {
-                setSubjects(parsedSubjects as Subject[]);
-                onSubjectsChange((parsedSubjects as Subject[]).map(s => s.name));
-                if (onSubjectsWithColorsChange) {
-                  onSubjectsWithColorsChange(parsedSubjects as Subject[]);
-                }
-              } else {
-                // 文字列配列の場合はSubject型に変換
-                const convertedSubjects: Subject[] = (parsedSubjects as string[]).map((name, index) => ({
-                  id: index + 1,
-                  name,
-                  color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
-                }));
-                setSubjects(convertedSubjects);
-                onSubjectsChange(convertedSubjects.map(s => s.name));
-                if (onSubjectsWithColorsChange) {
-                  onSubjectsWithColorsChange(convertedSubjects);
-                }
-                // 変換したデータを保存
-                await saveSubjects(convertedSubjects);
+            // Subject型の配列か、文字列の配列かを判定
+            if (parsedSubjects[0] && typeof parsedSubjects[0] === 'object' && 'id' in parsedSubjects[0]) {
+              setSubjects(parsedSubjects as Subject[]);
+              onSubjectsChange((parsedSubjects as Subject[]).map(s => s.name));
+              if (onSubjectsWithColorsChange) {
+                onSubjectsWithColorsChange(parsedSubjects as Subject[]);
               }
+            } else {
+              // 文字列配列の場合はSubject型に変換
+              const convertedSubjects: Subject[] = (parsedSubjects as string[]).map((name, index) => ({
+                id: index + 1,
+                name,
+                color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
+              }));
+              setSubjects(convertedSubjects);
+              onSubjectsChange(convertedSubjects.map(s => s.name));
+              if (onSubjectsWithColorsChange) {
+                onSubjectsWithColorsChange(convertedSubjects);
+              }
+              // 変換したデータを保存
+              await saveSubjects(convertedSubjects);
+            }
             }
           }
         } catch (parseError) {

@@ -50,8 +50,8 @@ export const useAppSettings = () => {
               const nextSubjects = parsedSubjects as Subject[];
               setSubjectsWithColors(nextSubjects);
               setSubjects(nextSubjects.map(s => s.name));
-            } else {
-              // 文字列配列の場合は名前のみを設定（色情報なし）
+          } else {
+            // 文字列配列の場合は名前のみを設定（色情報なし）
               const names = parsedSubjects as string[];
               const converted: Subject[] = names.map((name, index) => ({
                 id: index + 1,

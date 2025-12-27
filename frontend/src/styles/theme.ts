@@ -144,7 +144,14 @@ export const themes: Record<Theme, ThemeTokens> = {
  * テーマに応じたカラーパレットを取得
  */
 export function getThemeColors(theme: Theme): ColorPalette {
-  return themes[theme].colors;
+  const base = themes[theme].colors;
+  // Accentはモード（通常/報告）で動的に切り替えられるようCSS変数を優先
+  return {
+    ...base,
+    accent: `var(--app-accent, ${base.accent})`,
+    accentHover: `var(--app-accent-hover, ${base.accentHover})`,
+    accentLight: `var(--app-accent-light, ${base.accentLight})`,
+  };
 }
 
 /**

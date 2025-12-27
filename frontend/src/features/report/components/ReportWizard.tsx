@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import type { StudyProgress, Subject, Todo } from '../../../api/types';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
 import { ChevronDown } from 'lucide-react';
 import type { ReportData, UpdateReportData } from '../types/reportWizard';
-import { ReportStep0 } from './steps/ReportStep0';
 import { ReportStep1 } from './steps/ReportStep1';
 import { ReportStep2 } from './steps/ReportStep2';
 import { ReportStep3 } from './steps/ReportStep3';
 import { ReportStep4 } from './steps/ReportStep4';
 import type { SubjectHoursRow } from './steps/ReportStep1';
 import type { ReminderCountsBySubject } from './steps/ReportStep1';
+import { useAccentMode } from '../../../contexts/AccentModeContext';
 
 export default function ReportWizard({
   reportStartDay: _reportStartDay,
@@ -35,22 +34,22 @@ export default function ReportWizard({
 }) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const { setAccentMode } = useAccentMode();
 
   const periodId = useMemo(
     () => `${format(periodStart, 'yyyy-MM-dd')}__${format(periodEnd, 'yyyy-MM-dd')}`,
     [periodStart, periodEnd]
   );
 
-  const [step, setStep] = useState(0); // 0..4（0=イントロ）
+  // Step1..Step4 を 0..3 で管理（Welcomeはウィザードの外に分離）
+  const [stepIndex, setStepIndex] = useState(0); // 0..3（表示は+1）
   const [toast, setToast] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
   const [isCopySuccess, setIsCopySuccess] = useState(false);
-  const [isCopyGlow, setIsCopyGlow] = useState(false);
   const [finalDraftText, setFinalDraftText] = useState<string>('');
   const [isFinalDraftDirty, setIsFinalDraftDirty] = useState(false);
 
   const copySuccessTimeoutRef = useRef<number | null>(null);
-  const copyGlowTimeoutRef = useRef<number | null>(null);
   const copyCloseTimeoutRef = useRef<number | null>(null);
 
   const primaryFooterButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -283,10 +282,6 @@ export default function ReportWizard({
   const steps = useMemo(() => {
     return [
       {
-        id: 'step-0',
-        render: () => <ReportStep0 theme={theme} colors={colors} />,
-      },
-      {
         id: 'step-1',
         render: () => (
           <ReportStep1
@@ -298,6 +293,7 @@ export default function ReportWizard({
             subjectHours={subjectHours}
             reminderTotalCount={reminderCounts.total}
             reminderCountsBySubject={reminderCounts.countsBySubject}
+            subjectsWithColors={subjectsWithColors}
             periodStartKey={periodStartKey}
             periodEndKey={periodEndKey}
             matchedCount={lastWeekHoursDebug.matched}
@@ -336,14 +332,19 @@ export default function ReportWizard({
     lastWeekHoursDebug.matched,
   ]);
 
-  const FINAL_STEP_INDEX = 4;
-  const isFinalStep = step === FINAL_STEP_INDEX;
-  const isIntroStep = step === 0;
+  const STEP_COUNT = steps.length;
+  const isFinalStep = stepIndex === STEP_COUNT - 1;
 
   useEffect(() => {
     // 最終ステップは Enter 一発で確定できるよう、主要ボタンにフォーカス
     if (isFinalStep) window.setTimeout(() => primaryFooterButtonRef.current?.focus(), 0);
   }, [isFinalStep]);
+
+  useEffect(() => {
+    // ウィザード表示中は報告モードに固定（閉じたら通常へ戻す）
+    setAccentMode('report');
+    return () => setAccentMode('normal');
+  }, [setAccentMode]);
 
   // Step4（最終確認）に入ったら、自動生成文をドラフトに流し込む（未編集のときだけ追従）
   useEffect(() => {
@@ -352,8 +353,9 @@ export default function ReportWizard({
     setFinalDraftText(outputText);
   }, [isFinalStep, isFinalDraftDirty, outputText]);
 
-  // 表示上は Step 0/4 〜 Step 4/4（分母は4固定）
-  const progressPct = (step / FINAL_STEP_INDEX) * 100;
+  // 表示上は Step 1/4 〜 Step 4/4（内部は0..3）
+  const displayStep = stepIndex + 1;
+  const progressPct = STEP_COUNT <= 1 ? 100 : (stepIndex / (STEP_COUNT - 1)) * 100;
 
   const showToast = (message: string) => {
     setToast(message);
@@ -368,11 +370,8 @@ export default function ReportWizard({
       onCopied(periodId);
 
       setIsCopySuccess(true);
-      setIsCopyGlow(true);
       if (copySuccessTimeoutRef.current) window.clearTimeout(copySuccessTimeoutRef.current);
-      if (copyGlowTimeoutRef.current) window.clearTimeout(copyGlowTimeoutRef.current);
       if (copyCloseTimeoutRef.current) window.clearTimeout(copyCloseTimeoutRef.current);
-      copyGlowTimeoutRef.current = window.setTimeout(() => setIsCopyGlow(false), 550);
       copySuccessTimeoutRef.current = window.setTimeout(() => setIsCopySuccess(false), 2000);
       if (opts?.closeAfter) {
         // 成功の余韻を少し見せてから閉じる
@@ -390,37 +389,28 @@ export default function ReportWizard({
   const handleCopyAndClose = async () => handleCopyInternal({ closeAfter: true });
 
   return (
-    <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-      >
-        {/* backdrop */}
-        <div
-          className="absolute inset-0"
-          style={{ backgroundColor: theme === 'modern' ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.35)' }}
-          onClick={onClose}
-        />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* backdrop（静止） */}
+      <div
+        className="absolute inset-0"
+        style={{ backgroundColor: theme === 'modern' ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.35)' }}
+        onClick={onClose}
+      />
 
-        <motion.div
-          className="relative w-full max-w-6xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
-          initial={{ opacity: 0, y: 12, scale: 0.98 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          exit={{ opacity: 0, y: 12, scale: 0.98 }}
-          transition={{ duration: 0.25, ease: 'easeOut' }}
-          style={{
-            backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.85)' : colors.card,
-            backdropFilter: theme === 'modern' ? 'blur(14px)' : 'none',
-            border: theme === 'modern' ? '1px solid rgba(255,255,255,0.12)' : `1px solid ${colors.border}`,
-          }}
-        >
+      <div
+        className="relative w-full max-w-6xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.85)' : colors.card,
+          backdropFilter: theme === 'modern' ? 'blur(14px)' : 'none',
+          border: theme === 'modern' ? '1px solid rgba(255,255,255,0.12)' : `1px solid ${colors.border}`,
+        }}
+      >
+
           {/* header */}
           <div className="p-8 border-b" style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
+                <h2 className="text-lg font-extrabold" style={{ color: '#FFB800' }}>
                   監査報告書ウィザード
                 </h2>
                 <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
@@ -443,16 +433,10 @@ export default function ReportWizard({
             {/* progress bar */}
             <div className="mt-4">
               <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: theme === 'modern' ? 'rgba(255,255,255,0.08)' : colors.border }}>
-                <motion.div
-                  className="h-full"
-                  initial={false}
-                  animate={{ width: `${progressPct}%` }}
-                  transition={{ duration: 0.35, ease: 'easeOut' }}
-                  style={{ backgroundColor: colors.accent }}
-                />
+                <div className="h-full" style={{ width: `${progressPct}%`, backgroundColor: '#FFB800' }} />
               </div>
               <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
-                Step {step} / {FINAL_STEP_INDEX}
+                Step {displayStep} / {STEP_COUNT}
               </p>
             </div>
           </div>
@@ -464,97 +448,76 @@ export default function ReportWizard({
             >
               {/* 左：入力（ステップごと） */}
               <div className="min-w-0">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={steps[step]?.id ?? `step-${step}`}
-                    initial={{ opacity: 0, x: 18 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -18 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
-                  >
-                    {steps[step]?.render()}
-                  </motion.div>
-                </AnimatePresence>
+                {steps[stepIndex]?.render()}
               </div>
 
               {/* 右：リアルタイムプレビュー（成果物） */}
               <div className="min-w-0 md:sticky md:top-6 self-start">
-                <div
-                  className="rounded-2xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
-                  style={{
-                    borderColor: isFinalStep
-                      ? (theme === 'modern' ? 'rgba(34, 197, 94, 0.30)' : colors.border)
-                      : (theme === 'modern' ? 'rgba(255,255,255,0.12)' : colors.border),
-                    backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.65)' : colors.backgroundSecondary,
-                  }}
-                >
-                  <div className="px-4 py-3 border-b flex items-center justify-between gap-3"
-                    style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}
+                <div>
+                  <div
+                    className="rounded-2xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+                    style={{
+                      borderColor: isFinalStep
+                        ? (theme === 'modern' ? 'rgba(34, 197, 94, 0.30)' : colors.border)
+                        : (theme === 'modern' ? 'rgba(255,255,255,0.12)' : colors.border),
+                      backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.65)' : colors.backgroundSecondary,
+                    }}
                   >
-                    <div>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>
-                        リアルタイムプレビュー
-                      </p>
-                      <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
-                        生成される報告書
-                      </p>
-                    </div>
-                    <motion.button
-                      type="button"
-                      onClick={handleCopy}
-                      disabled={isCopying}
-                      tabIndex={-1}
-                      className="px-3 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      animate={{
-                        scale: isCopyGlow ? 1.06 : 1,
-                        backgroundColor: isCopyGlow ? 'rgba(34, 197, 94, 0.92)' : colors.accent,
-                        boxShadow: isCopyGlow ? '0 0 18px rgba(34, 197, 94, 0.35)' : 'none',
-                      }}
-                      transition={{ type: 'spring', stiffness: 520, damping: 28 }}
-                      style={{ color: colors.textInverse }}
-                    >
-                      <AnimatePresence mode="wait" initial={false}>
-                        <motion.span
-                          key={isCopying ? 'copying' : isCopySuccess ? 'success' : 'idle'}
-                          initial={{ opacity: 0, y: 6, scale: 0.96 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          exit={{ opacity: 0, y: -6, scale: 0.96 }}
-                          transition={{ type: 'spring', stiffness: 520, damping: 30 }}
-                          className="inline-block"
-                        >
-                          {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！ ✅' : 'コピー'}
-                        </motion.span>
-                      </AnimatePresence>
-                    </motion.button>
-                  </div>
+                          <div className="px-4 py-3 border-b flex items-center justify-between gap-3"
+                            style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}
+                          >
+                            <div>
+                              <p className="text-xs" style={{ color: colors.textSecondary }}>
+                                リアルタイムプレビュー
+                              </p>
+                              <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                                生成される報告書
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleCopy}
+                              disabled={isCopying}
+                              tabIndex={-1}
+                              className="px-3 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              style={{ backgroundColor: '#FFB800', color: '#111827' }}
+                            >
+                              {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！' : 'コピー'}
+                            </button>
+                          </div>
 
-                  <div className="p-4">
-                    <div
-                      className="rounded-xl border px-4 py-3 overflow-auto"
-                      style={{
-                        borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
-                        backgroundColor: theme === 'modern' ? 'rgba(2, 6, 23, 0.45)' : colors.card,
-                        color: colors.textPrimary,
-                        maxHeight: isFinalStep ? '74vh' : '68vh',
-                      }}
-                    >
-                      {isFinalStep ? (
-                        <textarea
-                          value={finalDraftText}
-                          onChange={(e) => {
-                            setFinalDraftText(e.target.value);
-                            setIsFinalDraftDirty(true);
-                          }}
-                          className="w-full h-full min-h-[64vh] resize-none bg-transparent outline-none font-mono text-sm leading-relaxed rounded-lg border-2 px-3 py-2"
-                          style={{
-                            borderColor: theme === 'modern' ? 'rgba(56, 189, 248, 0.35)' : colors.accent,
-                            color: colors.textPrimary,
-                          }}
-                        />
-                      ) : (
-                        <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed">{outputText}</pre>
-                      )}
-                    </div>
+                          <div className="p-4">
+                            <div
+                              className="rounded-xl border px-4 py-3 overflow-auto"
+                              style={{
+                                borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
+                                backgroundColor: theme === 'modern' ? 'rgba(2, 6, 23, 0.45)' : colors.card,
+                                color: colors.textPrimary,
+                                maxHeight: isFinalStep ? '74vh' : '68vh',
+                              }}
+                            >
+                              {isFinalStep ? (
+                                <textarea
+                                  value={finalDraftText}
+                                  onChange={(e) => {
+                                    setFinalDraftText(e.target.value);
+                                    setIsFinalDraftDirty(true);
+                                  }}
+                                  className="w-full h-full min-h-[64vh] resize-none bg-transparent outline-none font-mono text-sm leading-relaxed rounded-lg border-2 px-3 py-2"
+                                  style={{
+                                    borderColor: theme === 'modern' ? 'rgba(56, 189, 248, 0.35)' : colors.accent,
+                                    color: colors.textPrimary,
+                                    lineBreak: 'strict',
+                                    wordBreak: 'break-word',
+                                  }}
+                                />
+                              ) : (
+                                <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed" style={{ lineBreak: 'strict', wordBreak: 'break-word' }}>
+                                  {outputText}
+                                </pre>
+                              )}
+                            </div>
+                          </div>
                   </div>
                 </div>
               </div>
@@ -564,11 +527,11 @@ export default function ReportWizard({
           {/* footer */}
           <div className="p-8 border-t flex items-center justify-between gap-3" style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}>
             <div className="flex items-center gap-2">
-              {step > 0 ? (
+              {stepIndex > 0 ? (
                 <button
                   type="button"
                   aria-label="前へ"
-                  onClick={() => setStep((s: number) => Math.max(0, s - 1))}
+                  onClick={() => setStepIndex((s: number) => Math.max(0, s - 1))}
                   className="p-3 rounded-xl transition-colors"
                   style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
                 >
@@ -580,55 +543,33 @@ export default function ReportWizard({
             </div>
 
             <div className="flex items-center gap-2">
-              {isIntroStep ? (
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  ref={primaryFooterButtonRef}
-                  className="px-6 py-4 rounded-2xl font-semibold text-base transition-colors"
-                  style={{ backgroundColor: colors.accent, color: colors.textInverse, minWidth: 220 }}
-                >
-                  報告書を作成する
-                </button>
-              ) : !isFinalStep ? (
+              {!isFinalStep ? (
                 <button
                   type="button"
                   aria-label="次へ"
-                  onClick={() => setStep((s: number) => Math.min(FINAL_STEP_INDEX, s + 1))}
+                  onClick={() => setStepIndex((s: number) => Math.min(STEP_COUNT - 1, s + 1))}
                   ref={primaryFooterButtonRef}
                   className="p-3 rounded-xl transition-colors"
-                  style={{ backgroundColor: colors.accent, color: colors.textInverse }}
+                  style={{ backgroundColor: '#FFB800', color: '#111827' }}
                 >
                   <ChevronDown size={22} className="-rotate-90" />
                 </button>
               ) : (
-                <motion.button
+                <button
                   type="button"
                   onClick={handleCopyAndClose}
                   disabled={isCopying}
                   ref={primaryFooterButtonRef}
                   className="px-6 py-4 rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
-                  animate={{
-                    scale: isCopyGlow ? 1.02 : 1,
-                    backgroundColor: isCopyGlow ? 'rgba(34, 197, 94, 0.92)' : colors.accent,
-                    boxShadow: isCopyGlow ? '0 0 22px rgba(34, 197, 94, 0.35)' : '0 16px 40px rgba(0,0,0,0.45)',
+                  style={{
+                    color: '#111827',
+                    minWidth: 220,
+                    backgroundColor: '#FFB800',
+                    boxShadow: '0 18px 55px rgba(0,0,0,0.55)',
                   }}
-                  transition={{ type: 'spring', stiffness: 520, damping: 28 }}
-                  style={{ color: colors.textInverse, minWidth: 220 }}
                 >
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.span
-                      key={isCopying ? 'copying' : isCopySuccess ? 'success' : 'idle-final'}
-                      initial={{ opacity: 0, y: 8, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.97 }}
-                      transition={{ type: 'spring', stiffness: 520, damping: 30 }}
-                      className="inline-block"
-                    >
-                      {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！ ✅' : '確定して終了'}
-                    </motion.span>
-                  </AnimatePresence>
-                </motion.button>
+                  {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！' : '確定して終了'}
+                </button>
               )}
             </div>
           </div>
@@ -640,9 +581,8 @@ export default function ReportWizard({
               {toast}
             </div>
           )}
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+      </div>
+    </div>
   );
 }
 

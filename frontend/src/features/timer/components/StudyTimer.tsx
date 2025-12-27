@@ -34,6 +34,7 @@ function DurationRow({
   adjustMinutes,
   unit = '分',
   disabled = false,
+  autoFocus = false,
 }: {
   label: string;
   value: number;
@@ -43,6 +44,7 @@ function DurationRow({
   adjustMinutes: (current: number, deltaSteps: number, min: number, max: number) => number;
   unit?: string;
   disabled?: boolean;
+  autoFocus?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const throttleTimerRef = useRef<number | null>(null);
@@ -59,6 +61,16 @@ function DurationRow({
     onChangeRef.current = onChange;
     adjustMinutesRef.current = adjustMinutes;
   }, [value, onChange, adjustMinutes]);
+
+  // 「集中」を中央に置いた際の操作性向上：開いた直後は集中行にフォーカス
+  useEffect(() => {
+    if (!autoFocus || disabled) return;
+    // NOTE: DOM focus を当てると、マウスホバーアウト後も「フォーカス強調」が残り
+    // ホバーが解除されないように見えるため、初期ハイライト（短時間）だけに留める。
+    setIsFocusWithin(true);
+    const t = window.setTimeout(() => setIsFocusWithin(false), 350);
+    return () => window.clearTimeout(t);
+  }, [autoFocus, disabled]);
 
   // キーボード操作ハンドラ
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -181,6 +193,120 @@ function DurationRow({
           )}
         </AnimatePresence>
       </div>
+    </div>
+  );
+}
+
+function TimeUnitBox({
+  value,
+  label,
+  min,
+  max,
+  onChange,
+  adjust,
+  disabled = false,
+  isInteractive = true,
+}: {
+  value: number;
+  label: string;
+  min: number;
+  max: number;
+  onChange: (next: number) => void;
+  adjust: (current: number, deltaSteps: number, min: number, max: number) => number;
+  disabled?: boolean;
+  isInteractive?: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const valueRef = useRef(value);
+  const onChangeRef = useRef(onChange);
+  const throttleTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    valueRef.current = value;
+    onChangeRef.current = onChange;
+  }, [value, onChange]);
+
+  // wheelイベントハンドラー（ホバーはCSSで維持し、スクロール中にチカつかせない）
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || disabled || !isInteractive) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (throttleTimerRef.current !== null) return;
+
+      throttleTimerRef.current = window.setTimeout(() => {
+        throttleTimerRef.current = null;
+      }, 16);
+
+      const direction = e.deltaY > 0 ? -1 : 1;
+      const next = adjust(valueRef.current, direction, min, max);
+      onChangeRef.current(next);
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (throttleTimerRef.current !== null) {
+        window.clearTimeout(throttleTimerRef.current);
+      }
+    };
+  }, [adjust, disabled, isInteractive, min, max]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (disabled || !isInteractive) return;
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      e.stopPropagation();
+      onChange(adjust(value, 1, min, max));
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      e.stopPropagation();
+      onChange(adjust(value, -1, min, max));
+    }
+  };
+
+  const canInc = !disabled && isInteractive && value < max;
+  const canDec = !disabled && isInteractive && value > min;
+
+  return (
+    <div className="relative group">
+      {/* 上矢印（CSS hoverで安定表示） */}
+      {canInc && (
+        <div className="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <ChevronUp size={40} className="w-10 h-10 text-white/80" />
+        </div>
+      )}
+
+      <div
+        ref={containerRef}
+        role="spinbutton"
+        tabIndex={disabled || !isInteractive ? -1 : 0}
+        aria-valuenow={value}
+        aria-valuemin={min}
+        aria-valuemax={max}
+        aria-label={`${label}: ${value}`}
+        className={`relative w-24 h-32 rounded-xl cursor-ns-resize flex items-center justify-center outline-none transition-colors duration-150 ${
+          disabled || !isInteractive ? 'opacity-50 cursor-not-allowed' : ''
+        } border border-transparent bg-transparent
+          group-hover:border-2 group-hover:border-sky-500/50 group-hover:bg-slate-900/60
+          focus-visible:border-2 focus-visible:border-sky-500/50 focus-visible:bg-slate-900/60`}
+        onKeyDown={handleKeyDown}
+      >
+        <div className="flex items-baseline gap-1">
+          <span className="text-6xl font-medium text-white tabular-nums">{String(value).padStart(2, '0')}</span>
+          <span className="text-base text-slate-400 font-medium">{label}</span>
+        </div>
+      </div>
+
+      {/* 下矢印（CSS hoverで安定表示） */}
+      {canDec && (
+        <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <ChevronDown size={40} className="w-10 h-10 text-white/80" />
+        </div>
+      )}
     </div>
   );
 }
@@ -944,166 +1070,32 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
                 {/* 数字はモダンに：monoを外しつつ tabular-nums で揃える */}
                 {timerState.mode === 'manual' ? (
-                  // 手動入力モード：共通コンポーネントで再構築
-                  (() => {
-                    // 共通数値入力コンポーネント
-                    function TimeUnitBox({
-                      value,
-                      label,
-                      min,
-                      max,
-                      onChange,
-                      disabled = false,
-                    }: {
-                      value: number;
-                      label: string;
-                      min: number;
-                      max: number;
-                      onChange: (next: number) => void;
-                      disabled?: boolean;
-                    }) {
-                      const containerRef = useRef<HTMLDivElement>(null);
-                      const [isHovering, setIsHovering] = useState(false);
-                      const valueRef = useRef(value);
-                      const onChangeRef = useRef(onChange);
-                      const throttleTimerRef = useRef<number | null>(null);
-
-                      useEffect(() => {
-                        valueRef.current = value;
-                        onChangeRef.current = onChange;
-                      }, [value, onChange]);
-
-                      // wheelイベントハンドラー
-                      useEffect(() => {
-                        const container = containerRef.current;
-                        if (!container || disabled || timerState.isRunning || timerState.mode !== 'manual') return;
-
-                        const handleWheel = (e: WheelEvent) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          
-                          if (throttleTimerRef.current !== null) return;
-                          
-                          throttleTimerRef.current = window.setTimeout(() => {
-                            throttleTimerRef.current = null;
-                          }, 16);
-
-                          const direction = e.deltaY > 0 ? -1 : 1;
-                          const next = adjustByStep(valueRef.current, direction, min, max);
-                          onChangeRef.current(next);
-                        };
-
-                        container.addEventListener('wheel', handleWheel, { passive: false });
-
-                        return () => {
-                          container.removeEventListener('wheel', handleWheel);
-                          if (throttleTimerRef.current !== null) {
-                            window.clearTimeout(throttleTimerRef.current);
-                          }
-                        };
-                      }, [disabled, min, max, timerState.isRunning, timerState.mode]);
-
-                      // キーボードイベントハンドラー
-                      const handleKeyDown = (e: React.KeyboardEvent) => {
-                        if (disabled || timerState.isRunning || timerState.mode !== 'manual') return;
-                        if (e.key === 'ArrowUp') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const next = adjustByStep(value, 1, min, max);
-                          onChange(next);
-                        } else if (e.key === 'ArrowDown') {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const next = adjustByStep(value, -1, min, max);
-                          onChange(next);
-                        }
-                      };
-
-                      return (
-                        <div className="relative">
-                          {/* 上矢印アイコン（箱の真上・外側、12px離す） */}
-                          <AnimatePresence>
-                            {isHovering && !disabled && value < max && (
-                              <motion.div
-                                key="arrow-up"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none"
-                              >
-                                <ChevronUp size={40} className="w-10 h-10 text-white/80" />
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-
-                          {/* 数値入力ボックス */}
-                          <div
-                            ref={containerRef}
-                            role="spinbutton"
-                            tabIndex={disabled || timerState.isRunning ? -1 : 0}
-                            aria-valuenow={value}
-                            aria-valuemin={min}
-                            aria-valuemax={max}
-                            aria-label={`${label}: ${value}`}
-                            className={`relative w-24 h-32 rounded-xl transition-all duration-300 cursor-ns-resize flex items-center justify-center ${
-                              isHovering && !disabled
-                                ? 'border-2 border-sky-500/50 bg-slate-900/60'
-                                : 'border border-transparent bg-transparent'
-                            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            onMouseEnter={() => !disabled && !timerState.isRunning && setIsHovering(true)}
-                            onMouseLeave={() => setIsHovering(false)}
-                            onKeyDown={handleKeyDown}
-                          >
-                            <div className="flex items-baseline gap-1">
-                              <span className="text-6xl font-medium text-white tabular-nums">
-                                {String(value).padStart(2, '0')}
-                              </span>
-                              <span className="text-base text-slate-400 font-medium">{label}</span>
-                            </div>
-                          </div>
-
-                          {/* 下矢印アイコン（箱の真下・外側、12px離す） */}
-                          <AnimatePresence>
-                            {isHovering && !disabled && value > min && (
-                              <motion.div
-                                key="arrow-down"
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                className="absolute -bottom-10 left-1/2 -translate-x-1/2 pointer-events-none"
-                              >
-                                <ChevronDown size={40} className="w-10 h-10 text-white/80" />
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="relative z-10 pointer-events-auto">
-                        <div className="flex items-center justify-center gap-3">
-                          <TimeUnitBox
-                            value={timerState.manualHours}
-                            label="時"
-                            min={0}
-                            max={23}
-                            onChange={setManualHours}
-                            disabled={timerState.isRunning}
-                          />
-                          <span className="text-6xl font-medium text-white">:</span>
-                          <TimeUnitBox
-                            value={timerState.manualMinutes}
-                            label="分"
-                            min={0}
-                            max={59}
-                            onChange={setManualMinutes}
-                            disabled={timerState.isRunning}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })()
+                  // 手動入力モード：ホバーはCSSで維持（スクロール中のチカつき防止）
+                  <div className="relative z-10 pointer-events-auto">
+                    <div className="flex items-center justify-center gap-3">
+                      <TimeUnitBox
+                        value={timerState.manualHours}
+                        label="時"
+                        min={0}
+                        max={23}
+                        onChange={setManualHours}
+                        adjust={adjustByStep}
+                        disabled={timerState.isRunning}
+                        isInteractive={timerState.mode === 'manual' && !timerState.isRunning}
+                      />
+                      <span className="text-6xl font-medium text-white">:</span>
+                      <TimeUnitBox
+                        value={timerState.manualMinutes}
+                        label="分"
+                        min={0}
+                        max={59}
+                        onChange={setManualMinutes}
+                        adjust={adjustByStep}
+                        disabled={timerState.isRunning}
+                        isInteractive={timerState.mode === 'manual' && !timerState.isRunning}
+                      />
+                    </div>
+                  </div>
                 ) : (
                   // ポモドーロ/ストップウォッチモード
                   <div
@@ -1204,16 +1196,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       style={{ width: UI_VISUALS.POPOVER.POMODORO_SETTINGS_WIDTH_PX }}
                     >
                       <DurationRow
-                        label="集中"
-                        value={timerState.pomodoroFocusMinutes}
-                        min={TIMER_SETTINGS.POMODORO.RANGE.FOCUS.MIN_MINUTES}
-                        max={TIMER_SETTINGS.POMODORO.RANGE.FOCUS.MAX_MINUTES}
-                        onChange={(next) => setPomodoroFocusMinutes(next)}
-                        adjustMinutes={adjustMinutes}
-                        disabled={subjects.length === 0}
-                      />
-                      <div className="h-3" />
-                      <DurationRow
                         label="休憩"
                         value={timerState.pomodoroBreakMinutes}
                         min={TIMER_SETTINGS.POMODORO.RANGE.BREAK.MIN_MINUTES}
@@ -1221,6 +1203,17 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         onChange={(next) => setPomodoroBreakMinutes(next)}
                         adjustMinutes={adjustMinutes}
                         disabled={subjects.length === 0}
+                      />
+                      <div className="h-3" />
+                      <DurationRow
+                        label="集中"
+                        value={timerState.pomodoroFocusMinutes}
+                        min={TIMER_SETTINGS.POMODORO.RANGE.FOCUS.MIN_MINUTES}
+                        max={TIMER_SETTINGS.POMODORO.RANGE.FOCUS.MAX_MINUTES}
+                        onChange={(next) => setPomodoroFocusMinutes(next)}
+                        adjustMinutes={adjustMinutes}
+                        disabled={subjects.length === 0}
+                        autoFocus
                       />
                       <div className="h-3" />
                       <DurationRow

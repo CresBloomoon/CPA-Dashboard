@@ -1,7 +1,7 @@
 import type { Theme } from '../../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../../styles/theme';
 import type { ReportData, UpdateReportData } from '../../types/reportWizard';
-import { Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 
 type ThemeColors = ReturnType<typeof getThemeColors>;
 
@@ -38,65 +38,71 @@ export function ReportStep2({ theme, colors, reportData, updateData, onTabToNext
               <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
                 答練名
               </label>
-              <input
-                value={row.name}
-                onChange={(e) =>
-                  setScores(reportData.scores.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)))
-                }
-                className="w-full max-w-2xl px-3 py-2 rounded-lg border focus:outline-none"
-                style={{
-                  borderColor: colors.border,
-                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                  color: colors.textPrimary,
-                }}
-                placeholder="例：財務会計レギュラー答練第1回"
-              />
+              <div className="relative">
+                <input
+                  value={row.name}
+                  onChange={(e) =>
+                    setScores(reportData.scores.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)))
+                  }
+                  className="w-full max-w-2xl px-3 py-2 rounded-lg border focus:outline-none"
+                  style={{
+                    borderColor: colors.border,
+                    backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                    color: colors.textPrimary,
+                  }}
+                  placeholder="例：財務会計レギュラー答練第1回"
+                />
+              </div>
             </div>
 
             <div className="md:col-span-1">
               <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
                 得点
               </label>
-              <input
-                value={row.score}
-                onChange={(e) =>
-                  setScores(reportData.scores.map((r, i) => (i === idx ? { ...r, score: e.target.value } : r)))
-                }
-                inputMode="numeric"
-                className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
-                style={{
-                  borderColor: colors.border,
-                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                  color: colors.textPrimary,
-                }}
-                placeholder="得点（例: 80）"
-              />
+              <div className="relative">
+                <input
+                  value={row.score}
+                  onChange={(e) =>
+                    setScores(reportData.scores.map((r, i) => (i === idx ? { ...r, score: e.target.value } : r)))
+                  }
+                  inputMode="numeric"
+                  className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
+                  style={{
+                    borderColor: colors.border,
+                    backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                    color: colors.textPrimary,
+                  }}
+                  placeholder="得点（例: 80）"
+                />
+              </div>
             </div>
 
             <div className="md:col-span-1">
               <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
                 満点
               </label>
-              <input
-                value={row.fullScore}
-                onChange={(e) =>
-                  setScores(reportData.scores.map((r, i) => (i === idx ? { ...r, fullScore: e.target.value } : r)))
-                }
-                onKeyDown={(e) => {
-                  if (idx === reportData.scores.length - 1 && e.key === 'Tab' && !e.shiftKey) {
-                    e.preventDefault();
-                    onTabToNext();
+              <div className="relative">
+                <input
+                  value={row.fullScore}
+                  onChange={(e) =>
+                    setScores(reportData.scores.map((r, i) => (i === idx ? { ...r, fullScore: e.target.value } : r)))
                   }
-                }}
-                inputMode="numeric"
-                className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
-                style={{
-                  borderColor: colors.border,
-                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                  color: colors.textPrimary,
-                }}
-                placeholder="満点（例: 100）"
-              />
+                  onKeyDown={(e) => {
+                    if (idx === reportData.scores.length - 1 && e.key === 'Tab' && !e.shiftKey) {
+                      e.preventDefault();
+                      onTabToNext();
+                    }
+                  }}
+                  inputMode="numeric"
+                  className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
+                  style={{
+                    borderColor: colors.border,
+                    backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                    color: colors.textPrimary,
+                  }}
+                  placeholder="満点（例: 100）"
+                />
+              </div>
             </div>
 
             <div className="md:col-span-1 flex items-end justify-end">
@@ -104,9 +110,9 @@ export function ReportStep2({ theme, colors, reportData, updateData, onTabToNext
                 type="button"
                 aria-label="行を削除"
                 onClick={() => removeRow(idx)}
-                className="p-1 transition-opacity hover:opacity-80"
+                className="p-1 text-red-500 hover:text-red-400 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/30 rounded-md"
               >
-                <Trash2 size={18} className="text-red-400" />
+                <Trash2 size={18} />
               </button>
             </div>
           </div>
@@ -118,10 +124,10 @@ export function ReportStep2({ theme, colors, reportData, updateData, onTabToNext
           type="button"
           onClick={addRow}
           aria-label="答練を追加"
-          className="p-2 rounded-lg font-semibold transition-colors"
+          className="p-2 rounded-xl font-semibold transition-colors focus:outline-none focus:ring-2"
           style={{ backgroundColor: colors.accent, color: colors.textInverse }}
         >
-          ＋
+          <Plus size={18} />
         </button>
       </div>
     </div>
