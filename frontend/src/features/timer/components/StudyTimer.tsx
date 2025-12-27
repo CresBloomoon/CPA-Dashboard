@@ -265,11 +265,17 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     // 成功時のアニメーション
     if (result.success) {
       setIsRecordSuccess(true);
+      // 最初は強く光らせる（グロウ効果）
+      setIsRecordSuccessGlow(true);
       // タイマー数字の「吸い込み」アニメーション
       setShouldSlideOutTimer(true);
       setTimeout(() => {
         setShouldSlideOutTimer(false);
       }, 600); // 0.6秒でスライドアウト完了
+      // 0.3秒後からゆっくり元の色に戻す
+      setTimeout(() => {
+        setIsRecordSuccessGlow(false);
+      }, 300);
       setTimeout(() => {
         setIsRecordSuccess(false);
       }, 1500); // 1.5秒後に元に戻す
