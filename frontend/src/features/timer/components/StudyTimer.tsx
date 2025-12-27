@@ -144,9 +144,9 @@ function DurationRow({
           {isHovering && !disabled && value < max && (
             <motion.div
               key="arrow-up"
-              initial={{ opacity: 0, y: 5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 5 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="absolute top-1 left-0 w-full flex justify-center pointer-events-none"
             >
               <ChevronUp size={20} className="text-white/80" />
@@ -168,12 +168,12 @@ function DurationRow({
 
         {/* Layer 3: 下矢印 (完全に中央固定) */}
         <AnimatePresence>
-          {(isHovering || isFocused) && !disabled && value > min && (
+          {isHovering && !disabled && value > min && (
             <motion.div
               key="arrow-down"
-              initial={{ opacity: 0, y: -5 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               className="absolute bottom-1 left-0 w-full flex justify-center pointer-events-none"
             >
               <ChevronDown size={20} className="text-white/80" />
@@ -1107,6 +1107,21 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           }
                         }}
                       >
+                        {/* 上矢印アイコン */}
+                        <AnimatePresence>
+                          {isHoveringManualHours && timerState.manualHours < 23 && (
+                            <motion.div
+                              key="manual-hours-arrow-up"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute top-1 left-0 w-full flex justify-center pointer-events-none"
+                            >
+                              <ChevronUp size={20} className="text-white/80" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        
                         <div 
                           className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} min-w-[3ch] flex justify-end items-baseline`}
                           style={{
@@ -1117,6 +1132,21 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         >
                           {String(timerState.manualHours).padStart(2, '0')}
                         </div>
+                        
+                        {/* 下矢印アイコン */}
+                        <AnimatePresence>
+                          {isHoveringManualHours && timerState.manualHours > 0 && (
+                            <motion.div
+                              key="manual-hours-arrow-down"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute bottom-1 left-0 w-full flex justify-center pointer-events-none"
+                            >
+                              <ChevronDown size={20} className="text-white/80" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </motion.div>
                       
                       {/* コロン */}
@@ -1182,6 +1212,21 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           }
                         }}
                       >
+                        {/* 上矢印アイコン */}
+                        <AnimatePresence>
+                          {isHoveringManualMinutes && timerState.manualMinutes < 59 && (
+                            <motion.div
+                              key="manual-minutes-arrow-up"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute top-1 left-0 w-full flex justify-center pointer-events-none"
+                            >
+                              <ChevronUp size={20} className="text-white/80" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                        
                         <div 
                           className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} min-w-[3ch] flex justify-end items-baseline`}
                           style={{
@@ -1192,6 +1237,21 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         >
                           {String(timerState.manualMinutes).padStart(2, '0')}
                         </div>
+                        
+                        {/* 下矢印アイコン */}
+                        <AnimatePresence>
+                          {isHoveringManualMinutes && timerState.manualMinutes > 0 && (
+                            <motion.div
+                              key="manual-minutes-arrow-down"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              exit={{ opacity: 0 }}
+                              className="absolute bottom-1 left-0 w-full flex justify-center pointer-events-none"
+                            >
+                              <ChevronDown size={20} className="text-white/80" />
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
                       </motion.div>
                     </div>
                   </div>
