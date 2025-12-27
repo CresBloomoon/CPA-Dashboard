@@ -350,7 +350,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   useEffect(() => {
     const container = manualHoursRef.current;
-    if (!container || timerState.isRunning || subjects.length === 0) return;
+    if (!container || timerState.isRunning || subjects.length === 0 || timerState.mode !== 'manual') return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -377,7 +377,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
         window.clearTimeout(manualHoursThrottleRef.current);
       }
     };
-  }, [timerState.isRunning, subjects.length]);
+  }, [timerState.isRunning, subjects.length, timerState.mode]);
 
   // 手動入力モードの分部分のwheelイベントハンドラー
   const manualMinutesValueRef = useRef(timerState.manualMinutes);
@@ -390,7 +390,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   useEffect(() => {
     const container = manualMinutesRef.current;
-    if (!container || timerState.isRunning || subjects.length === 0) return;
+    if (!container || timerState.isRunning || subjects.length === 0 || timerState.mode !== 'manual') return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -417,7 +417,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
         window.clearTimeout(manualMinutesThrottleRef.current);
       }
     };
-  }, [timerState.isRunning, subjects.length]);
+  }, [timerState.isRunning, subjects.length, timerState.mode]);
 
 
   const adjustMinutes = (current: number, deltaSteps: number, min: number, max: number) => {
