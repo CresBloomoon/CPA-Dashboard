@@ -45,15 +45,15 @@ export const useAppSettings = () => {
           }
         }
       } else {
-        // 設定が存在しない場合はデフォルト値を使用（初回起動時のみ）
-        setSubjectsWithColors([...DEFAULT_SUBJECTS]);
-        setSubjects(DEFAULT_SUBJECTS.map((s) => s.name));
+        // 設定が存在しない場合は空配列のまま（ユーザーが設定画面で追加する）
+        setSubjectsWithColors([]);
+        setSubjects([]);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      // エラー時もUIを壊さないためデフォルト値にフォールバック
-      setSubjectsWithColors([...DEFAULT_SUBJECTS]);
-      setSubjects(DEFAULT_SUBJECTS.map((s) => s.name));
+      // エラー時も空配列を維持（ユーザーが設定画面で追加する）
+      setSubjectsWithColors([]);
+      setSubjects([]);
     } finally {
       setIsLoadingSettings(false);
     }
