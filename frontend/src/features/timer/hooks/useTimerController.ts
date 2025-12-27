@@ -47,13 +47,57 @@ function getTimerRanges(): TimerRanges {
   };
 }
 
+/**
+ * localStorageからタイマー状態を読み込む。
+ * 
+ * ⚠️ 重要: データが存在しない、不正、または不完全な場合は、必ずデフォルト値（appConfig.tsから）を使用します。
+ * - これにより、Dockerコンテナ新規起動時やブラウザのLocalStorageが古いデータを含む場合でも、
+ *   確実に正しい初期値（集中25分、休憩5分、3セット）が適用されます。
+ */
 function loadFromStorage(defaults: TimerDefaults, ranges: TimerRanges): TimerState {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return createInitialTimerState(defaults, ranges);
+    if (!saved) {
+      // localStorageにデータがない場合は、デフォルト値で初期状態を作成
+      return createInitialTimerState(defaults, ranges);
+    }
     const raw = JSON.parse(saved);
-    return deserializeTimerState(raw, Date.now(), defaults, ranges);
-  } catch {
+    
+    // データの検証: オブジェクトでない、または必須フィールドが欠けている場合はデフォルト値を使用
+    if (!raw || typeof raw !== 'object') {
+      return createInitialTimerState(defaults, ranges);
+    }
+    
+    // デシリアライズ（内部で範囲チェックとフォールバックが行われる）
+    const deserialized = deserializeTimerState(raw, Date.now(), defaults, ranges);
+    
+    // 最終的な検証: デシリアライズ後の値が範囲内であることを確認
+    // （これは、localStorageに古い不正なデータが残っている場合の安全策）
+    const focusMin = ranges.focus?.min ?? 0;
+    const focusMax = ranges.focus?.max ?? Infinity;
+    const breakMin = ranges.break?.min ?? 0;
+    const breakMax = ranges.break?.max ?? Infinity;
+    
+    const isFocusValid = deserialized.pomodoroFocusMinutes >= focusMin && 
+                         deserialized.pomodoroFocusMinutes <= focusMax &&
+                         Number.isFinite(deserialized.pomodoroFocusMinutes);
+    const isBreakValid = deserialized.pomodoroBreakMinutes >= breakMin && 
+                         deserialized.pomodoroBreakMinutes <= breakMax &&
+                         Number.isFinite(deserialized.pomodoroBreakMinutes);
+    const isSetsValid = deserialized.pomodoroSets >= ranges.sets.min && 
+                        deserialized.pomodoroSets <= ranges.sets.max &&
+                        Number.isFinite(deserialized.pomodoroSets);
+    
+    // いずれかの値が不正な場合は、デフォルト値で初期状態を作成
+    if (!isFocusValid || !isBreakValid || !isSetsValid) {
+      console.warn('[TimerController] Invalid values in localStorage, using defaults');
+      return createInitialTimerState(defaults, ranges);
+    }
+    
+    return deserialized;
+  } catch (error) {
+    // パースエラーなど、何か問題があった場合はデフォルト値を使用
+    console.warn('[TimerController] Error loading from localStorage, using defaults:', error);
     return createInitialTimerState(defaults, ranges);
   }
 }
