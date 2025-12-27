@@ -23,7 +23,7 @@ api.interceptors.request.use(
   }
 );
 
-// レスポンスインターセプター: デバッグ用
+// レスポンスインターセプター: デバッグ用とエラーハンドリング
 api.interceptors.response.use(
   (response) => {
     if (response.config.method === 'put' && response.config.url?.includes('/todos/')) {
@@ -32,9 +32,28 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.config?.method === 'put' && error.config?.url?.includes('/todos/')) {
-      console.error('API Error:', error.response?.status, error.response?.data, error.message);
+    // エラーの詳細をコンソールに出力
+    console.error('[API Error]', {
+      message: error.message,
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      data: error.response?.data,
+      code: error.code, // ERR_NETWORK, ERR_CONNECTION_REFUSED等
+    });
+    
+    // ユーザーフレンドリーなエラーメッセージを追加
+    if (error.code === 'ERR_NETWORK' || error.code === 'ERR_CONNECTION_REFUSED') {
+      error.userMessage = 'サーバーに接続できません。ネットワーク接続を確認してください。';
+    } else if (error.response?.status === 404) {
+      error.userMessage = '要求されたリソースが見つかりません。';
+    } else if (error.response?.status === 500) {
+      error.userMessage = 'サーバーエラーが発生しました。しばらく待ってから再試行してください。';
+    } else {
+      error.userMessage = `エラーが発生しました: ${error.message}`;
     }
+    
     return Promise.reject(error);
   }
 );
