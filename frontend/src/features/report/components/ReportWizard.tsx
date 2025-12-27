@@ -119,6 +119,27 @@ export default function ReportWizard({
       .join('\n\n');
   }, [completedTodosBySubject]);
 
+  // 表示幅（monospace想定）: 全角=2, 半角=1 でざっくり計算（半角カナは1）
+  const getDisplayWidth = (s: string): number => {
+    let width = 0;
+    for (const ch of s) {
+      const code = ch.codePointAt(0) ?? 0;
+      // 半角カナ
+      if (code >= 0xff61 && code <= 0xff9f) {
+        width += 1;
+        continue;
+      }
+      // ASCII
+      if (code <= 0x7f) {
+        width += 1;
+        continue;
+      }
+      // その他は全角扱い
+      width += 2;
+    }
+    return width;
+  };
+
   const scoresText = useMemo(() => {
     const rows = reportData.scores
       .map((r) => ({
@@ -128,12 +149,20 @@ export default function ReportWizard({
       }))
       .filter((r) => r.name || r.score || r.fullScore);
     if (rows.length === 0) return '（未入力）';
+
+    const labels = rows.map((r) => r.name || '（答練名未入力）');
+    // 目安: 全角15文字分（=30カラム）を最低幅として、最大の答練名に合わせて拡張
+    const baseWidth = 30;
+    const targetWidth = Math.max(baseWidth, ...labels.map(getDisplayWidth));
+
     return rows
-      .map((r) => {
-        const label = r.name || '（答練名未入力）';
+      .map((r, idx) => {
+        const label = labels[idx];
+        const pad = ' '.repeat(Math.max(0, targetWidth - getDisplayWidth(label)));
         const s = r.score || '-';
         const f = r.fullScore || '-';
-        return `・${label}: ${s}/${f}点`;
+        // コロン位置を揃える（プレビューはfont-mono）
+        return `・${label}${pad}： ${s}/${f}点`;
       })
       .join('\n');
   }, [reportData.scores]);
@@ -557,7 +586,7 @@ export default function ReportWizard({
                         maxHeight: '68vh',
                       }}
                     >
-                      <pre className="text-xs whitespace-pre-wrap leading-relaxed">{outputText}</pre>
+                      <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed">{outputText}</pre>
                     </div>
                   </div>
                 </div>
