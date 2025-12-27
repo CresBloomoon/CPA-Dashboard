@@ -2,6 +2,14 @@ import type { PomodoroPhase, TimerMode, TimerDefaults, TimerRanges, TimerState }
 import { getNextPomodoroPhase, getPomodoroPhaseTotalSeconds, toSeconds } from './pomodoro';
 import { clampInt } from './manual';
 
+/**
+ * タイマーの初期状態を作成する（新規コンテナ生成時またはlocalStorageが空の時）。
+ * 
+ * ⚠️ 重要: `defaults`パラメータは `useTimerController.ts` の `getTimerDefaults()` から渡されます。
+ * - デフォルト値は `appConfig.ts` の `TIMER_SETTINGS.POMODORO.DEFAULT` を参照しています。
+ * - ハードコードされた値（25, 5, 3等）をここに書かないでください。
+ * - 値を変更する場合は `appConfig.ts` の `TIMER_SETTINGS.POMODORO.DEFAULT` を変更してください。
+ */
 export function createInitialTimerState(defaults: TimerDefaults, ranges: TimerRanges): TimerState {
   const sets = clampInt(defaults.sets, ranges.sets.min, ranges.sets.max);
   const focusMinutes = Math.max(0, Math.floor(defaults.focusMinutes));

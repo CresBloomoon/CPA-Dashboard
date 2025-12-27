@@ -20,6 +20,14 @@ import {
 
 const STORAGE_KEY = 'studyTimerState';
 
+/**
+ * タイマーのデフォルト値を取得する（新規コンテナ生成時の初期値）。
+ * 
+ * ⚠️ 重要: この関数は `TIMER_SETTINGS.POMODORO.DEFAULT` を参照する唯一の入口です。
+ * - デフォルト値は `appConfig.ts` で一元管理されています。
+ * - ハードコードされた値（25, 5, 3等）をここに書かないでください。
+ * - 値を変更する場合は `appConfig.ts` の `TIMER_SETTINGS.POMODORO.DEFAULT` を変更してください。
+ */
 function getTimerDefaults(): TimerDefaults {
   return {
     focusMinutes: TIMER_SETTINGS.POMODORO.DEFAULT.FOCUS_MINUTES,

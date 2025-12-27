@@ -15,6 +15,14 @@ export function serializeTimerState(state: TimerState): SerializedTimerState {
   };
 }
 
+/**
+ * localStorageから復元されたタイマー状態をデシリアライズする。
+ * 
+ * ⚠️ 重要: `defaults`パラメータは `useTimerController.ts` の `getTimerDefaults()` から渡されます。
+ * - デフォルト値は `appConfig.ts` の `TIMER_SETTINGS.POMODORO.DEFAULT` を参照しています。
+ * - localStorageに値が保存されていない場合（新規コンテナ生成時）は、この`defaults`が使用されます。
+ * - ハードコードされた値（25, 5, 3等）をここに書かないでください。
+ */
 export function deserializeTimerState(
   raw: unknown,
   nowMs: number,

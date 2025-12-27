@@ -7,6 +7,15 @@
  */
 export const TIMER_SETTINGS = {
   POMODORO: {
+    /**
+     * ポモドーロタイマーのデフォルト値（新規コンテナ生成時の初期値）。
+     * 
+     * ⚠️ 重要: これらはアプリ全体の「唯一の真実の源（Single Source of Truth）」です。
+     * - この値を変更すると、新規ユーザー（localStorageが空）の初期値が変わります。
+     * - 他の箇所（useTimerController.ts, domain/persistence.ts等）は全てこの値を参照しています。
+     * - ハードコードされた値（25, 5, 3等）を他のファイルに書かないでください。
+     * - この値を変更する際は、全ての参照箇所が自動的に新しい値を反映します。
+     */
     DEFAULT: {
       /** 集中時間のデフォルト（分） */
       FOCUS_MINUTES: 25, // 15だと短め / 25は標準 / 50は没入寄り
