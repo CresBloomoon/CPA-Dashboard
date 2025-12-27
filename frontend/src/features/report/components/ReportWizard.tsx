@@ -11,6 +11,7 @@ import { ReportStep2 } from './steps/ReportStep2';
 import { ReportStep3 } from './steps/ReportStep3';
 import { ReportStep4 } from './steps/ReportStep4';
 import type { SubjectHoursRow } from './steps/ReportStep1';
+import type { TodoSubjectSummary } from './steps/ReportStep1';
 
 export default function ReportWizard({
   reportStartDay: _reportStartDay,
@@ -111,36 +112,6 @@ export default function ReportWizard({
     return result;
   }, [progressList, subjectsWithColors, periodStartKey, periodEndKey]);
 
-  const completedTodosBySubject = useMemo(() => {
-    const subjectOrder = subjectsWithColors.map((s) => s.name);
-    const map = new Map<string, string[]>();
-
-    const getCompletedDateKey = (t: Todo): string =>
-      format(parseISO(t.updated_at || t.created_at), 'yyyy-MM-dd');
-
-    todos.forEach((t) => {
-      if (!t.completed) return;
-      const key = getCompletedDateKey(t);
-      if (key < periodStartKey || key > periodEndKey) return;
-      const subject = t.subject?.trim() || '未分類';
-      if (!map.has(subject)) map.set(subject, []);
-      map.get(subject)!.push(t.title);
-    });
-
-    // 表示順：subjectsWithColorsにある科目→その他（未分類含む）
-    const ordered: Array<[string, string[]]> = [];
-    subjectOrder.forEach((s) => {
-      const list = map.get(s);
-      if (list && list.length > 0) ordered.push([s, list]);
-      map.delete(s);
-    });
-    Array.from(map.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
-      .forEach((e) => ordered.push(e));
-
-    return ordered;
-  }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
-
   const IND1 = '　';
   const IND2 = '　　';
 
@@ -151,15 +122,90 @@ export default function ReportWizard({
     return [ `${indent}・${lines[0]}`, ...lines.slice(1).map((l) => `${indent}　${l}`) ].join('\n');
   };
 
-  const todoListText = useMemo(() => {
-    if (completedTodosBySubject.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
-    return completedTodosBySubject
-      .map(([subject, items]: [string, string[]]) => {
-        const lines = items.map((t) => `${IND1}・${t}`).join('\n');
-        return `${IND1}（${subject}）\n${lines}`;
-      })
-      .join('\n\n');
-  }, [completedTodosBySubject]);
+  const normalizeTodoTitle = (raw: string): string => {
+    let s = (raw || '').trim();
+    // よくある枝番パターンを除去
+    s = s.replace(/[_\s]*第\s*\d+\s*回/g, '');
+    s = s.replace(/[_\s]*復習\s*\d+\s*回目?/g, '');
+    s = s.replace(/[_\s]*\(\s*\d+\s*\)/g, '');
+    s = s.replace(/[_\s]*（\s*\d+\s*）/g, '');
+    s = s.replace(/[_\s]*\[\s*\d+\s*\]/g, '');
+    // 区切りの揺れを均す
+    s = s.replace(/_/g, ' ');
+    s = s.replace(/\s{2,}/g, ' ');
+    s = s.replace(/^\s+|\s+$/g, '');
+    return s || '（無題）';
+  };
+
+  const todoSummaryBySubject = useMemo<TodoSubjectSummary[]>(() => {
+    // subjectsWithColors にある科目は0件でも表示する
+    const orderedSubjects = subjectsWithColors.map((s) => s.name);
+    const subjectMaps = new Map<string, Map<string, number>>();
+
+    const getCompletedDateKey = (t: Todo): string => format(parseISO(t.updated_at || t.created_at), 'yyyy-MM-dd');
+
+    for (const t of todos) {
+      if (!t.completed) continue;
+      const key = getCompletedDateKey(t);
+      if (key < periodStartKey || key > periodEndKey) continue;
+      const subject = t.subject?.trim() || '未分類';
+      const base = normalizeTodoTitle(t.title);
+      if (!subjectMaps.has(subject)) subjectMaps.set(subject, new Map());
+      const m = subjectMaps.get(subject)!;
+      m.set(base, (m.get(base) ?? 0) + 1);
+    }
+
+    const allSubjects = new Set<string>(orderedSubjects);
+    for (const subj of subjectMaps.keys()) allSubjects.add(subj);
+
+    const result: TodoSubjectSummary[] = [];
+    const sortedSubjects = [
+      ...orderedSubjects,
+      ...Array.from(allSubjects)
+        .filter((s) => !orderedSubjects.includes(s))
+        .sort((a, b) => a.localeCompare(b, 'ja')),
+    ];
+
+    for (const subject of sortedSubjects) {
+      const m = subjectMaps.get(subject) ?? new Map<string, number>();
+      const groups = Array.from(m.entries())
+        .map(([title, count]) => ({ title, count, isKam: false }))
+        .sort((a, b) => (b.count - a.count) || a.title.localeCompare(b.title, 'ja'));
+
+      const kam = groups.slice(0, 3).map((g) => ({ ...g, isKam: true }));
+      const otherGroups = groups.slice(3);
+      const otherCount = otherGroups.reduce((acc, g) => acc + g.count, 0);
+      const totalCount = groups.reduce((acc, g) => acc + g.count, 0);
+
+      result.push({
+        subject,
+        totalCount,
+        kam,
+        otherCount,
+        allGroups: groups,
+      });
+    }
+    return result;
+  }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
+
+  const todoKamOutputText = useMemo(() => {
+    const lines: string[] = [];
+    for (const s of todoSummaryBySubject) {
+      lines.push(`${IND1}（${s.subject}）`);
+      if (s.totalCount === 0) {
+        lines.push(`${IND2}・（該当期間に完了したリマインダはありません）`);
+      } else {
+        for (const g of s.kam) {
+          lines.push(`${IND2}・${g.title} (計${g.count}件)`);
+        }
+        if (s.otherCount > 0) {
+          lines.push(`${IND2}・その他 ${s.otherCount}件のリマインダを完了`);
+        }
+      }
+      lines.push(''); // 科目間で1行空ける
+    }
+    return lines.join('\n').trimEnd();
+  }, [todoSummaryBySubject]);
 
   // 表示幅（monospace想定）: 全角=2, 半角=1 でざっくり計算（半角カナは1）
   const getDisplayWidth = (s: string): number => {
@@ -213,7 +259,7 @@ export default function ReportWizard({
   const outputText = useMemo(() => {
     return [
       '■先週実施したこと',
-      todoListText,
+      todoKamOutputText,
       '',
       '■先週解いた答練の点数',
       scoresText,
@@ -236,7 +282,7 @@ export default function ReportWizard({
       '■相談したいこと',
       bulletize(reportData.questions, IND1),
     ].join('\n');
-  }, [todoListText, scoresText, lastWeekTotalHours, reportData]);
+  }, [todoKamOutputText, scoresText, lastWeekTotalHours, reportData]);
 
   const steps = useMemo(() => {
     return [
@@ -250,7 +296,7 @@ export default function ReportWizard({
             updateData={updateData}
             lastWeekTotalHours={lastWeekTotalHours}
             subjectHours={subjectHours}
-            todoListText={todoListText}
+            todoSummaryBySubject={todoSummaryBySubject}
             periodStartKey={periodStartKey}
             periodEndKey={periodEndKey}
             matchedCount={lastWeekHoursDebug.matched}
@@ -282,7 +328,7 @@ export default function ReportWizard({
     updateData,
     lastWeekTotalHours,
     subjectHours,
-    todoListText,
+    todoSummaryBySubject,
     periodStartKey,
     periodEndKey,
     lastWeekHoursDebug.matched,
@@ -372,12 +418,12 @@ export default function ReportWizard({
                 type="button"
                 onClick={onClose}
                 aria-label="閉じる"
-                className="p-2 rounded-lg transition-colors"
+                className="p-3 rounded-xl transition-colors"
                 style={{ color: colors.textSecondary }}
                 onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.cardHover)}
                 onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
               >
-                ×
+                <span className="text-xl leading-none">×</span>
               </button>
             </div>
 
@@ -495,10 +541,10 @@ export default function ReportWizard({
                   type="button"
                   aria-label="前へ"
                   onClick={() => setStep((s: number) => Math.max(0, s - 1))}
-                  className="p-2 rounded-lg transition-colors"
+                  className="p-3 rounded-xl transition-colors"
                   style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
                 >
-                  <ChevronDown size={18} className="rotate-90" />
+                  <ChevronDown size={22} className="rotate-90" />
                 </button>
               ) : (
                 <div />
@@ -512,10 +558,10 @@ export default function ReportWizard({
                   aria-label="次へ"
                   onClick={() => setStep((s: number) => Math.min(steps.length - 1, s + 1))}
                   ref={primaryFooterButtonRef}
-                  className="p-2 rounded-lg transition-colors"
+                  className="p-3 rounded-xl transition-colors"
                   style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                 >
-                  <ChevronDown size={18} className="-rotate-90" />
+                  <ChevronDown size={22} className="-rotate-90" />
                 </button>
               ) : (
                 <motion.button
@@ -523,7 +569,7 @@ export default function ReportWizard({
                   onClick={handleCopyAndClose}
                   disabled={isCopying}
                   ref={primaryFooterButtonRef}
-                  className="px-5 py-3 rounded-xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-4 rounded-2xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
                   animate={{
                     scale: isCopyGlow ? 1.02 : 1,
                     backgroundColor: isCopyGlow ? 'rgba(34, 197, 94, 0.92)' : colors.accent,
