@@ -630,21 +630,23 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                 className="absolute z-20 w-full mt-2 bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
               >
                 <div className="flex items-start gap-3">
-                  <svg className="w-5 h-5 text-sky-200/70 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-6 h-6 text-sky-200/70 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <div className="flex-1">
                     <p className="text-slate-200/80 font-medium text-sm mb-2">科目を登録してください</p>
                     <p className="text-slate-300/60 text-xs mb-3">タイマーを使用するには、まず科目を登録する必要があります。</p>
-                    <button
-                      onClick={() => {
-                        const settingsButton = document.querySelector('[title="設定"]') as HTMLButtonElement;
-                        if (settingsButton) settingsButton.click();
-                      }}
-                      className="group px-4 py-2 bg-slate-800/40 hover:bg-slate-800/60 text-slate-200/80 hover:text-slate-200 rounded-full text-sm font-medium transition-all duration-200 border border-white/10 hover:border-white/20 hover:shadow-[0_0_15px_rgba(186,230,253,0.15)]"
-                    >
-                      設定画面で科目を登録する →
-                    </button>
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => {
+                          const settingsButton = document.querySelector('[title="設定"]') as HTMLButtonElement;
+                          if (settingsButton) settingsButton.click();
+                        }}
+                        className="group px-4 py-2 bg-slate-800/40 hover:bg-slate-800/60 text-slate-200/80 hover:text-slate-200 rounded-full text-sm font-medium transition-all duration-200 border border-white/10 hover:border-white/20 hover:shadow-[0_0_15px_rgba(186,230,253,0.15)]"
+                      >
+                        設定画面で科目を登録する
+                      </button>
+                    </div>
                   </div>
                 </div>
               </motion.div>
