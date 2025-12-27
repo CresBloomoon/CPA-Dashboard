@@ -94,8 +94,14 @@ function DurationRow({
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
         ref={containerRef}
-        className={`relative flex-1 rounded-xl bg-slate-800/45 ring-1 ring-sky-200/12 backdrop-blur-md px-4 py-3 select-none transition-colors ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-ns-resize hover:bg-slate-800/55 hover:ring-sky-200/20'
+        className={`relative flex-1 rounded-xl bg-slate-800/45 ring-1 backdrop-blur-md px-4 py-3 select-none transition-all duration-200 ${
+          disabled 
+            ? 'opacity-50 cursor-not-allowed ring-sky-200/12' 
+            : `cursor-ns-resize ${
+                isHovering 
+                  ? 'bg-slate-800/55 ring-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.15)]' 
+                  : 'ring-sky-200/12 hover:bg-slate-800/55 hover:ring-sky-200/20'
+              }`
         }`}
         onMouseEnter={() => {
           if (!disabled) setIsHovering(true);
@@ -109,13 +115,14 @@ function DurationRow({
           {isHovering && !disabled && (
             <motion.div
               key="duration-row-arrow-up"
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
+              initial={{ opacity: 0, y: -10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.9 }}
               transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
               className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-none"
+              style={{ transform: 'translate(-50%, 0)' }}
             >
-              <ChevronUp size={16} className="text-white/80" />
+              <ChevronUp size={18} className="text-white/80" />
             </motion.div>
           )}
         </AnimatePresence>
@@ -124,13 +131,14 @@ function DurationRow({
           {isHovering && !disabled && (
             <motion.div
               key="duration-row-arrow-down"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.9 }}
               transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
               className="absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-none"
+              style={{ transform: 'translate(-50%, 0)' }}
             >
-              <ChevronDown size={16} className="text-white/80" />
+              <ChevronDown size={18} className="text-white/80" />
             </motion.div>
           )}
         </AnimatePresence>
