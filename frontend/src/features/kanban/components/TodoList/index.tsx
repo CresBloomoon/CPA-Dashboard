@@ -32,6 +32,9 @@ export default function TodoList({
   projects = [], 
   initialFilterType = 'today' 
 }: TodoListProps) {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
+  
   const BATCH_COMPLETION_DELAY = 1500;
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>(initialFilterType);
@@ -88,6 +91,8 @@ export default function TodoList({
         setSearchInput={setSearchInput}
         onSearchInputKeyDown={handleSearchInputKeyDown}
         onRemoveSearchTag={removeSearchTag}
+        colors={colors}
+        theme={theme}
       />
 
       <div className="flex flex-1 min-h-0">
