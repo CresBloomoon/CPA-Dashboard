@@ -50,6 +50,7 @@ function DurationRow({
   const onChangeRef = useRef(onChange);
   const adjustMinutesRef = useRef(adjustMinutes);
   const [isHovering, setIsHovering] = useState(false);
+  const [isActive, setIsActive] = useState(false);
 
   // 最新の値を保持
   useEffect(() => {
@@ -66,11 +67,16 @@ function DurationRow({
       e.preventDefault();
       e.stopPropagation();
       
+      // 操作中フラグを立てる
+      setIsActive(true);
+      
       // Throttle処理: 16ms（約60fps）ごとに更新
       if (throttleTimerRef.current !== null) return;
       
       throttleTimerRef.current = window.setTimeout(() => {
         throttleTimerRef.current = null;
+        // 操作が終了したら少し遅延してフラグを下ろす
+        setTimeout(() => setIsActive(false), 100);
       }, 16);
 
       const direction = e.deltaY > 0 ? -1 : 1;
@@ -94,11 +100,11 @@ function DurationRow({
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
         ref={containerRef}
-        className={`relative flex-1 rounded-xl bg-slate-800/45 ring-1 backdrop-blur-md px-4 py-3 select-none transition-all duration-200 ${
+        className={`relative flex-1 rounded-xl bg-slate-800/45 ring-1 backdrop-blur-md px-4 py-3 select-none transition-all duration-200 min-w-[80px] ${
           disabled 
             ? 'opacity-50 cursor-not-allowed ring-sky-200/12' 
             : `cursor-ns-resize ${
-                isHovering 
+                isHovering || isActive
                   ? 'bg-slate-800/55 ring-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.15)]' 
                   : 'ring-sky-200/12 hover:bg-slate-800/55 hover:ring-sky-200/20'
               }`
@@ -119,8 +125,8 @@ function DurationRow({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.9 }}
               transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-              className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-none"
-              style={{ transform: 'translate(-50%, 0)' }}
+              className="absolute top-1 left-1/2 pointer-events-none"
+              style={{ transform: 'translateX(-50%)' }}
             >
               <ChevronUp size={18} className="text-white/80" />
             </motion.div>
@@ -135,8 +141,8 @@ function DurationRow({
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.9 }}
               transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-              className="absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-none"
-              style={{ transform: 'translate(-50%, 0)' }}
+              className="absolute bottom-1 left-1/2 pointer-events-none"
+              style={{ transform: 'translateX(-50%)' }}
             >
               <ChevronDown size={18} className="text-white/80" />
             </motion.div>
