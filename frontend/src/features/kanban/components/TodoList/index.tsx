@@ -96,7 +96,18 @@ export default function TodoList({
           headerRight={
             <motion.button
               onClick={handleAddClick}
-              className="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-gray-100 transition-colors"
+              className="p-2 rounded-lg transition-colors"
+              style={{
+                color: colors.textTertiary,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = colors.accent;
+                e.currentTarget.style.backgroundColor = colors.cardHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = colors.textTertiary;
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
               title="リマインダを追加"
               aria-label="リマインダを追加"
               whileHover={{ scale: ANIMATION_THEME.SCALES.BUTTON.HOVER }}
