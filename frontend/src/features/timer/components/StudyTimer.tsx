@@ -1291,14 +1291,18 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               backgroundColor: isRecordSuccess 
                 ? (() => {
                     const color = getSubjectColor(timerState.selectedSubject);
-                    // 科目カラーをrgba形式に変換（淡く光らせる）
                     if (color) {
                       const r = parseInt(color.slice(1, 3), 16);
                       const g = parseInt(color.slice(3, 5), 16);
                       const b = parseInt(color.slice(5, 7), 16);
-                      return `rgba(${r}, ${g}, ${b}, 0.7)`;
+                      // 最初は強く光らせ、その後ゆっくり元に戻す
+                      return isRecordSuccessGlow 
+                        ? `rgba(${r}, ${g}, ${b}, 0.8)` // 一瞬強く光る
+                        : `rgba(${r}, ${g}, ${b}, 0.5)`; // その後薄くなる
                     }
-                    return 'rgba(34, 197, 94, 0.9)'; // fallback to green-500
+                    return isRecordSuccessGlow 
+                      ? 'rgba(34, 197, 94, 0.9)' // fallback to green-500
+                      : 'rgba(34, 197, 94, 0.6)';
                   })()
                 : 'rgba(30, 41, 59, 0.45)', // slate-800/45
               borderColor: isRecordSuccess
@@ -1308,9 +1312,13 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       const r = parseInt(color.slice(1, 3), 16);
                       const g = parseInt(color.slice(3, 5), 16);
                       const b = parseInt(color.slice(5, 7), 16);
-                      return `rgba(${r}, ${g}, ${b}, 0.5)`;
+                      return isRecordSuccessGlow 
+                        ? `rgba(${r}, ${g}, ${b}, 0.7)`
+                        : `rgba(${r}, ${g}, ${b}, 0.4)`;
                     }
-                    return 'rgba(34, 197, 94, 0.4)';
+                    return isRecordSuccessGlow 
+                      ? 'rgba(34, 197, 94, 0.7)'
+                      : 'rgba(34, 197, 94, 0.4)';
                   })()
                 : 'rgba(186, 230, 253, 0.15)', // sky-200/15
               scale: isRecordSuccess ? 1.02 : 1,
@@ -1321,13 +1329,20 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       const r = parseInt(color.slice(1, 3), 16);
                       const g = parseInt(color.slice(3, 5), 16);
                       const b = parseInt(color.slice(5, 7), 16);
-                      return `0 0 30px rgba(${r}, ${g}, ${b}, 0.5), 0 16px 40px rgba(0,0,0,0.50)`;
+                      return isRecordSuccessGlow
+                        ? `0 0 40px rgba(${r}, ${g}, ${b}, 0.7), 0 16px 40px rgba(0,0,0,0.50)` // 強く光る
+                        : `0 0 25px rgba(${r}, ${g}, ${b}, 0.4), 0 16px 40px rgba(0,0,0,0.50)`; // その後薄くなる
                     }
-                    return '0 0 30px rgba(34, 197, 94, 0.5), 0 16px 40px rgba(0,0,0,0.50)';
+                    return isRecordSuccessGlow
+                      ? '0 0 40px rgba(34, 197, 94, 0.7), 0 16px 40px rgba(0,0,0,0.50)'
+                      : '0 0 25px rgba(34, 197, 94, 0.4), 0 16px 40px rgba(0,0,0,0.50)';
                   })()
                 : '0 16px 40px rgba(0,0,0,0.50)',
             }}
-            transition={{ duration: 0.3 }}
+            transition={{ 
+              duration: isRecordSuccessGlow ? 0.2 : 0.8, // 最初は速く、その後ゆっくり
+              ease: 'easeOut' 
+            }}
           >
             <span className="flex items-center justify-center">
               {isRecording ? (
