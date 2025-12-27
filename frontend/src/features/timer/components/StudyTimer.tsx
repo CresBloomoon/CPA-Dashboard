@@ -18,6 +18,7 @@ import {
   isPomodoroAwaitingPhaseStart,
 } from '../domain';
 import TimerModeTabs from './TimerModeTabs';
+import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 
 interface StudyTimerProps {
   onRecorded: () => void;
@@ -326,6 +327,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     setPomodoroSets,
     saveRecord,
   } = useTimer();
+  const { handleTrophyEvent } = useTrophySystemContext();
 
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -485,6 +487,10 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
       setIsHoveringTimeText(false);
       closeSettingsImmediate();
     }
+
+    // トロフィー：イベント発生を通知（コンボ管理はデータ層で処理）
+    handleTrophyEvent('timer_mash_10');
+
     if (timerState.isRunning) {
       stopTimer();
     } else {

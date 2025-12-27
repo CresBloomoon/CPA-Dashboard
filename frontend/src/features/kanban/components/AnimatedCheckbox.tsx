@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Todo } from '../../../api/types';
 import { todoApi } from '../../../api/api';
 import { TIMER_SETTINGS, UI_VISUALS } from '../../../config/appConfig';
+import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 
 interface AnimatedCheckboxProps {
   todo: Todo;
@@ -52,6 +53,7 @@ export default function AnimatedCheckbox({
   className = ''
 }: AnimatedCheckboxProps) {
   const [, forceUpdate] = useState({});
+  const { handleTrophyEvent } = useTrophySystemContext();
   
   // コールバックを登録
   useEffect(() => {
@@ -68,6 +70,10 @@ export default function AnimatedCheckbox({
     if (e) {
       e.stopPropagation();
     }
+    
+    // トロフィー：イベント発生を通知（コンボ管理はデータ層で処理）
+    // オン/オフ両方のクリックでカウント
+    handleTrophyEvent('reminder_mash_10');
     
     // 未完了から完了に変わる場合
     if (!todo.completed) {

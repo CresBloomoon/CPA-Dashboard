@@ -12,6 +12,7 @@ import { ReportStep4 } from './steps/ReportStep4';
 import type { SubjectHoursRow } from './steps/ReportStep1';
 import type { ReminderCountsBySubject } from './steps/ReportStep1';
 import { useAccentMode } from '../../../contexts/AccentModeContext';
+import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 
 export default function ReportWizard({
   reportStartDay: _reportStartDay,
@@ -35,6 +36,7 @@ export default function ReportWizard({
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const { setAccentMode } = useAccentMode();
+  const { trophies, unlockTrophy } = useTrophySystemContext();
 
   const periodId = useMemo(
     () => `${format(periodStart, 'yyyy-MM-dd')}__${format(periodEnd, 'yyyy-MM-dd')}`,
@@ -362,12 +364,59 @@ export default function ReportWizard({
     window.setTimeout(() => setToast(null), 1500);
   };
 
+  /**
+   * 週次報告書生成完了時のトロフィー判定ロジック
+   * - 統計データに基づいて条件を満たすトロフィーを解放
+   */
+  const checkWeeklyReportTrophies = useMemo(() => {
+    // ストリーク計算：期間内の学習日数を計算（1週間で7日間すべてに学習記録があるか）
+    const studyDays = new Set<string>();
+    for (const p of progressList) {
+      const key = format(parseISO(p.created_at), 'yyyy-MM-dd');
+      if (key >= periodStartKey && key <= periodEndKey) {
+        studyDays.add(key);
+      }
+    }
+    const perfectStreak = studyDays.size >= 7; // 7日間すべてに学習記録がある
+
+    // 各トロフィーの判定
+    const trophyById = new Map(trophies.map((t) => [t.id, t]));
+    const unlockedIds: string[] = [];
+
+    // 1. 初回報告（weekly_report_first）
+    const firstReportTrophy = trophyById.get('weekly_report_first');
+    if (firstReportTrophy && !firstReportTrophy.unlockedAt) {
+      unlockedIds.push('weekly_report_first');
+    }
+
+    // 2. 70時間突破（weekly_hours_70）
+    const hours70Trophy = trophyById.get('weekly_hours_70');
+    if (hours70Trophy && !hours70Trophy.unlockedAt && lastWeekTotalHours >= 70) {
+      unlockedIds.push('weekly_hours_70');
+    }
+
+    // 3. 完璧ストリーク（weekly_perfect_streak）
+    const perfectStreakTrophy = trophyById.get('weekly_perfect_streak');
+    if (perfectStreakTrophy && !perfectStreakTrophy.unlockedAt && perfectStreak) {
+      unlockedIds.push('weekly_perfect_streak');
+    }
+
+    return unlockedIds;
+  }, [trophies, progressList, periodStartKey, periodEndKey, lastWeekTotalHours]);
+
   const handleCopyInternal = async (opts?: { closeAfter?: boolean }) => {
     try {
       setIsCopying(true);
       const textToCopy = isFinalStep ? finalDraftText : outputText;
       await navigator.clipboard.writeText(textToCopy);
       onCopied(periodId);
+
+      // 週次報告書生成完了時のトロフィー判定・解放
+      // 報告書生成完了とほぼ同時にトロフィーが出るように、コピー成功直後に実行
+      const trophyIdsToUnlock = checkWeeklyReportTrophies;
+      for (const id of trophyIdsToUnlock) {
+        unlockTrophy(id);
+      }
 
       setIsCopySuccess(true);
       if (copySuccessTimeoutRef.current) window.clearTimeout(copySuccessTimeoutRef.current);

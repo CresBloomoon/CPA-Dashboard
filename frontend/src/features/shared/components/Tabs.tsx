@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type React from 'react';
+import { Trophy } from 'lucide-react';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
+import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 
 interface TabsProps {
   activeTab: string;
@@ -11,17 +13,32 @@ interface TabsProps {
   onHomeClick?: () => void;
   showSettingsButton?: boolean;
   onSettingsClick?: () => void;
+  showTrophyButton?: boolean;
+  onTrophyClick?: () => void;
 }
 
-export default function Tabs({ activeTab, onTabChange, tabs, showHomeButton = false, onHomeClick, showSettingsButton = false, onSettingsClick }: TabsProps) {
+export default function Tabs({ activeTab, onTabChange, tabs, showHomeButton = false, onHomeClick, showSettingsButton = false, onSettingsClick, showTrophyButton = false, onTrophyClick }: TabsProps) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const { trophies } = useTrophySystemContext();
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const navRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const homeButtonRef = useRef<HTMLButtonElement>(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
+  const trophyButtonRef = useRef<HTMLButtonElement>(null);
+
+  // 新着トロフィーの数を計算（24時間以内の獲得）
+  const newTrophyCount = useMemo(() => {
+    return trophies.filter((t) => {
+      if (!t.unlockedAt) return false;
+      const unlockedTime = new Date(t.unlockedAt).getTime();
+      const now = Date.now();
+      const hours24 = 24 * 60 * 60 * 1000;
+      return now - unlockedTime < hours24;
+    }).length;
+  }, [trophies]);
 
   const updateIndicator = () => {
     if (activeTab === 'settings' && settingsButtonRef.current && containerRef.current) {
@@ -156,7 +173,67 @@ export default function Tabs({ activeTab, onTabChange, tabs, showHomeButton = fa
             </button>
           );
         })}
-        {showSettingsButton && (
+        {showTrophyButton && (
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              ref={trophyButtonRef}
+              onClick={onTrophyClick}
+              className="p-3 rounded-lg transition-colors relative"
+              style={{
+                color: colors.textSecondary,
+                backgroundColor: 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = colors.textPrimary;
+                e.currentTarget.style.backgroundColor = colors.cardHover;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = colors.textSecondary;
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }}
+              title="実績"
+            >
+              <Trophy size={24} />
+              {/* 新着バッジ */}
+              {newTrophyCount > 0 && (
+                <span
+                  className="absolute top-2 right-2 w-2 h-2 rounded-full"
+                  style={{ backgroundColor: '#FFB800' }}
+                />
+              )}
+            </button>
+            {showSettingsButton && (
+              <button
+                ref={settingsButtonRef}
+                onClick={onSettingsClick}
+                className="p-3 rounded-lg transition-colors"
+                style={{
+                  color: activeTab === 'settings' ? colors.accent : colors.textSecondary,
+                  backgroundColor: activeTab === 'settings' ? colors.accentLight : 'transparent',
+                }}
+                onMouseEnter={(e) => {
+                  if (activeTab !== 'settings') {
+                    e.currentTarget.style.color = colors.textPrimary;
+                    e.currentTarget.style.backgroundColor = colors.cardHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (activeTab !== 'settings') {
+                    e.currentTarget.style.color = colors.textSecondary;
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
+                title="設定"
+              >
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+            )}
+          </div>
+        )}
+        {!showTrophyButton && showSettingsButton && (
           <div className="ml-auto">
             <button
               ref={settingsButtonRef}

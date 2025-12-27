@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Tabs from './features/shared/components/Tabs';
 import AppHeader from './features/shared/components/AppHeader';
 import TabContent from './features/shared/components/TabContent';
@@ -7,6 +7,9 @@ import { useAppSettings } from './hooks/useAppSettings';
 import { useTabNavigation } from './hooks/useTabNavigation';
 import { useTheme } from './contexts/ThemeContext';
 import { getThemeColors } from './styles/theme';
+import { TrophyQueueSidebar } from './features/trophy/components/TrophyQueueSidebar';
+import { AchievementsModal } from './features/trophy/components/AchievementsModal';
+import { useTrophySystemContext } from './contexts/TrophySystemContext';
 
 function App() {
   // 開発モードでのLocalStorageリセット機能（?reset=true）
@@ -54,6 +57,8 @@ function App() {
     handleTodoFilterClick,
   } = useTabNavigation();
 
+  const [isTrophyModalOpen, setIsTrophyModalOpen] = useState(false);
+
   const tabs = [
     { id: 'timer', label: '学習時間' },
     { id: 'todo', label: 'リマインダ' },
@@ -81,6 +86,7 @@ function App() {
 
   return (
     <div className="min-h-screen" style={backgroundStyle}>
+      <TrophyQueueSidebar />
       <div className="container mx-auto px-4 py-8">
         <AppHeader onHomeClick={handleHomeClick} />
 
@@ -96,6 +102,8 @@ function App() {
             onHomeClick={handleHomeClick}
             showSettingsButton={true}
             onSettingsClick={handleSettingsClick}
+            showTrophyButton={true}
+            onTrophyClick={() => setIsTrophyModalOpen(true)}
           />
         </div>
 
@@ -128,6 +136,55 @@ function App() {
           />
         )}
       </div>
+      {import.meta.env.DEV && <TrophyTestButton />}
+      <AchievementsModal isOpen={isTrophyModalOpen} onClose={() => setIsTrophyModalOpen(false)} />
+    </div>
+  );
+}
+
+function TrophyTestButton() {
+  const { checkTrophies, unlockTrophy, resetTrophies } = useTrophySystemContext();
+  return (
+    <div className="fixed right-4 bottom-4 z-[80] flex items-center gap-2">
+      <button
+        type="button"
+        className="px-4 py-2 rounded-xl font-bold shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+        style={{ backgroundColor: '#FFB800', color: '#111827' }}
+        onClick={() => {
+          // 「一気に10個獲得」をシミュレート
+          checkTrophies({ __testBatch10: true }, { trigger: 'immediate' });
+        }}
+      >
+        トロフィー10個テスト
+      </button>
+      <button
+        type="button"
+        className="px-4 py-2 rounded-xl font-bold shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+        style={{ backgroundColor: 'rgba(8, 14, 28, 0.92)', color: '#FFB800', border: '1px solid rgba(255,184,0,0.55)' }}
+        onClick={() => {
+          // 3つの異なる実績を同時にunlock（Sidebarの多重表示確認用）
+          unlockTrophy('weekly_report_first');
+          unlockTrophy('weekly_hours_70');
+          unlockTrophy('weekly_perfect_streak');
+        }}
+        title="3つ同時アンロック（テスト）"
+      >
+        3つ同時テスト
+      </button>
+      <button
+        type="button"
+        className="px-4 py-2 rounded-xl font-semibold border shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+        style={{
+          borderColor: '#FFB800',
+          color: '#FFB800',
+          backgroundColor: 'rgba(8, 14, 28, 0.92)',
+          backdropFilter: 'blur(12px)',
+        }}
+        onClick={() => resetTrophies()}
+        title="すべてのトロフィーをリセット"
+      >
+        全トロフィーリセット
+      </button>
     </div>
   );
 }
