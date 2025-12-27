@@ -217,10 +217,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const popoverHoverRef = useRef(false);
   // 手動入力モード用の状態
   const [focusedManualUnit, setFocusedManualUnit] = useState<'hours' | 'minutes' | null>(null);
+  const [isHoveringManualHours, setIsHoveringManualHours] = useState(false);
+  const [isHoveringManualMinutes, setIsHoveringManualMinutes] = useState(false);
+  const [isFocusedManualHours, setIsFocusedManualHours] = useState(false);
+  const [isFocusedManualMinutes, setIsFocusedManualMinutes] = useState(false);
   const manualInputContainerRef = useRef<HTMLDivElement>(null);
   const manualHoursRef = useRef<HTMLDivElement>(null);
   const manualMinutesRef = useRef<HTMLDivElement>(null);
-  const manualThrottleRef = useRef<number | null>(null);
+  const manualHoursThrottleRef = useRef<number | null>(null);
+  const manualMinutesThrottleRef = useRef<number | null>(null);
 
   // 科目名から色を取得（未定義ならグレーにフォールバック）
   const getSubjectColor = (subjectName?: string): string | undefined =>
@@ -416,25 +421,19 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     if (timerState.isRunning) setIsPomodoroSettingsOpen(false);
   }, [timerState.isRunning]);
 
-  // 手動入力モードの統合wheel/キーボードイベントハンドラー（親コンテナに適用）
+  // 手動入力モードの時部分のwheelイベントハンドラー
   const manualHoursValueRef = useRef(timerState.manualHours);
-  const manualMinutesValueRef = useRef(timerState.manualMinutes);
   const setManualHoursRef = useRef(setManualHours);
-  const setManualMinutesRef = useRef(setManualMinutes);
   const adjustByStepRef = useRef(adjustByStep);
-  const focusedManualUnitRef = useRef(focusedManualUnit);
 
   useEffect(() => {
     manualHoursValueRef.current = timerState.manualHours;
-    manualMinutesValueRef.current = timerState.manualMinutes;
     setManualHoursRef.current = setManualHours;
-    setManualMinutesRef.current = setManualMinutes;
     adjustByStepRef.current = adjustByStep;
-    focusedManualUnitRef.current = focusedManualUnit;
-  }, [timerState.manualHours, timerState.manualMinutes, setManualHours, setManualMinutes, adjustByStep, focusedManualUnit]);
+  }, [timerState.manualHours, setManualHours, adjustByStep]);
 
   useEffect(() => {
-    const container = manualInputContainerRef.current;
+    const container = manualHoursRef.current;
     if (!container || timerState.isRunning || timerState.mode !== 'manual') return;
 
     const handleWheel = (e: WheelEvent) => {
@@ -442,22 +441,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
       e.stopPropagation();
       
       // Throttle処理: 16ms（約60fps）ごとに更新
-      if (manualThrottleRef.current !== null) return;
+      if (manualHoursThrottleRef.current !== null) return;
       
-      manualThrottleRef.current = window.setTimeout(() => {
-        manualThrottleRef.current = null;
+      manualHoursThrottleRef.current = window.setTimeout(() => {
+        manualHoursThrottleRef.current = null;
       }, 16);
 
       const direction = e.deltaY > 0 ? -1 : 1;
-      const unit = focusedManualUnitRef.current;
-      
-      if (unit === 'hours') {
-        const next = adjustByStepRef.current(manualHoursValueRef.current, direction, 0, 23);
-        setManualHoursRef.current(next);
-      } else if (unit === 'minutes') {
-        const next = adjustByStepRef.current(manualMinutesValueRef.current, direction, 0, 59);
-        setManualMinutesRef.current(next);
-      }
+      const next = adjustByStepRef.current(manualHoursValueRef.current, direction, 0, 23);
+      setManualHoursRef.current(next);
     };
 
     // passive: false を明示的に指定して preventDefault を可能にする
@@ -465,40 +457,51 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
     return () => {
       container.removeEventListener('wheel', handleWheel);
-      if (manualThrottleRef.current !== null) {
-        window.clearTimeout(manualThrottleRef.current);
+      if (manualHoursThrottleRef.current !== null) {
+        window.clearTimeout(manualHoursThrottleRef.current);
       }
     };
   }, [timerState.isRunning, timerState.mode]);
 
-  // キーボードイベントハンドラー（親コンテナに適用）
-  const handleManualInputKeyDown = (e: React.KeyboardEvent) => {
-    if (timerState.isRunning || timerState.mode !== 'manual') return;
-    
-    const unit = focusedManualUnit;
-    
-    if (e.key === 'ArrowUp') {
+  // 手動入力モードの分部分のwheelイベントハンドラー
+  const manualMinutesValueRef = useRef(timerState.manualMinutes);
+  const setManualMinutesRef = useRef(setManualMinutes);
+
+  useEffect(() => {
+    manualMinutesValueRef.current = timerState.manualMinutes;
+    setManualMinutesRef.current = setManualMinutes;
+  }, [timerState.manualMinutes, setManualMinutes]);
+
+  useEffect(() => {
+    const container = manualMinutesRef.current;
+    if (!container || timerState.isRunning || timerState.mode !== 'manual') return;
+
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (unit === 'hours') {
-        const next = adjustByStep(timerState.manualHours, 1, 0, 23);
-        setManualHours(next);
-      } else if (unit === 'minutes') {
-        const next = adjustByStep(timerState.manualMinutes, 1, 0, 59);
-        setManualMinutes(next);
+      
+      // Throttle処理: 16ms（約60fps）ごとに更新
+      if (manualMinutesThrottleRef.current !== null) return;
+      
+      manualMinutesThrottleRef.current = window.setTimeout(() => {
+        manualMinutesThrottleRef.current = null;
+      }, 16);
+
+      const direction = e.deltaY > 0 ? -1 : 1;
+      const next = adjustByStepRef.current(manualMinutesValueRef.current, direction, 0, 59);
+      setManualMinutesRef.current(next);
+    };
+
+    // passive: false を明示的に指定して preventDefault を可能にする
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (manualMinutesThrottleRef.current !== null) {
+        window.clearTimeout(manualMinutesThrottleRef.current);
       }
-    } else if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      e.stopPropagation();
-      if (unit === 'hours') {
-        const next = adjustByStep(timerState.manualHours, -1, 0, 23);
-        setManualHours(next);
-      } else if (unit === 'minutes') {
-        const next = adjustByStep(timerState.manualMinutes, -1, 0, 59);
-        setManualMinutes(next);
-      }
-    }
-  };
+    };
+  }, [timerState.isRunning, timerState.mode]);
 
 
   const adjustMinutes = (current: number, deltaSteps: number, min: number, max: number) => {
