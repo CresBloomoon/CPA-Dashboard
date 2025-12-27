@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import type { StudyProgress, Subject, Todo } from '../../../api/types';
@@ -47,7 +47,7 @@ export default function ReportWizard({
     [periodStart, periodEnd]
   );
 
-  const [step, setStep] = useState(0); // 0..2
+  const [step, setStep] = useState(0); // 0..3
   const [toast, setToast] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
   const [isCopySuccess, setIsCopySuccess] = useState(false);
@@ -55,11 +55,14 @@ export default function ReportWizard({
 
   const copySuccessTimeoutRef = useRef<number | null>(null);
   const copyGlowTimeoutRef = useRef<number | null>(null);
+  const copyCloseTimeoutRef = useRef<number | null>(null);
 
   const primaryFooterButtonRef = useRef<HTMLButtonElement | null>(null);
   const focusPrimaryFooterButton = () => {
     primaryFooterButtonRef.current?.focus();
   };
+
+  const finalCopyButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const [reportData, setReportData] = useState<ReportData>({
     reflection: '',
@@ -88,6 +91,13 @@ export default function ReportWizard({
   }, [progressList, periodStartKey, periodEndKey]);
 
   const lastWeekTotalHours = lastWeekHoursDebug.sum;
+
+  useEffect(() => {
+    // Step 4 では Enter 一発で「コピーして終了」できるよう、初期フォーカスを当てる
+    if (step === 3) {
+      window.setTimeout(() => finalCopyButtonRef.current?.focus(), 0);
+    }
+  }, [step]);
 
   const completedTodosBySubject = useMemo(() => {
     const subjectOrder = subjectsWithColors.map((s) => s.name);
@@ -119,12 +129,22 @@ export default function ReportWizard({
     return ordered;
   }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
 
+  const IND1 = '　';
+  const IND2 = '　　';
+
+  const bulletize = (text: string, indent: string): string => {
+    const trimmed = (text || '').trim();
+    if (!trimmed) return `${indent}・（未入力）`;
+    const lines = trimmed.split(/\r?\n/);
+    return [ `${indent}・${lines[0]}`, ...lines.slice(1).map((l) => `${indent}　${l}`) ].join('\n');
+  };
+
   const todoListText = useMemo(() => {
-    if (completedTodosBySubject.length === 0) return '（該当期間に完了したリマインダはありません）';
+    if (completedTodosBySubject.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
     return completedTodosBySubject
       .map(([subject, items]) => {
-        const lines = items.map((t) => `・${t}`).join('\n');
-        return `【${subject}】\n${lines}`;
+        const lines = items.map((t) => `${IND1}・${t}`).join('\n');
+        return `${IND1}（${subject}）\n${lines}`;
       })
       .join('\n\n');
   }, [completedTodosBySubject]);
@@ -158,7 +178,7 @@ export default function ReportWizard({
         fullScore: r.fullScore.trim(),
       }))
       .filter((r) => r.name || r.score || r.fullScore);
-    if (rows.length === 0) return '（未入力）';
+    if (rows.length === 0) return `${IND1}（未入力）`;
 
     const labels = rows.map((r) => r.name || '（答練名未入力）');
     // 目安: 全角15文字分（=30カラム）を最低幅として、最大の答練名に合わせて拡張
@@ -172,7 +192,7 @@ export default function ReportWizard({
         const s = r.score || '-';
         const f = r.fullScore || '-';
         // コロン位置を揃える（プレビューはfont-mono）
-        return `・${label}${pad}： ${s}/${f}点`;
+        return `${IND1}・${label}${pad}： ${s}/${f}点`;
       })
       .join('\n');
   }, [reportData.scores]);
@@ -186,33 +206,33 @@ export default function ReportWizard({
       scoresText,
       '',
       '■先週の勉強時間、振り返り',
-      '（勉強時間）',
-      `・${lastWeekTotalHours.toFixed(1)}時間`,
-      '（振り返り）',
-      `・${reportData.reflection || '（未入力）'}`,
+      `${IND1}（勉強時間）`,
+      bulletize(`${lastWeekTotalHours.toFixed(1)}時間`, IND2),
+      `${IND1}（振り返り）`,
+      bulletize(reportData.reflection, IND2),
       '',
       '■現状課題と課題に対する解決策（アクションプラン）',
-      '（課題）',
-      reportData.issues || '（未入力）',
-      '（解決策）',
-      reportData.solutions || '（未入力）',
+      `${IND1}（課題）`,
+      bulletize(reportData.issues, IND2),
+      `${IND1}（解決策）`,
+      bulletize(reportData.solutions, IND2),
       '',
       '■今週実施すること',
-      reportData.nextWeekPlan || '（未入力）',
+      bulletize(reportData.nextWeekPlan, IND1),
       '',
       '■相談したいこと',
-      reportData.questions || '（未入力）',
+      bulletize(reportData.questions, IND1),
     ].join('\n');
   }, [todoListText, scoresText, lastWeekTotalHours, reportData]);
 
-  const progressPct = ((step + 1) / 3) * 100;
+  const progressPct = ((step + 1) / 4) * 100;
 
   const showToast = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 1500);
   };
 
-  const handleCopy = async () => {
+  const handleCopyInternal = async (opts?: { closeAfter?: boolean }) => {
     try {
       setIsCopying(true);
       await navigator.clipboard.writeText(outputText);
@@ -222,8 +242,13 @@ export default function ReportWizard({
       setIsCopyGlow(true);
       if (copySuccessTimeoutRef.current) window.clearTimeout(copySuccessTimeoutRef.current);
       if (copyGlowTimeoutRef.current) window.clearTimeout(copyGlowTimeoutRef.current);
+      if (copyCloseTimeoutRef.current) window.clearTimeout(copyCloseTimeoutRef.current);
       copyGlowTimeoutRef.current = window.setTimeout(() => setIsCopyGlow(false), 550);
       copySuccessTimeoutRef.current = window.setTimeout(() => setIsCopySuccess(false), 2000);
+      if (opts?.closeAfter) {
+        // 成功の余韻を少し見せてから閉じる
+        copyCloseTimeoutRef.current = window.setTimeout(() => onClose(), 650);
+      }
     } catch (e) {
       console.error('[ReportWizard] Failed to copy:', e);
       showToast('コピーに失敗しました（ブラウザ権限を確認してください）');
@@ -231,6 +256,9 @@ export default function ReportWizard({
       setIsCopying(false);
     }
   };
+
+  const handleCopy = async () => handleCopyInternal({ closeAfter: false });
+  const handleCopyAndClose = async () => handleCopyInternal({ closeAfter: true });
 
   return (
     <AnimatePresence>
@@ -294,14 +322,16 @@ export default function ReportWizard({
                 />
               </div>
               <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
-                Step {step + 1} / 3
+                Step {step + 1} / 4
               </p>
             </div>
           </div>
 
           {/* body */}
           <div className="p-8 flex-1 overflow-y-auto">
-            <div className="grid grid-cols-1 md:grid-cols-[1.05fr_0.95fr] gap-8">
+            <div
+              className={`grid grid-cols-1 gap-8 ${step === 3 ? 'md:grid-cols-[0.80fr_1.20fr]' : 'md:grid-cols-[1.05fr_0.95fr]'}`}
+            >
               {/* 左：入力（ステップごと） */}
               <div className="min-w-0">
                 <AnimatePresence mode="wait">
@@ -578,6 +608,64 @@ export default function ReportWizard({
                       </div>
                     </motion.div>
                   )}
+
+                  {step === 3 && (
+                    <motion.div
+                      key="step-4"
+                      initial={{ opacity: 0, x: 18 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -18 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                    >
+                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
+                        Step 4: 最終確認
+                      </h3>
+
+                      <div className="rounded-xl p-4 border"
+                        style={{
+                          borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
+                          backgroundColor: colors.backgroundSecondary,
+                        }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                          お疲れ様でした！この内容で報告書を完成させますか？
+                        </p>
+                        <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
+                          右側のプレビューを最終チェックして、「コピーして終了」を押してください。（EnterでもOK）
+                        </p>
+                      </div>
+
+                      <div className="mt-6">
+                        <motion.button
+                          ref={finalCopyButtonRef}
+                          type="button"
+                          onClick={handleCopyAndClose}
+                          disabled={isCopying}
+                          className="w-full px-5 py-4 rounded-xl font-semibold text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                          animate={{
+                            scale: isCopyGlow ? 1.02 : 1,
+                            backgroundColor: isCopyGlow ? 'rgba(34, 197, 94, 0.92)' : colors.accent,
+                            boxShadow: isCopyGlow ? '0 0 22px rgba(34, 197, 94, 0.35)' : '0 16px 40px rgba(0,0,0,0.45)',
+                          }}
+                          transition={{ type: 'spring', stiffness: 520, damping: 28 }}
+                          style={{ color: colors.textInverse }}
+                        >
+                          <AnimatePresence mode="wait" initial={false}>
+                            <motion.span
+                              key={isCopying ? 'copying' : isCopySuccess ? 'success' : 'idle-final'}
+                              initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                              animate={{ opacity: 1, y: 0, scale: 1 }}
+                              exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                              transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+                              className="inline-block"
+                            >
+                              {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！ ✅' : 'コピーして終了'}
+                            </motion.span>
+                          </AnimatePresence>
+                        </motion.button>
+                      </div>
+                    </motion.div>
+                  )}
                 </AnimatePresence>
               </div>
 
@@ -586,7 +674,9 @@ export default function ReportWizard({
                 <div
                   className="rounded-2xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
                   style={{
-                    borderColor: theme === 'modern' ? 'rgba(255,255,255,0.12)' : colors.border,
+                    borderColor: step === 3
+                      ? (theme === 'modern' ? 'rgba(34, 197, 94, 0.30)' : colors.border)
+                      : (theme === 'modern' ? 'rgba(255,255,255,0.12)' : colors.border),
                     backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.65)' : colors.backgroundSecondary,
                   }}
                 >
@@ -637,10 +727,10 @@ export default function ReportWizard({
                         borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
                         backgroundColor: theme === 'modern' ? 'rgba(2, 6, 23, 0.45)' : colors.card,
                         color: colors.textPrimary,
-                        maxHeight: '68vh',
+                        maxHeight: step === 3 ? '74vh' : '68vh',
                       }}
                     >
-                      <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed">{outputText}</pre>
+                      <pre className={`${step === 3 ? 'text-sm' : 'text-xs'} font-mono whitespace-pre-wrap leading-relaxed`}>{outputText}</pre>
                     </div>
                   </div>
                 </div>
@@ -661,10 +751,10 @@ export default function ReportWizard({
             </button>
 
             <div className="flex items-center gap-2">
-              {step < 2 ? (
+              {step < 3 ? (
                 <button
                   type="button"
-                  onClick={() => setStep((s) => Math.min(2, s + 1))}
+                  onClick={() => setStep((s) => Math.min(3, s + 1))}
                   ref={primaryFooterButtonRef}
                   className="px-4 py-2 rounded-lg font-semibold transition-colors"
                   style={{ backgroundColor: colors.accent, color: colors.textInverse }}
