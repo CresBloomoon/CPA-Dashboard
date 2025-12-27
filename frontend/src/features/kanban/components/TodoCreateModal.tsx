@@ -271,11 +271,11 @@ export default function TodoCreateModal({
                     <div className="relative">
                       <button
                         type="button"
-                        onClick={() => setIsSetListDropdownOpen(!isSetListDropdownOpen)}
-                        className={`w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white ${
-                          isAdding ? 'disabled:bg-gray-100' : ''
+                        onClick={() => subjects.length > 0 && setIsSetListDropdownOpen(!isSetListDropdownOpen)}
+                        className={`w-full flex items-center justify-between px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          isAdding || subjects.length === 0 ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'
                         }`}
-                        disabled={isAdding}
+                        disabled={isAdding || subjects.length === 0}
                       >
                         <span className="flex items-center gap-2">
                           {selectedSetListTiming !== null && (() => {
@@ -290,21 +290,52 @@ export default function TodoCreateModal({
                               />
                             ) : null;
                           })()}
-                          {selectedSetListTiming !== null ?
-                            (() => {
-                              const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
-                              if (!timing) return '選択してください';
-                              const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
-                              const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
-                              return `${displaySubjectName} (${timing.review_days.length}回: ${timing.review_days.map(d => `${d}日後`).join(', ')})`;
-                            })()
-                            : '選択してください'}
+                          <span className="flex-1">
+                            {subjects.length === 0 ? '科目が未登録です' : (selectedSetListTiming !== null ?
+                              (() => {
+                                const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
+                                if (!timing) return '選択してください';
+                                const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
+                                const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
+                                return `${displaySubjectName} (${timing.review_days.length}回: ${timing.review_days.map(d => `${d}日後`).join(', ')})`;
+                              })()
+                              : '選択してください')}
+                          </span>
                         </span>
-                        <svg className={`w-4 h-4 transition-transform ${isSetListDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
+                        {subjects.length > 0 && (
+                          <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${isSetListDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        )}
                       </button>
-                      {isSetListDropdownOpen && (
+                      
+                      {/* 科目0件時の誘導メッセージ */}
+                      {subjects.length === 0 && (
+                        <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <div className="flex-1">
+                              <p className="text-amber-800 font-medium text-xs mb-1">科目を登録してください</p>
+                              <p className="text-amber-700 text-xs mb-2">復習セットリストを使用するには、まず科目を登録する必要があります。</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  closeModal();
+                                  const settingsButton = document.querySelector('[title="設定"]') as HTMLButtonElement;
+                                  if (settingsButton) settingsButton.click();
+                                }}
+                                className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 transition-colors"
+                              >
+                                設定画面へ →
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {isSetListDropdownOpen && !isAdding && subjects.length > 0 && (
                         <>
                           <div
                             className="fixed inset-0 z-10"
