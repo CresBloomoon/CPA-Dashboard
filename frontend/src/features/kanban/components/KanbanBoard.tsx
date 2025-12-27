@@ -76,7 +76,7 @@ function DraggableTodoCard({
   
   // 期限の状態を判定
   let dueDateText = '';
-  let dueDateClassName = '';
+  let dueDateStyle: React.CSSProperties = { color: colors.textPrimary };
   
   if (todo.due_date) {
     const dueDate = new Date(todo.due_date);
@@ -92,15 +92,15 @@ function DraggableTodoCard({
     if (diffDays < 0) {
       // 期限超（前日以前）- 赤文字
       dueDateText = dateText;
-      dueDateClassName = 'text-red-600';
+      dueDateStyle = { color: colors.textError };
     } else if (diffDays === 0) {
       // 当日 - 青文字
       dueDateText = dateText;
-      dueDateClassName = 'text-blue-600';
+      dueDateStyle = { color: colors.accent };
     } else {
       // 期限前（翌日以降）- 黒文字
       dueDateText = dateText;
-      dueDateClassName = 'text-gray-800';
+      dueDateStyle = { color: colors.textPrimary };
     }
   }
 
