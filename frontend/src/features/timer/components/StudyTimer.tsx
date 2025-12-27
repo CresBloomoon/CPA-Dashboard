@@ -1031,7 +1031,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
                       return (
                         <div className="relative">
-                          {/* 上矢印アイコン（箱の真上・外側） */}
+                          {/* 上矢印アイコン（箱の真上・外側、12px離す） */}
                           <AnimatePresence>
                             {isHovering && !disabled && value < max && (
                               <motion.div
@@ -1039,9 +1039,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"
+                                className="absolute -top-10 left-1/2 -translate-x-1/2 pointer-events-none"
                               >
-                                <ChevronUp size={32} className="w-8 h-8 text-white/80" />
+                                <ChevronUp size={40} className="w-10 h-10 text-white/80" />
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -1055,7 +1055,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                             aria-valuemin={min}
                             aria-valuemax={max}
                             aria-label={`${label}: ${value}`}
-                            className={`relative w-16 h-24 rounded-xl transition-all duration-300 cursor-ns-resize flex items-center justify-center ${
+                            className={`relative w-24 h-32 rounded-xl transition-all duration-300 cursor-ns-resize flex items-center justify-center ${
                               isHovering && !disabled
                                 ? 'border-2 border-sky-500/50 bg-slate-900/60'
                                 : 'border border-transparent bg-transparent'
@@ -1065,14 +1065,14 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                             onKeyDown={handleKeyDown}
                           >
                             <div className="flex items-baseline gap-1">
-                              <span className="text-4xl font-medium text-white tabular-nums">
+                              <span className="text-6xl font-medium text-white tabular-nums">
                                 {String(value).padStart(2, '0')}
                               </span>
-                              <span className="text-xs text-slate-400 font-medium">{label}</span>
+                              <span className="text-base text-slate-400 font-medium">{label}</span>
                             </div>
                           </div>
 
-                          {/* 下矢印アイコン（箱の真下・外側） */}
+                          {/* 下矢印アイコン（箱の真下・外側、12px離す） */}
                           <AnimatePresence>
                             {isHovering && !disabled && value > min && (
                               <motion.div
@@ -1080,9 +1080,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
-                                className="absolute -bottom-8 left-1/2 -translate-x-1/2 pointer-events-none"
+                                className="absolute -bottom-10 left-1/2 -translate-x-1/2 pointer-events-none"
                               >
-                                <ChevronDown size={32} className="w-8 h-8 text-white/80" />
+                                <ChevronDown size={40} className="w-10 h-10 text-white/80" />
                               </motion.div>
                             )}
                           </AnimatePresence>
@@ -1092,7 +1092,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
                     return (
                       <div className="relative z-10 pointer-events-auto">
-                        <div className="flex items-center justify-center gap-4">
+                        <div className="flex items-center justify-center gap-3">
                           <TimeUnitBox
                             value={timerState.manualHours}
                             label="時"
@@ -1101,7 +1101,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                             onChange={setManualHours}
                             disabled={timerState.isRunning}
                           />
-                          <span className="text-4xl font-medium text-white">:</span>
+                          <span className="text-6xl font-medium text-white">:</span>
                           <TimeUnitBox
                             value={timerState.manualMinutes}
                             label="分"
