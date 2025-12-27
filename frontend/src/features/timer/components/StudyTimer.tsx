@@ -42,17 +42,46 @@ function DurationRow({
   adjustMinutes: (current: number, deltaSteps: number, min: number, max: number) => number;
   unit?: string;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const throttleTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Throttle処理: 16ms（約60fps）ごとに更新
+      if (throttleTimerRef.current !== null) return;
+      
+      throttleTimerRef.current = window.setTimeout(() => {
+        throttleTimerRef.current = null;
+      }, 16);
+
+      const direction = e.deltaY > 0 ? -1 : 1;
+      const next = adjustMinutes(value, direction, min, max);
+      onChange(next);
+    };
+
+    // passive: false を明示的に指定して preventDefault を可能にする
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (throttleTimerRef.current !== null) {
+        window.clearTimeout(throttleTimerRef.current);
+      }
+    };
+  }, [value, min, max, onChange, adjustMinutes]);
+
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
+        ref={containerRef}
         className="flex-1 rounded-xl bg-slate-800/45 ring-1 ring-sky-200/12 backdrop-blur-md px-4 py-3 select-none cursor-ns-resize hover:bg-slate-800/55 transition-colors"
-        onWheel={(e) => {
-          e.preventDefault();
-          const direction = e.deltaY > 0 ? -1 : 1;
-          const next = adjustMinutes(value, direction, min, max);
-          onChange(next);
-        }}
       >
         <div className="flex items-baseline justify-center gap-2">
           <div className="text-2xl font-semibold text-slate-200 tabular-nums">
@@ -98,6 +127,10 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   // 手動入力モード用の状態
   const [isHoveringManualHours, setIsHoveringManualHours] = useState(false);
   const [isHoveringManualMinutes, setIsHoveringManualMinutes] = useState(false);
+  const manualHoursRef = useRef<HTMLDivElement>(null);
+  const manualMinutesRef = useRef<HTMLDivElement>(null);
+  const manualHoursThrottleRef = useRef<number | null>(null);
+  const manualMinutesThrottleRef = useRef<number | null>(null);
 
   // 科目名から色を取得（未定義ならグレーにフォールバック）
   const getSubjectColor = (subjectName?: string): string | undefined =>
@@ -265,6 +298,70 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   useEffect(() => {
     if (timerState.isRunning) setIsPomodoroSettingsOpen(false);
   }, [timerState.isRunning]);
+
+  // 手動入力モードの時間部分のwheelイベントハンドラー
+  useEffect(() => {
+    const container = manualHoursRef.current;
+    if (!container || timerState.isRunning) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Throttle処理: 16ms（約60fps）ごとに更新
+      if (manualHoursThrottleRef.current !== null) return;
+      
+      manualHoursThrottleRef.current = window.setTimeout(() => {
+        manualHoursThrottleRef.current = null;
+      }, 16);
+
+      const direction = e.deltaY > 0 ? -1 : 1;
+      const next = adjustByStep(timerState.manualHours, direction, 0, 24);
+      setManualHours(next);
+    };
+
+    // passive: false を明示的に指定して preventDefault を可能にする
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (manualHoursThrottleRef.current !== null) {
+        window.clearTimeout(manualHoursThrottleRef.current);
+      }
+    };
+  }, [timerState.isRunning, timerState.manualHours, setManualHours, adjustByStep]);
+
+  // 手動入力モードの分部分のwheelイベントハンドラー
+  useEffect(() => {
+    const container = manualMinutesRef.current;
+    if (!container || timerState.isRunning) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Throttle処理: 16ms（約60fps）ごとに更新
+      if (manualMinutesThrottleRef.current !== null) return;
+      
+      manualMinutesThrottleRef.current = window.setTimeout(() => {
+        manualMinutesThrottleRef.current = null;
+      }, 16);
+
+      const direction = e.deltaY > 0 ? -1 : 1;
+      const next = adjustByStep(timerState.manualMinutes, direction, 0, 59);
+      setManualMinutes(next);
+    };
+
+    // passive: false を明示的に指定して preventDefault を可能にする
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+      if (manualMinutesThrottleRef.current !== null) {
+        window.clearTimeout(manualMinutesThrottleRef.current);
+      }
+    };
+  }, [timerState.isRunning, timerState.manualMinutes, setManualMinutes, adjustByStep]);
 
 
   const adjustMinutes = (current: number, deltaSteps: number, min: number, max: number) => {
@@ -774,24 +871,18 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                 {timerState.mode === 'manual' ? (
                   // 手動入力モード：時間と分で分けてホバー可能
                   <div className="relative z-10 pointer-events-auto flex items-center gap-1">
-                    {/* 時間部分 */}
-                    <div
-                      className="relative"
-                      onMouseEnter={() => {
-                        if (timerState.isRunning) return;
-                        setIsHoveringManualHours(true);
-                      }}
-                      onMouseLeave={() => {
-                        setIsHoveringManualHours(false);
-                      }}
-                      onWheel={(e) => {
-                        if (timerState.isRunning) return;
-                        e.preventDefault();
-                        const direction = e.deltaY > 0 ? -1 : 1;
-                        const next = adjustByStep(timerState.manualHours, direction, 0, 24);
-                        setManualHours(next);
-                      }}
-                    >
+                  {/* 時間部分 */}
+                  <div
+                    ref={manualHoursRef}
+                    className="relative"
+                    onMouseEnter={() => {
+                      if (timerState.isRunning) return;
+                      setIsHoveringManualHours(true);
+                    }}
+                    onMouseLeave={() => {
+                      setIsHoveringManualHours(false);
+                    }}
+                  >
                       {/* ホバー演出：細い角丸枠＋わずかな暗転 */}
                       <AnimatePresence>
                         {isHoveringManualHours && (
@@ -829,24 +920,18 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     <div className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}>
                       :
                     </div>
-                    {/* 分部分 */}
-                    <div
-                      className="relative"
-                      onMouseEnter={() => {
-                        if (timerState.isRunning) return;
-                        setIsHoveringManualMinutes(true);
-                      }}
-                      onMouseLeave={() => {
-                        setIsHoveringManualMinutes(false);
-                      }}
-                      onWheel={(e) => {
-                        if (timerState.isRunning) return;
-                        e.preventDefault();
-                        const direction = e.deltaY > 0 ? -1 : 1;
-                        const next = adjustByStep(timerState.manualMinutes, direction, 0, 59);
-                        setManualMinutes(next);
-                      }}
-                    >
+                  {/* 分部分 */}
+                  <div
+                    ref={manualMinutesRef}
+                    className="relative"
+                    onMouseEnter={() => {
+                      if (timerState.isRunning) return;
+                      setIsHoveringManualMinutes(true);
+                    }}
+                    onMouseLeave={() => {
+                      setIsHoveringManualMinutes(false);
+                    }}
+                  >
                       {/* ホバー演出：細い角丸枠＋わずかな暗転 */}
                       <AnimatePresence>
                         {isHoveringManualMinutes && (
