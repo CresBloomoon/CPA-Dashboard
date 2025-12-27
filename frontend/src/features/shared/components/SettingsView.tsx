@@ -335,6 +335,8 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   const [newSubject, setNewSubject] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  // 監査報告書ウィザード：報告開始曜日（0=日〜6=土、デフォルト=月）
+  const [reportStartDay, setReportStartDay] = useState<number>(1);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
   const [colorPickerIndex, setColorPickerIndex] = useState<number | null>(null);
@@ -363,6 +365,23 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       setIsLoading(true);
       const settings = await settingsApi.getAll();
       const subjectsSetting = settings.find(s => s.key === 'subjects');
+      const reportStartDaySetting = settings.find(s => s.key === 'reportStartDay');
+
+      // 監査報告書ウィザード設定（存在しない場合はデフォルト）
+      if (reportStartDaySetting) {
+        try {
+          const parsed = JSON.parse(reportStartDaySetting.value) as unknown;
+          const next =
+            typeof parsed === 'number' && Number.isFinite(parsed) && parsed >= 0 && parsed <= 6
+              ? Math.floor(parsed)
+              : 1;
+          setReportStartDay(next);
+        } catch {
+          setReportStartDay(1);
+        }
+      } else {
+        setReportStartDay(1);
+      }
       
       if (subjectsSetting) {
         try {
@@ -427,6 +446,24 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const saveReportStartDay = async (day: number) => {
+    try {
+      setIsSaving(true);
+      await settingsApi.createOrUpdate({
+        key: 'reportStartDay',
+        value: JSON.stringify(day),
+      });
+      setReportStartDay(day);
+      if (onSettingsUpdate) onSettingsUpdate();
+    } catch (error: any) {
+      console.error('[SettingsView] Error saving reportStartDay:', error);
+      const message = error.userMessage || '報告開始曜日の保存に失敗しました。ネットワークを確認してください。';
+      alert(message);
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -1097,6 +1134,59 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                   </div>
                 );
               })}
+            </div>
+
+            {/* 監査報告書ウィザード設定（復習セットリストの下に配置） */}
+            <div className="mt-10 pt-6 border-t" style={{ borderColor: colors.border }}>
+              <h4 className="text-lg font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                監査報告書ウィザード
+              </h4>
+              <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>
+                設定した曜日にのみホーム画面で「監査報告書ウィザード」が表示されます。
+              </p>
+
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium" style={{ color: colors.textPrimary }}>
+                    報告開始曜日
+                  </p>
+                  <p className="text-xs mt-1" style={{ color: colors.textTertiary }}>
+                    0=日曜〜6=土曜（デフォルトは月曜）
+                  </p>
+                </div>
+
+                <select
+                  value={reportStartDay}
+                  disabled={isSaving}
+                  onChange={(e) => {
+                    const next = Number.parseInt(e.target.value, 10);
+                    if (Number.isNaN(next)) return;
+                    saveReportStartDay(next);
+                  }}
+                  className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2"
+                  style={{
+                    borderColor: colors.border,
+                    backgroundColor: colors.card,
+                    color: colors.textPrimary,
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = colors.accent;
+                    e.currentTarget.style.boxShadow = `0 0 0 2px ${colors.accentLight}`;
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = colors.border;
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  <option value={0}>日曜日</option>
+                  <option value={1}>月曜日</option>
+                  <option value={2}>火曜日</option>
+                  <option value={3}>水曜日</option>
+                  <option value={4}>木曜日</option>
+                  <option value={5}>金曜日</option>
+                  <option value={6}>土曜日</option>
+                </select>
+              </div>
             </div>
           </div>
         )}

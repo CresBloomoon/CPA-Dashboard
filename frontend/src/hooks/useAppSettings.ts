@@ -10,6 +10,8 @@ export const useAppSettings = () => {
   // 空配列から開始し、DBの最新状態を正として扱う（デフォルト値での上書きを防止）
   const [subjectsWithColors, setSubjectsWithColors] = useState<Subject[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
+  // 監査報告書ウィザード：報告開始曜日（0=日〜6=土、デフォルト=月）
+  const [reportStartDay, setReportStartDay] = useState<number>(1);
   const [isLoadingSettings, setIsLoadingSettings] = useState<boolean>(true);
 
   const loadSettings = async () => {
@@ -17,6 +19,23 @@ export const useAppSettings = () => {
       setIsLoadingSettings(true);
       const settings = await settingsApi.getAll();
       const subjectsSetting = settings.find(s => s.key === 'subjects');
+      const reportStartDaySetting = settings.find(s => s.key === 'reportStartDay');
+
+      if (reportStartDaySetting) {
+        try {
+          const parsed: unknown = JSON.parse(reportStartDaySetting.value);
+          const next =
+            typeof parsed === 'number' && Number.isFinite(parsed) && parsed >= 0 && parsed <= 6
+              ? Math.floor(parsed)
+              : 1;
+          setReportStartDay(next);
+        } catch (error) {
+          console.error('Error parsing reportStartDay:', error);
+          setReportStartDay(1);
+        }
+      } else {
+        setReportStartDay(1);
+      }
       if (subjectsSetting) {
         const parsedSubjects: unknown = JSON.parse(subjectsSetting.value);
         // Subject型の配列か、文字列の配列かを判定
@@ -64,6 +83,8 @@ export const useAppSettings = () => {
     subjectsWithColors,
     setSubjects,
     setSubjectsWithColors,
+    reportStartDay,
+    setReportStartDay,
     loadSettings,
     isLoadingSettings,
   };

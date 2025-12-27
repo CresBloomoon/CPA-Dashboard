@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,13 +9,14 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { startOfWeek, endOfWeek, eachDayOfInterval, format, parseISO } from 'date-fns';
-import type { StudyProgress, Subject } from '../../../api/types';
+import { addDays, endOfDay, format, parseISO, startOfDay, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
+import type { StudyProgress, Subject, Todo } from '../../../api/types';
 import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
 import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 import CompactStreakCalendar from '../../calendar/components/CompactStreakCalendar';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
+import ReportWizard from '../../report/components/ReportWizard';
 
 ChartJS.register(
   CategoryScale,
@@ -35,7 +36,9 @@ interface SummaryCardsProps {
   onTotalTodosClick?: () => void;
   onCompletedTodosClick?: () => void;
   progressList?: StudyProgress[];
+  todos?: Todo[];
   subjectsWithColors?: Subject[];
+  reportStartDay?: number;
 }
 
 export default function SummaryCards({ 
@@ -47,15 +50,45 @@ export default function SummaryCards({
   onTotalTodosClick,
   onCompletedTodosClick,
   progressList = [],
+  todos = [],
   subjectsWithColors = []
+  ,
+  reportStartDay = 1
 }: SummaryCardsProps) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [wizardToast, setWizardToast] = useState<string | null>(null);
 
   // 科目名から色を取得する関数
   const getSubjectColor = (subjectName: string): string => {
     return resolveSubjectColor(subjectName, subjectsWithColors, SUBJECT_COLOR_FALLBACK) || SUBJECT_COLOR_FALLBACK;
   };
+
+  const shouldShowWizardEntry = useMemo(() => {
+    const dow = new Date().getDay(); // 0=Sun..6=Sat
+    const start = Math.max(0, Math.min(6, Math.floor(reportStartDay)));
+    const grace = (start + 1) % 7;
+    return dow === start || dow === grace;
+  }, [reportStartDay]);
+
+  const reportPeriod = useMemo(() => {
+    // 報告日は reportStartDay（または翌日の猶予）とし、報告内容は「前週（7日）」を対象にする
+    const now = new Date();
+    const start = Math.max(0, Math.min(6, Math.floor(reportStartDay)));
+    const grace = (start + 1) % 7;
+    const todayDow = now.getDay();
+    const reportDay = todayDow === start ? now : (todayDow === grace ? subDays(now, 1) : now);
+    const periodEnd = endOfDay(subDays(reportDay, 1));
+    const periodStart = startOfDay(subDays(periodEnd, 6));
+    const periodId = `${format(periodStart, 'yyyy-MM-dd')}__${format(periodEnd, 'yyyy-MM-dd')}`;
+    return { periodStart, periodEnd, periodId };
+  }, [reportStartDay]);
+
+  const isReported = useMemo(() => {
+    const last = localStorage.getItem('reportWizard:lastReportedPeriodId');
+    return last === reportPeriod.periodId;
+  }, [reportPeriod.periodId]);
 
   // 1週間分のデータを集計
   const chartData = useMemo(() => {
@@ -232,6 +265,43 @@ export default function SummaryCards({
 
       {/* 右側: リマインダとストリークカレンダー */}
       <div className="lg:col-span-1 flex flex-col gap-6">
+        {/* 監査報告書ウィザード（報告日だけ表示） */}
+        {shouldShowWizardEntry && (
+          <div
+            className="rounded-lg shadow-lg p-6"
+            style={{
+              backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+              backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+              border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+            }}
+          >
+            <h3 className="text-lg font-semibold mb-2" style={{ color: colors.textPrimary }}>
+              監査報告書ウィザード
+            </h3>
+            <p className="text-xs mb-4" style={{ color: colors.textSecondary }}>
+              対象期間: {format(reportPeriod.periodStart, 'M/d')}〜{format(reportPeriod.periodEnd, 'M/d')}
+            </p>
+            <button
+              type="button"
+              disabled={isReported}
+              onClick={() => setIsWizardOpen(true)}
+              className="w-full px-4 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              style={{
+                backgroundColor: isReported ? colors.buttonDisabled : colors.accent,
+                color: colors.textInverse,
+              }}
+              onMouseEnter={(e) => {
+                if (!isReported) e.currentTarget.style.backgroundColor = colors.accentHover;
+              }}
+              onMouseLeave={(e) => {
+                if (!isReported) e.currentTarget.style.backgroundColor = colors.accent;
+              }}
+            >
+              {isReported ? '報告済み' : 'ウィザードを開始'}
+            </button>
+          </div>
+        )}
+
         {/* リマインダカード */}
         <div 
           className="rounded-lg shadow-lg p-6"
@@ -440,6 +510,35 @@ export default function SummaryCards({
           <CompactStreakCalendar progressList={progressList} compact={false} />
         </div>
       </div>
+
+      {/* ウィザードモーダル */}
+      {isWizardOpen && (
+        <ReportWizard
+          reportStartDay={reportStartDay}
+          periodStart={reportPeriod.periodStart}
+          periodEnd={reportPeriod.periodEnd}
+          progressList={progressList}
+          todos={todos}
+          subjectsWithColors={subjectsWithColors}
+          onClose={() => setIsWizardOpen(false)}
+          onCopied={(periodId) => {
+            localStorage.setItem('reportWizard:lastReportedPeriodId', periodId);
+            setWizardToast('クリップボードにコピーしました');
+            setIsWizardOpen(false);
+            window.setTimeout(() => setWizardToast(null), 1500);
+          }}
+        />
+      )}
+
+      {/* トースト通知（コピー成功） */}
+      {wizardToast && (
+        <div
+          className="fixed bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300"
+          style={{ backgroundColor: theme === 'modern' ? 'rgba(34, 197, 94, 0.85)' : '#22c55e', color: '#fff' }}
+        >
+          {wizardToast}
+        </div>
+      )}
     </div>
   );
 }

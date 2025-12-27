@@ -39,6 +39,7 @@ function App() {
     subjectsWithColors,
     setSubjects,
     setSubjectsWithColors,
+    reportStartDay,
     loadSettings,
     isLoadingSettings,
   } = useAppSettings();
@@ -116,6 +117,7 @@ function App() {
             projects={projects}
             subjects={subjects}
             subjectsWithColors={subjectsWithColors}
+            reportStartDay={reportStartDay}
             todoListFilterType={todoListFilterType}
             onFetchData={fetchData}
             onFetchTodos={fetchTodos}

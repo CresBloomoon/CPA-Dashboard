@@ -1,7 +1,6 @@
 import { calculateTodoCounts } from '../../../utils/todoCounts';
 import type { StudyProgress, Subject, Project, Todo } from '../../../api/types';
 import SummaryCards from '../../timer/components/SummaryCards';
-import StreakCalendar from '../../calendar/components/StreakCalendar';
 import StudyTimer from '../../timer/components/StudyTimer';
 import TodoList from '../../kanban/components/TodoList';
 import CalendarView from '../../calendar/components/CalendarView';
@@ -17,6 +16,7 @@ interface TabContentProps {
   projects: Project[];
   subjects: string[];
   subjectsWithColors: Subject[];
+  reportStartDay: number;
   todoListFilterType: 'today' | 'all' | 'completed';
   onFetchData: () => void;
   onFetchTodos: () => void;
@@ -35,6 +35,7 @@ export default function TabContent({
   projects,
   subjects,
   subjectsWithColors,
+  reportStartDay,
   todoListFilterType,
   onFetchData,
   onFetchTodos,
@@ -61,7 +62,9 @@ export default function TabContent({
             completedTodos={completedTodos}
             todayDueTodos={todayDueTodos}
             progressList={progressList}
+            todos={todos}
             subjectsWithColors={subjectsWithColors}
+            reportStartDay={reportStartDay}
             onTodayDueClick={() => onTodoFilterClick('today')}
             onTotalTodosClick={() => onTodoFilterClick('all')}
             onCompletedTodosClick={() => onTodoFilterClick('completed')}
