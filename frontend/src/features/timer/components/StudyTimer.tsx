@@ -424,7 +424,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
         window.clearTimeout(manualHoursThrottleRef.current);
       }
     };
-  }, [timerState.isRunning, subjects.length, timerState.mode]);
+  }, [timerState.isRunning, timerState.mode]);
 
   // 手動入力モードの分部分のwheelイベントハンドラー
   const manualMinutesValueRef = useRef(timerState.manualMinutes);
@@ -464,7 +464,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
         window.clearTimeout(manualMinutesThrottleRef.current);
       }
     };
-  }, [timerState.isRunning, subjects.length, timerState.mode]);
+  }, [timerState.isRunning, timerState.mode]);
 
 
   const adjustMinutes = (current: number, deltaSteps: number, min: number, max: number) => {
