@@ -330,16 +330,19 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   const saveSubjects = async (subjectsToSave: Subject[]) => {
     try {
       setIsSaving(true);
-      await settingsApi.createOrUpdate({
+      console.log('[SettingsView] Saving subjects:', subjectsToSave);
+      const result = await settingsApi.createOrUpdate({
         key: 'subjects',
         value: JSON.stringify(subjectsToSave),
       });
+      console.log('[SettingsView] Save result:', result);
       onSubjectsChange(subjectsToSave.map(s => s.name));
       if (onSubjectsWithColorsChange) {
         onSubjectsWithColorsChange(subjectsToSave);
       }
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error('[SettingsView] Error saving settings:', error);
+      alert('科目の保存に失敗しました。ネットワークを確認してください。');
     } finally {
       setIsSaving(false);
     }
@@ -373,8 +376,11 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   };
 
   const handleRemoveSubject = async (index: number) => {
+    console.log('[SettingsView] Deleting subject at index:', index);
     const subjectToRemove = subjects[index];
+    console.log('[SettingsView] Subject to remove:', subjectToRemove);
     const updatedSubjects = subjects.filter((_, i) => i !== index);
+    console.log('[SettingsView] Updated subjects:', updatedSubjects);
     setSubjects(updatedSubjects);
     await saveSubjects(updatedSubjects);
     
@@ -384,7 +390,10 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     
     // 削除後、他の画面にも反映させるため設定を再読み込み
     if (onSettingsUpdate) {
+      console.log('[SettingsView] Calling onSettingsUpdate');
       onSettingsUpdate();
+    } else {
+      console.warn('[SettingsView] onSettingsUpdate is not defined');
     }
   };
 
