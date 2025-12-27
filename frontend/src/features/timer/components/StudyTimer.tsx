@@ -1124,6 +1124,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} min-w-[3ch] flex justify-end`}
                         style={{
                           color: '#FFFFFF', // pure white (#FFFFFF)
+                          filter: 'none', // Glowを削除（フラットな白文字）
+                          textShadow: 'none', // テキストシャドウを削除
                         }}
                       >
                         {String(timerState.manualHours).padStart(2, '0')}
