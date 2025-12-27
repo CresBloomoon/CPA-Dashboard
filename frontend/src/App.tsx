@@ -5,8 +5,13 @@ import TabContent from './features/shared/components/TabContent';
 import { useAppData } from './hooks/useAppData';
 import { useAppSettings } from './hooks/useAppSettings';
 import { useTabNavigation } from './hooks/useTabNavigation';
+import { useTheme } from './contexts/ThemeContext';
+import { getThemeColors } from './styles/theme';
 
 function App() {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
+  
   const {
     progressList,
     summary,
@@ -56,12 +61,20 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
+  // テーマに応じた背景グラデーション
+  const backgroundStyle = theme === 'light'
+    ? { background: 'linear-gradient(to bottom right, #eff6ff, #e0e7ff)' } // from-blue-50 to-indigo-100
+    : { backgroundColor: colors.background };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen" style={backgroundStyle}>
       <div className="container mx-auto px-4 py-8">
         <AppHeader onHomeClick={handleHomeClick} />
 
-        <div className="border-b border-gray-200 mb-6 relative">
+        <div 
+          className="border-b mb-6 relative"
+          style={{ borderColor: colors.border }}
+        >
           <Tabs 
             activeTab={activeTab} 
             onTabChange={handleTabChange} 
@@ -75,8 +88,11 @@ function App() {
 
         {isLoading || isLoadingSettings ? (
           <div className="text-center py-12">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-            <p className="mt-4 text-gray-600">読み込み中...</p>
+            <div 
+              className="inline-block animate-spin rounded-full h-12 w-12 border-b-2"
+              style={{ borderColor: colors.accent }}
+            ></div>
+            <p className="mt-4" style={{ color: colors.textSecondary }}>読み込み中...</p>
           </div>
         ) : (
           <TabContent

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type React from 'react';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getThemeColors } from '../../../styles/theme';
 
 interface TabsProps {
   activeTab: string;
@@ -12,6 +14,8 @@ interface TabsProps {
 }
 
 export default function Tabs({ activeTab, onTabChange, tabs, showHomeButton = false, onHomeClick, showSettingsButton = false, onSettingsClick }: TabsProps) {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 });
   const tabRefs = useRef<{ [key: string]: HTMLButtonElement | null }>({});
   const navRef = useRef<HTMLDivElement | null>(null);
@@ -96,9 +100,23 @@ export default function Tabs({ activeTab, onTabChange, tabs, showHomeButton = fa
           <button
             ref={homeButtonRef}
             onClick={onHomeClick}
-            className={`p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors mr-8 ${
-              activeTab === 'dashboard' ? 'text-blue-600 bg-blue-50' : ''
-            }`}
+            className="p-3 rounded-lg transition-colors mr-8"
+            style={{
+              color: activeTab === 'dashboard' ? colors.accent : colors.textSecondary,
+              backgroundColor: activeTab === 'dashboard' ? colors.accentLight : 'transparent',
+            }}
+            onMouseEnter={(e) => {
+              if (activeTab !== 'dashboard') {
+                e.currentTarget.style.color = colors.textPrimary;
+                e.currentTarget.style.backgroundColor = colors.cardHover;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (activeTab !== 'dashboard') {
+                e.currentTarget.style.color = colors.textSecondary;
+                e.currentTarget.style.backgroundColor = 'transparent';
+              }
+            }}
             title="ホーム"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -106,38 +124,60 @@ export default function Tabs({ activeTab, onTabChange, tabs, showHomeButton = fa
             </svg>
           </button>
         )}
-        {tabs.map((tab, index) => (
-          <button
-            key={tab.id}
-            ref={(el) => {
-              tabRefs.current[tab.id] = el;
-              if (el && activeTab === tab.id) {
-                // refが設定されたら位置を更新
-                setTimeout(() => updateIndicator(), 0);
-              }
-            }}
-            onClick={() => onTabChange(tab.id)}
-            className={`
-              py-4 px-1 font-medium text-sm transition-colors relative
-              ${index > 0 ? 'ml-8' : ''}
-              ${
-                activeTab === tab.id
-                  ? 'text-blue-600'
-                  : 'text-gray-500 hover:text-gray-700'
-              }
-            `}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {tabs.map((tab, index) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              ref={(el) => {
+                tabRefs.current[tab.id] = el;
+                if (el && activeTab === tab.id) {
+                  // refが設定されたら位置を更新
+                  setTimeout(() => updateIndicator(), 0);
+                }
+              }}
+              onClick={() => onTabChange(tab.id)}
+              className={`py-4 px-1 font-medium text-sm transition-colors relative ${index > 0 ? 'ml-8' : ''}`}
+              style={{
+                color: isActive ? colors.accent : colors.textTertiary,
+              }}
+              onMouseEnter={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = colors.textPrimary;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isActive) {
+                  e.currentTarget.style.color = colors.textTertiary;
+                }
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
         {showSettingsButton && (
           <div className="ml-auto">
             <button
               ref={settingsButtonRef}
               onClick={onSettingsClick}
-              className={`p-3 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors ${
-                activeTab === 'settings' ? 'text-blue-600 bg-blue-50' : ''
-              }`}
+              className="p-3 rounded-lg transition-colors"
+              style={{
+                color: activeTab === 'settings' ? colors.accent : colors.textSecondary,
+                backgroundColor: activeTab === 'settings' ? colors.accentLight : 'transparent',
+              }}
+              onMouseEnter={(e) => {
+                if (activeTab !== 'settings') {
+                  e.currentTarget.style.color = colors.textPrimary;
+                  e.currentTarget.style.backgroundColor = colors.cardHover;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activeTab !== 'settings') {
+                  e.currentTarget.style.color = colors.textSecondary;
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
               title="設定"
             >
               <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,10 +190,11 @@ export default function Tabs({ activeTab, onTabChange, tabs, showHomeButton = fa
         {/* アニメーションする下線 */}
         {indicatorStyle.width > 0 && (
           <div
-            className="absolute bottom-0 h-0.5 bg-blue-500 transition-all duration-300 ease-out"
+            className="absolute bottom-0 h-0.5 transition-all duration-300 ease-out"
             style={{
               left: `${indicatorStyle.left}px`,
               width: `${indicatorStyle.width}px`,
+              backgroundColor: colors.accent,
             }}
           />
         )}
