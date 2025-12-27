@@ -1,20 +1,37 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { Trophy, Zap, Sparkle, ScrollText, Clock, Flame, Lock } from 'lucide-react';
 import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 import { TROPHY_CONFIG } from '../config/trophyConfig';
 
 const itemVariants = {
-  initial: { opacity: 0, x: '100vw' as const },
+  initial: { opacity: 0, x: '100vw' as const, scale: 0.9 },
   animate: {
     opacity: 1,
     x: 0,
-    transition: { duration: TROPHY_CONFIG.ENTER_S, ease: [0.16, 1, 0.3, 1] },
+    scale: 1,
+    transition: { type: 'spring', stiffness: 420, damping: 34 },
   },
   exit: {
     opacity: 0,
     x: '100vw' as const,
+    scale: 0.98,
     transition: { duration: TROPHY_CONFIG.EXIT_S, ease: [0.16, 1, 0.3, 1] },
   },
+};
+
+// アイコン名からLucideアイコンコンポーネントを取得
+const getIconComponent = (iconName: string) => {
+  const iconMap: Record<string, ComponentType<{ size?: number; className?: string }>> = {
+    Trophy,
+    Zap,
+    Sparkle,
+    ScrollText,
+    Clock,
+    Flame,
+    Lock,
+  };
+  return iconMap[iconName] || Trophy;
 };
 
 // インスタンスIDを生成（trophyId + タイムスタンプ + ランダム値）
@@ -91,15 +108,14 @@ export function TrophyQueueSidebar() {
   if (!visibleIds.length) return null;
 
   return (
-    <div className="fixed right-4 top-24 z-[70] w-[340px] pointer-events-none">
+    <div className="fixed right-4 top-24 z-[70] w-[280px] pointer-events-none">
       <div className="flex flex-col gap-3">
         <AnimatePresence>
           {visibleIds.map((instanceId) => {
             const trophyId = extractTrophyId(instanceId);
             const t = trophyById.get(trophyId);
             const title = t?.title ?? trophyId;
-            const description = t?.description ?? '';
-            const icon = t?.icon ?? 'Trophy';
+            const Icon = getIconComponent(t?.icon ?? 'Trophy');
             return (
               <motion.div
                 key={instanceId}
@@ -108,24 +124,28 @@ export function TrophyQueueSidebar() {
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="rounded-2xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
-                style={{ borderColor: '#FFB800', backgroundColor: 'rgba(8, 14, 28, 0.92)' }}
+                className="rounded-xl border border-white/10 border-l-4 border-l-[#FFB800] shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+                style={{
+                  backgroundColor: 'rgba(8, 14, 28, 0.95)',
+                  backgroundImage:
+                    'radial-gradient(120px 60px at 18% 30%, rgba(255,184,0,0.14), rgba(255,184,0,0.00) 65%)',
+                }}
               >
-                <div className="p-4 flex items-start gap-3">
+                <div className="px-3 py-3 flex items-center gap-3">
                   <div
-                    className="w-10 h-10 rounded-xl flex items-center justify-center border"
-                    style={{ borderColor: '#FFB800', backgroundColor: 'rgba(255,184,0,0.10)', color: '#FFB800' }}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                    style={{
+                      borderColor: 'rgba(255,184,0,0.35)',
+                      backgroundColor: 'rgba(255,184,0,0.08)',
+                      color: '#FFB800',
+                    }}
+                    aria-hidden="true"
                   >
-                    <span className="text-[10px] font-bold leading-none">{icon}</span>
+                    <Icon size={18} />
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-extrabold truncate" style={{ color: '#FFB800' }}>
-                      {title}
-                    </p>
-                    <p className="text-xs mt-1 leading-relaxed" style={{ color: 'rgba(226,232,240,0.78)' }}>
-                      {description}
-                    </p>
-                  </div>
+                  <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
+                    {title}
+                  </p>
                 </div>
               </motion.div>
             );

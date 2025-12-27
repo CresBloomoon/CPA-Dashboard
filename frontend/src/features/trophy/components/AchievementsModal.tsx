@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useMemo, useState, type ComponentType, type MouseEvent as ReactMouseEvent } from 'react';
+import { AnimatePresence, LayoutGroup, motion } from 'framer-motion';
 import { Dialog } from '@headlessui/react';
 import { Trophy, Zap, Sparkle, ScrollText, Clock, Flame, Lock } from 'lucide-react';
 import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
 import { ANIMATION_THEME } from '../../../config/appConfig';
+import type { Trophy as TrophyType } from '../../../types/trophy';
+import { TrophyDetailModal } from './TrophyDetailModal';
 
 // 新着判定（獲得から24時間以内）
 const isNewTrophy = (unlockedAt: string | null): boolean => {
@@ -15,7 +17,6 @@ const isNewTrophy = (unlockedAt: string | null): boolean => {
   const hours24 = 24 * 60 * 60 * 1000;
   return now - unlockedTime < hours24;
 };
-import type { Trophy as TrophyType } from '../../../types/trophy';
 
 interface AchievementsModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ interface AchievementsModalProps {
 
 // アイコン名からLucideアイコンコンポーネントを取得
 const getIconComponent = (iconName: string) => {
-  const iconMap: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
+  const iconMap: Record<string, ComponentType<{ size?: number; className?: string }>> = {
     Trophy,
     Zap,
     Sparkle,
@@ -39,6 +40,16 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
   const { trophies } = useTrophySystemContext();
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const [selected, setSelected] = useState<TrophyType | null>(null);
+
+  // 詳細モーダル表示中は「一覧を閉じる」操作を無効化し、まず詳細だけ閉じる
+  const handleClose = () => {
+    if (selected) {
+      setSelected(null);
+      return;
+    }
+    onClose();
+  };
 
   // Escキーで閉じる
   useEffect(() => {
@@ -61,10 +72,16 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
     });
   }, [trophies]);
 
+  // モーダルを閉じたら展開状態もリセット
+  useEffect(() => {
+    if (!isOpen) setSelected(null);
+  }, [isOpen]);
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <Dialog open={true} onClose={onClose} className="relative z-[60]">
+        <LayoutGroup>
+          <Dialog open={true} onClose={handleClose} className="relative z-[60]">
           {/* オーバーレイ */}
           <motion.div
             className="fixed inset-0"
@@ -74,11 +91,11 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: ANIMATION_THEME.DURATIONS_S.FADE }}
-            onClick={onClose}
+            onClick={handleClose}
           />
 
           {/* モーダルコンテンツ */}
-          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={onClose}>
+          <div className="fixed inset-0 flex items-center justify-center p-4" onClick={handleClose}>
             <Dialog.Panel
               as={motion.div}
               className="w-full max-w-5xl max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
@@ -91,7 +108,7 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
               transition={ANIMATION_THEME.SPRINGS.MODAL}
-              onClick={(e: React.MouseEvent) => e.stopPropagation()}
+              onClick={(e: ReactMouseEvent) => e.stopPropagation()}
             >
               {/* ヘッダー */}
               <div className="px-8 py-6 border-b" style={{ borderColor: 'rgba(255, 255, 255, 0.10)' }}>
@@ -101,19 +118,19 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
                       実績一覧
                     </Dialog.Title>
                     <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                      {trophies.filter((t) => t.unlockedAt).length} / {trophies.length} 獲得
+                      {trophies.filter((t: TrophyType) => t.unlockedAt).length} / {trophies.length} 獲得
                     </p>
                   </div>
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="p-2 rounded-lg transition-colors"
                     style={{ color: colors.textSecondary }}
-                    onMouseEnter={(e) => {
+                    onMouseEnter={(e: ReactMouseEvent<HTMLButtonElement>) => {
                       e.currentTarget.style.backgroundColor = colors.cardHover;
                       e.currentTarget.style.color = colors.textPrimary;
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={(e: ReactMouseEvent<HTMLButtonElement>) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
                       e.currentTarget.style.color = colors.textSecondary;
                     }}
@@ -127,16 +144,19 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
               {/* コンテンツ */}
               <div className="flex-1 overflow-y-auto p-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {sortedTrophies.map((trophy) => {
+                  {sortedTrophies.map((trophy: TrophyType) => {
                     const isUnlocked = Boolean(trophy.unlockedAt);
                     const isNew = isUnlocked && isNewTrophy(trophy.unlockedAt);
                     const isSecret = trophy.isSecret && !isUnlocked;
                     const IconComponent = isSecret ? Lock : getIconComponent(trophy.icon);
+                    const isClickable = isUnlocked; // 未獲得は詳細を見せない
 
                     return (
-                      <motion.div
+                      <motion.button
                         key={trophy.id}
-                        className="rounded-xl border overflow-hidden transition-all relative"
+                        type="button"
+                        layoutId={`trophy-card-${trophy.id}`}
+                        className={`rounded-xl border overflow-hidden transition-all relative text-left ${isClickable ? 'cursor-pointer' : 'cursor-default'}`}
                         style={{
                           borderLeft: isUnlocked ? '2px solid #FFB800' : '1px solid rgba(255, 255, 255, 0.10)',
                           borderTop: '1px solid rgba(255, 255, 255, 0.10)',
@@ -147,13 +167,18 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
                             : 'rgba(15, 23, 42, 0.45)',
                           opacity: isUnlocked ? 1 : 0.6,
                         }}
-                        whileHover={{ scale: 1.02 }}
+                        whileHover={isClickable ? { scale: 1.02 } : undefined}
                         transition={{ duration: 0.2 }}
+                        onClick={() => {
+                          if (!isClickable) return;
+                          setSelected(trophy);
+                        }}
                       >
 
                         <div className="p-4">
                           {/* アイコン */}
-                          <div
+                          <motion.div
+                            layoutId={`trophy-icon-${trophy.id}`}
                             className="w-12 h-12 rounded-xl flex items-center justify-center border mb-3"
                             style={{
                               borderColor: isUnlocked ? '#FFB800' : 'rgba(255, 255, 255, 0.10)',
@@ -164,7 +189,7 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
                             }}
                           >
                             <IconComponent size={24} />
-                          </div>
+                          </motion.div>
 
                           {/* タイトル */}
                           <div className="flex items-start gap-2 mb-1">
@@ -187,17 +212,12 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
                             )}
                           </div>
 
-                          {/* 説明 */}
-                          <p
-                            className="text-xs leading-relaxed"
-                            style={{
-                              color: isUnlocked
-                                ? 'rgba(226, 232, 240, 0.78)'
-                                : colors.textTertiary,
-                            }}
-                          >
-                            {isSecret ? '隠し実績（未解放）' : trophy.description}
-                          </p>
+                          {/* 未獲得は説明文を通常表示（シークレットは伏せる）。獲得済みはクリックで詳細に回す */}
+                          {!isUnlocked && (
+                            <p className="text-xs leading-relaxed" style={{ color: colors.textTertiary }}>
+                              {isSecret ? '隠し実績（未解放）' : trophy.description}
+                            </p>
+                          )}
 
                           {/* 獲得日時（獲得済みの場合） */}
                           {isUnlocked && trophy.unlockedAt && (
@@ -212,15 +232,21 @@ export function AchievementsModal({ isOpen, onClose }: AchievementsModalProps) {
                               })}
                             </p>
                           )}
+
                         </div>
-                      </motion.div>
+                      </motion.button>
                     );
                   })}
                 </div>
               </div>
             </Dialog.Panel>
           </div>
-        </Dialog>
+
+          </Dialog>
+
+          {/* 詳細モーダル（獲得済みのみ） */}
+          <TrophyDetailModal isOpen={Boolean(selected)} trophy={selected} onClose={() => setSelected(null)} />
+        </LayoutGroup>
       )}
     </AnimatePresence>
   );

@@ -9,6 +9,8 @@ export type Trophy = {
   title: string;
   /** 獲得理由の説明文 */
   description: string;
+  /** まーくんへの一言（一覧で表示する小ネタ） */
+  comment?: string;
   /** アイコン名（UI側で解決） */
   icon: string;
   /** 獲得前は隠す */

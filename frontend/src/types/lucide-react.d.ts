@@ -14,6 +14,13 @@ declare module 'lucide-react' {
   export const Settings: React.FC<LucideProps>;
   export const ChevronUp: React.FC<LucideProps>;
   export const ChevronDown: React.FC<LucideProps>;
+  export const Trophy: React.FC<LucideProps>;
+  export const Zap: React.FC<LucideProps>;
+  export const Sparkle: React.FC<LucideProps>;
+  export const ScrollText: React.FC<LucideProps>;
+  export const Clock: React.FC<LucideProps>;
+  export const Flame: React.FC<LucideProps>;
+  export const Lock: React.FC<LucideProps>;
 }
 
 
