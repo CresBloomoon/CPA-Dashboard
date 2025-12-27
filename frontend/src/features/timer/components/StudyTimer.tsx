@@ -1133,7 +1133,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                 {/* 数字はモダンに：monoを外しつつ tabular-nums で揃える */}
                 {timerState.mode === 'manual' ? (
                   // 手動入力モード：時間と分で分けてホバー可能
-                  <div className="relative z-10 pointer-events-auto flex items-center gap-1">
+                  <div className="relative z-10 pointer-events-auto flex items-center gap-2">
                   {/* 時間部分 */}
                   <div
                     ref={manualHoursRef}
@@ -1143,7 +1143,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     aria-valuemin={0}
                     aria-valuemax={23}
                     aria-label={`時間: ${timerState.manualHours}時`}
-                    className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:shadow-[0_0_15px_rgba(56,189,248,0.2)]"
+                    className="relative h-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:shadow-[0_0_15px_rgba(56,189,248,0.2)]"
                     onMouseEnter={() => {
                       if (timerState.isRunning) return;
                       setIsHoveringManualHours(true);
@@ -1183,23 +1183,33 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           />
                         )}
                       </AnimatePresence>
-                      {/* 上下矢印アイコン */}
-                      {((isHoveringManualHours || isFocusedManualHours) && (timerState.manualHours < 23 || timerState.manualHours > 0)) && (
+                      {/* 上矢印アイコン（最上部に配置） */}
+                      {(isHoveringManualHours || isFocusedManualHours) && timerState.manualHours < 23 && (
                         <AnimatePresence>
                           <motion.div
-                            key="manual-hours-arrows"
+                            key="manual-hours-arrow-up"
                             initial={{ opacity: 0, y: -4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
                             transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-                            className="absolute -top-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5"
+                            className="absolute top-2 left-0 right-0 flex items-center justify-center pointer-events-none"
                           >
-                            {timerState.manualHours < 23 && (
-                              <ChevronUp size={14} className="text-slate-200/70" />
-                            )}
-                            {timerState.manualHours > 0 && (
-                              <ChevronDown size={14} className="text-slate-200/70" />
-                            )}
+                            <ChevronUp size={32} className="text-white/90" />
+                          </motion.div>
+                        </AnimatePresence>
+                      )}
+                      {/* 下矢印アイコン（最下部に配置） */}
+                      {(isHoveringManualHours || isFocusedManualHours) && timerState.manualHours > 0 && (
+                        <AnimatePresence>
+                          <motion.div
+                            key="manual-hours-arrow-down"
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 4 }}
+                            transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
+                            className="absolute bottom-2 left-0 right-0 flex items-center justify-center pointer-events-none"
+                          >
+                            <ChevronDown size={32} className="text-white/90" />
                           </motion.div>
                         </AnimatePresence>
                       )}
@@ -1230,7 +1240,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     aria-valuemin={0}
                     aria-valuemax={59}
                     aria-label={`分: ${timerState.manualMinutes}分`}
-                    className="relative focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:shadow-[0_0_15px_rgba(56,189,248,0.2)]"
+                    className="relative h-full flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 focus-visible:shadow-[0_0_15px_rgba(56,189,248,0.2)]"
                     onMouseEnter={() => {
                       if (timerState.isRunning) return;
                       setIsHoveringManualMinutes(true);
@@ -1270,23 +1280,33 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           />
                         )}
                       </AnimatePresence>
-                      {/* 上下矢印アイコン */}
-                      {((isHoveringManualMinutes || isFocusedManualMinutes) && (timerState.manualMinutes < 59 || timerState.manualMinutes > 0)) && (
+                      {/* 上矢印アイコン（最上部に配置） */}
+                      {(isHoveringManualMinutes || isFocusedManualMinutes) && timerState.manualMinutes < 59 && (
                         <AnimatePresence>
                           <motion.div
-                            key="manual-minutes-arrows"
+                            key="manual-minutes-arrow-up"
                             initial={{ opacity: 0, y: -4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
                             transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-                            className="absolute -top-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5"
+                            className="absolute top-2 left-0 right-0 flex items-center justify-center pointer-events-none"
                           >
-                            {timerState.manualMinutes < 59 && (
-                              <ChevronUp size={14} className="text-slate-200/70" />
-                            )}
-                            {timerState.manualMinutes > 0 && (
-                              <ChevronDown size={14} className="text-slate-200/70" />
-                            )}
+                            <ChevronUp size={32} className="text-white/90" />
+                          </motion.div>
+                        </AnimatePresence>
+                      )}
+                      {/* 下矢印アイコン（最下部に配置） */}
+                      {(isHoveringManualMinutes || isFocusedManualMinutes) && timerState.manualMinutes > 0 && (
+                        <AnimatePresence>
+                          <motion.div
+                            key="manual-minutes-arrow-down"
+                            initial={{ opacity: 0, y: 4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 4 }}
+                            transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
+                            className="absolute bottom-2 left-0 right-0 flex items-center justify-center pointer-events-none"
+                          >
+                            <ChevronDown size={32} className="text-white/90" />
                           </motion.div>
                         </AnimatePresence>
                       )}
