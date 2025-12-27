@@ -1123,17 +1123,23 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       <div 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
-                          color: 'rgb(241, 245, 249)', // slate-100
-                          textShadow: subjectRgb
-                            ? `0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(${subjectRgb.r}, ${subjectRgb.g}, ${subjectRgb.b}, 0.2)`
-                            : '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(56, 189, 248, 0.2)',
+                          color: 'rgb(255, 255, 255)', // pure white
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
+                          filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
                         }}
                       >
                         {String(timerState.manualHours).padStart(2, '0')}
                       </div>
                     </div>
                     {/* コロン */}
-                    <div className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}>
+                    <div 
+                      className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
+                      style={{
+                        color: 'rgb(255, 255, 255)', // pure white
+                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
+                        filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
+                      }}
+                    >
                       :
                     </div>
                   {/* 分部分 */}
@@ -1180,10 +1186,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       <div 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
-                          color: 'rgb(241, 245, 249)', // slate-100
-                          textShadow: subjectRgb
-                            ? `0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(${subjectRgb.r}, ${subjectRgb.g}, ${subjectRgb.b}, 0.2)`
-                            : '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(56, 189, 248, 0.2)',
+                          color: 'rgb(255, 255, 255)', // pure white
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
+                          filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
                         }}
                       >
                         {String(timerState.manualMinutes).padStart(2, '0')}
@@ -1228,7 +1233,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       <div 
                         className={`relative ${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.CLASS}`}
                         style={{
+                          color: 'rgb(255, 255, 255)', // pure white
                           textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
+                          filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
                         }}
                       >
                         {circleDisplayTime}
@@ -1238,62 +1245,71 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       <div className={`relative ${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} flex items-center gap-1`}>
                         {(() => {
                           // circleDisplayTimeを分割（MM:SS または HH:MM:SS）
-                          const parts = circleDisplayTime.split(':');
                           const textShadowBase = '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)';
-                          const textShadowWithGlow = subjectRgb
-                            ? `${textShadowBase}, 0 0 12px rgba(${subjectRgb.r}, ${subjectRgb.g}, ${subjectRgb.b}, 0.15)`
-                            : `${textShadowBase}, 0 0 12px rgba(56, 189, 248, 0.15)`;
+                          const dropShadowGlow = 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))';
                           
-                          if (parts.length === 2) {
-                            // MM:SS形式
-                            return (
-                              <>
-                                <span style={{
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowWithGlow,
-                                }}>{parts[0]}</span>
-                                <span style={{ 
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowBase,
-                                }}>:</span>
-                                <span style={{
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowWithGlow,
-                                }}>{parts[1]}</span>
-                              </>
-                            );
-                          } else if (parts.length === 3) {
-                            // HH:MM:SS形式
-                            return (
-                              <>
-                                <span style={{
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowWithGlow,
-                                }}>{parts[0]}</span>
-                                <span style={{ 
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowBase,
-                                }}>:</span>
-                                <span style={{
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowWithGlow,
-                                }}>{parts[1]}</span>
-                                <span style={{ 
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowBase,
-                                }}>:</span>
-                                <span style={{
-                                  color: 'rgb(241, 245, 249)',
-                                  textShadow: textShadowWithGlow,
-                                }}>{parts[2]}</span>
-                              </>
-                            );
+                          if (circleDisplayTime.includes(':')) {
+                            const parts = circleDisplayTime.split(':');
+                            if (parts.length === 2) {
+                              // MM:SS形式
+                              return (
+                                <>
+                                  <span style={{
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>{parts[0]}</span>
+                                  <span style={{ 
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>:</span>
+                                  <span style={{
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>{parts[1]}</span>
+                                </>
+                              );
+                            } else if (parts.length === 3) {
+                              // HH:MM:SS形式
+                              return (
+                                <>
+                                  <span style={{
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>{parts[0]}</span>
+                                  <span style={{ 
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>:</span>
+                                  <span style={{
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>{parts[1]}</span>
+                                  <span style={{ 
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>:</span>
+                                  <span style={{
+                                    color: 'rgb(255, 255, 255)',
+                                    textShadow: textShadowBase,
+                                    filter: dropShadowGlow,
+                                  }}>{parts[2]}</span>
+                                </>
+                              );
+                            }
                           }
                           // フォーマットが異なる場合はそのまま表示
                           return (
                             <span style={{
-                              color: 'rgb(241, 245, 249)',
+                              color: 'rgb(255, 255, 255)',
                               textShadow: textShadowBase,
+                              filter: dropShadowGlow,
                             }}>{circleDisplayTime}</span>
                           );
                         })()}

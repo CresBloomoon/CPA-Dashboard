@@ -220,10 +220,10 @@ export const UI_VISUALS = {
     DIGITS: {
       /** フォントサイズクラス */
       SIZE_CLASS: 'text-7xl',
-      /** フォントウェイト（extralight: 細い / light: やや細い / normal: 標準 / medium: やや太い） */
-      WEIGHT_CLASS: 'font-extralight',
+      /** フォントウェイト（extralight: 細い / light: やや細い / normal: 標準 / medium: やや太い / semibold: 太め / bold: 太い） */
+      WEIGHT_CLASS: 'font-bold',
       /** テキストカラー（不透明度100%） */
-      COLOR_CLASS: 'text-slate-200',
+      COLOR_CLASS: 'text-white',
       /** 文字間隔 */
       TRACKING_CLASS: 'tracking-[0.02em]',
       /** 等幅数字（tabular-nums） */
@@ -232,7 +232,7 @@ export const UI_VISUALS = {
        * 完全なTailwindクラス文字列（一元化されたスタイル定義）。
        * この定義を変更するだけで、すべてのモードの時刻表示が連動して変わります。
        */
-      CLASS: 'text-7xl font-extralight text-slate-200 tabular-nums tracking-[0.02em]',
+      CLASS: 'text-7xl font-bold text-white tabular-nums tracking-[0.02em]',
     },
     /**
      * ポモドーロ待機中（FOCUS/REST表示）のスタイル。
@@ -247,12 +247,12 @@ export const UI_VISUALS = {
     AWAITING_PHASE: {
       SIZE_CLASS: 'text-4xl',
       WEIGHT_CLASS: 'font-medium',
-      COLOR_CLASS: 'text-slate-200',
+      COLOR_CLASS: 'text-white',
       TRACKING_CLASS: 'tracking-[0.02em]',
       /**
        * 完全なTailwindクラス文字列（ポモドーロ待機中専用）。
        */
-      CLASS: 'text-4xl font-medium text-slate-200 tracking-[0.02em]',
+      CLASS: 'text-4xl font-medium text-white tracking-[0.02em]',
     },
   },
   /**
