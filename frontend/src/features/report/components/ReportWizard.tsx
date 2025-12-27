@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
 import type { StudyProgress, Subject, Todo } from '../../../api/types';
@@ -50,6 +50,11 @@ export default function ReportWizard({
   const [step, setStep] = useState(0); // 0..2
   const [toast, setToast] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
+
+  const primaryFooterButtonRef = useRef<HTMLButtonElement | null>(null);
+  const focusPrimaryFooterButton = () => {
+    primaryFooterButtonRef.current?.focus();
+  };
 
   const [reportData, setReportData] = useState<ReportData>({
     reflection: '',
@@ -333,6 +338,12 @@ export default function ReportWizard({
                       <textarea
                         value={reportData.reflection}
                         onChange={(e) => setReportData((prev) => ({ ...prev, reflection: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Tab' && !e.shiftKey) {
+                            e.preventDefault();
+                            focusPrimaryFooterButton();
+                          }
+                        }}
                         rows={8}
                         className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
                         style={{
@@ -418,6 +429,13 @@ export default function ReportWizard({
                                     scores: prev.scores.map((r, i) => (i === idx ? { ...r, fullScore: e.target.value } : r)),
                                   }))
                                 }
+                                onKeyDown={(e) => {
+                                  // Step2の「最後の入力（最終行の満点）」→ Tabで「次へ」へ
+                                  if (idx === reportData.scores.length - 1 && e.key === 'Tab' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    focusPrimaryFooterButton();
+                                  }
+                                }}
                                 inputMode="numeric"
                                 className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
                                 style={{
@@ -530,6 +548,12 @@ export default function ReportWizard({
                           <textarea
                             value={reportData.questions}
                             onChange={(e) => setReportData((prev) => ({ ...prev, questions: e.target.value }))}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Tab' && !e.shiftKey) {
+                                e.preventDefault();
+                                focusPrimaryFooterButton();
+                              }
+                            }}
                             rows={3}
                             className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
                             style={{
@@ -569,6 +593,7 @@ export default function ReportWizard({
                       type="button"
                       onClick={handleCopy}
                       disabled={isCopying}
+                      tabIndex={-1}
                       className="px-3 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                     >
@@ -611,6 +636,7 @@ export default function ReportWizard({
                 <button
                   type="button"
                   onClick={() => setStep((s) => Math.min(2, s + 1))}
+                  ref={primaryFooterButtonRef}
                   className="px-4 py-2 rounded-lg font-semibold transition-colors"
                   style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                 >
@@ -620,6 +646,7 @@ export default function ReportWizard({
                 <button
                   type="button"
                   onClick={onClose}
+                  ref={primaryFooterButtonRef}
                   className="px-4 py-2 rounded-lg font-semibold transition-colors"
                   style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                 >
