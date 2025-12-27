@@ -1076,7 +1076,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <div className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}>
+                      <div 
+                        className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
+                        style={{
+                          color: 'rgb(241, 245, 249)', // slate-100
+                          textShadow: subjectRgb
+                            ? `0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(${subjectRgb.r}, ${subjectRgb.g}, ${subjectRgb.b}, 0.2)`
+                            : '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(56, 189, 248, 0.2)',
+                        }}
+                      >
                         {String(timerState.manualHours).padStart(2, '0')}
                       </div>
                     </div>
@@ -1125,7 +1133,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           </motion.div>
                         )}
                       </AnimatePresence>
-                      <div className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}>
+                      <div 
+                        className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
+                        style={{
+                          color: 'rgb(241, 245, 249)', // slate-100
+                          textShadow: subjectRgb
+                            ? `0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(${subjectRgb.r}, ${subjectRgb.g}, ${subjectRgb.b}, 0.2)`
+                            : '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 12px rgba(56, 189, 248, 0.2)',
+                        }}
+                      >
                         {String(timerState.manualMinutes).padStart(2, '0')}
                       </div>
                     </div>
