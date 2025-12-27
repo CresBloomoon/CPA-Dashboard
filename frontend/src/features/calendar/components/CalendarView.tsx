@@ -538,14 +538,21 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="grid grid-cols-7 gap-0 border border-gray-200 rounded-lg overflow-hidden">
+        <div 
+          className="grid grid-cols-7 gap-0 rounded-lg overflow-hidden"
+          style={{
+            border: `1px solid ${colors.border}`,
+          }}
+        >
           {/* 曜日ヘッダー */}
           {['日', '月', '火', '水', '木', '金', '土'].map((day, index) => (
             <div
               key={day}
-              className={`p-2 text-center font-semibold text-sm ${
-                index === 0 ? 'text-red-600' : index === 6 ? 'text-blue-600' : 'text-gray-700'
-              } bg-gray-100`}
+              className="p-2 text-center font-semibold text-sm"
+              style={{
+                color: index === 0 ? colors.error : index === 6 ? colors.accent : colors.textSecondary,
+                backgroundColor: colors.backgroundSecondary,
+              }}
             >
               {day}
             </div>
