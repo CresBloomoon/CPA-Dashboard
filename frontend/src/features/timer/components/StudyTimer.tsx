@@ -819,7 +819,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               
               return (
                 <div className="absolute inset-0 -rotate-90">
-                  <motion.svg
+                  <svg
                     viewBox="0 0 100 100"
                     className="w-full h-full"
                     style={{ transformOrigin: '50% 50%' }}
@@ -856,7 +856,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       animate={{
                         strokeDasharray: [`${ringCircumference * progressInMinute} ${ringCircumference}`, `${ringCircumference} ${ringCircumference}`],
                       }}
-                      transition={{ ease: 'linear', duration: 60, repeat: Infinity }}
+                      transition={{ ease: 'linear', duration: 1 }}
                     />
                     {/* 先端ハイライト */}
                     {progressLength > 0 && (
@@ -872,12 +872,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         strokeDashoffset={-(progressLength - Math.min(tipLen, progressLength))}
                         strokeLinecap="round"
                         animate={{
-                          strokeDashoffset: [-(ringCircumference * progressInMinute - Math.min(tipLen, ringCircumference * progressInMinute)), -ringCircumference],
+                          strokeDashoffset: -(ringCircumference * progressInMinute - Math.min(tipLen, ringCircumference * progressInMinute)),
                         }}
-                        transition={{ ease: 'linear', duration: 60, repeat: Infinity }}
+                        transition={{ ease: 'linear', duration: 1 }}
                       />
                     )}
-                  </motion.svg>
+                  </svg>
                 </div>
               );
             })()}
