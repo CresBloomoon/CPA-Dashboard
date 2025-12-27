@@ -924,9 +924,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           strokeDashoffset: -(ringCircumference * progressInMinute - Math.min(tipLen, ringCircumference * progressInMinute)),
                         }}
                         transition={{ ease: 'linear', duration: 1 }}
-                        style={{
-                          filter: `drop-shadow(0 0 8px ${subjectStroke}80)`, // 科目カラーに基づいた淡い発光（不透明度約0.5）
-                        }}
+                        filter={`url(#glow-${stopwatchRingGradientId})`}
                       />
                     )}
                   </svg>
@@ -973,6 +971,17 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       <stop offset="70%" stopColor={subjectStroke} stopOpacity="0.32" />
                       <stop offset="100%" stopColor={subjectStroke} stopOpacity="0.70" />
                     </linearGradient>
+                    {/* 科目カラーに基づいた淡い発光フィルター */}
+                    <filter id={`glow-${ringGradientId}`} x="-20%" y="-20%" width="140%" height="140%">
+                      <feGaussianBlur stdDeviation="4" result="blur" />
+                      <feComposite in="blur" in2="SourceGraphic" operator="out" result="glow" />
+                      <feFlood floodColor={subjectStroke} floodOpacity="0.5" result="color" />
+                      <feComposite in="color" in2="glow" operator="in" result="softGlow" />
+                      <feMerge>
+                        <feMergeNode in="softGlow" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
                   </defs>
                   <circle
                     cx="50"
@@ -996,9 +1005,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     strokeDashoffset="0"
                     strokeLinecap="round"
                     transition={{ ease: 'linear', duration: 1 }}
-                    style={{
-                      filter: `drop-shadow(0 0 8px ${subjectStroke}80)`, // 科目カラーに基づいた淡い発光（不透明度約0.5）
-                    }}
+                    filter={`url(#glow-${ringGradientId})`}
                   />
                   {/* 先端ハイライト（明るい短い弧）
                       満タン(25:00)の初期状態では「左上だけ濃い」が出やすいので表示しない */}
@@ -1020,9 +1027,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       }}
                       strokeLinecap="round"
                       transition={{ ease: 'linear', duration: 1 }}
-                      style={{
-                        filter: `drop-shadow(0 0 8px ${subjectStroke}80)`, // 科目カラーに基づいた淡い発光（不透明度約0.5）
-                      }}
+                      filter={`url(#glow-${ringGradientId})`}
                     />
                   )}
                 </motion.svg>
