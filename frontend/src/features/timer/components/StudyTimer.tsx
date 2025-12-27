@@ -84,6 +84,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [isRecordSuccess, setIsRecordSuccess] = useState(false);
   const gradientSeed = useId();
   const idleTimerRef = useRef<number | null>(null);
   const [isImmersiveHidden, setIsImmersiveHidden] = useState(false);
@@ -123,6 +124,14 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     setIsRecording(true);
     const result = await saveRecord(onRecorded);
     setIsRecording(false);
+    
+    // 成功時のアニメーション
+    if (result.success) {
+      setIsRecordSuccess(true);
+      setTimeout(() => {
+        setIsRecordSuccess(false);
+      }, 2000); // 2秒後に元に戻す
+    }
     
     // トースト通知を表示
     setToastMessage(result.message);
@@ -1028,7 +1037,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
           transition={fadeTransition}
           style={{ pointerEvents: isImmersiveHidden ? 'none' : 'auto' }}
         >
-          <button
+          <motion.button
             disabled={isRecordButtonDisabled}
             onKeyDown={recordButtonFeedback.handleKeyDown}
             onKeyUp={recordButtonFeedback.handleKeyUp}
@@ -1036,10 +1045,45 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             onPointerDown={recordButtonFeedback.handlePointerDown}
             onPointerUp={recordButtonFeedback.handlePointerUp}
             onPointerLeave={recordButtonFeedback.handlePointerLeave}
-            className={`w-full px-6 py-3 bg-slate-800/45 hover:bg-slate-800/55 text-slate-200 rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_16px_40px_rgba(0,0,0,0.50)] ${recordButtonFeedback.activeClass}`}
+            className={`w-full px-6 py-3 rounded-full font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 shadow-[0_16px_40px_rgba(0,0,0,0.50)] ${recordButtonFeedback.activeClass}`}
+            animate={{
+              backgroundColor: isRecordSuccess 
+                ? 'rgba(34, 197, 94, 0.9)' // green-500
+                : 'rgba(30, 41, 59, 0.45)', // slate-800/45
+              borderColor: isRecordSuccess
+                ? 'rgba(34, 197, 94, 0.4)'
+                : 'rgba(186, 230, 253, 0.15)', // sky-200/15
+            }}
+            transition={{ duration: 0.3 }}
           >
-            {isRecording ? '記録中...' : toastMessage && toastMessage.includes('記録しました') ? '完了！' : '記録'}
-          </button>
+            <span className="flex items-center justify-center gap-2">
+              {isRecording ? (
+                '記録中...'
+              ) : isRecordSuccess ? (
+                <>
+                  <motion.svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    initial={{ scale: 0, rotate: -180 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    transition={{ 
+                      type: "spring",
+                      stiffness: 260,
+                      damping: 20,
+                      duration: 0.5
+                    }}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </motion.svg>
+                  記録完了！
+                </>
+              ) : (
+                '記録'
+              )}
+            </span>
+          </motion.button>
         </motion.div>
 
         {/* トースト通知 */}
