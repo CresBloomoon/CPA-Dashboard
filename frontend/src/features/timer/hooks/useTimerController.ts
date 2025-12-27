@@ -25,7 +25,7 @@ function getTimerDefaults(): TimerDefaults {
     focusMinutes: TIMER_SETTINGS.POMODORO.DEFAULT.FOCUS_MINUTES,
     breakMinutes: TIMER_SETTINGS.POMODORO.DEFAULT.BREAK_MINUTES,
     sets: TIMER_SETTINGS.POMODORO.DEFAULT.SETS,
-    mode: 'pomodoro',
+    mode: 'stopwatch', // 初期状態（新規コンテナ生成時）はストップウォッチモード
   };
 }
 
