@@ -1181,7 +1181,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     </AnimatePresence>
 
                     {pomodoroAwaitingStart ? (
-                      <div className={`relative ${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.CLASS}`}>
+                      <div 
+                        className={`relative ${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.CLASS}`}
+                        style={{
+                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
+                        }}
+                      >
                         {circleDisplayTime}
                       </div>
                     ) : (
@@ -1190,29 +1195,63 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         {(() => {
                           // circleDisplayTimeを分割（MM:SS または HH:MM:SS）
                           const parts = circleDisplayTime.split(':');
+                          const textShadowBase = '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)';
+                          const textShadowWithGlow = subjectRgb
+                            ? `${textShadowBase}, 0 0 12px rgba(${subjectRgb.r}, ${subjectRgb.g}, ${subjectRgb.b}, 0.15)`
+                            : `${textShadowBase}, 0 0 12px rgba(56, 189, 248, 0.15)`;
+                          
                           if (parts.length === 2) {
                             // MM:SS形式
                             return (
                               <>
-                                <span>{parts[0]}</span>
-                                <span>:</span>
-                                <span>{parts[1]}</span>
+                                <span style={{
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowWithGlow,
+                                }}>{parts[0]}</span>
+                                <span style={{ 
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowBase,
+                                }}>:</span>
+                                <span style={{
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowWithGlow,
+                                }}>{parts[1]}</span>
                               </>
                             );
                           } else if (parts.length === 3) {
                             // HH:MM:SS形式
                             return (
                               <>
-                                <span>{parts[0]}</span>
-                                <span>:</span>
-                                <span>{parts[1]}</span>
-                                <span>:</span>
-                                <span>{parts[2]}</span>
+                                <span style={{
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowWithGlow,
+                                }}>{parts[0]}</span>
+                                <span style={{ 
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowBase,
+                                }}>:</span>
+                                <span style={{
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowWithGlow,
+                                }}>{parts[1]}</span>
+                                <span style={{ 
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowBase,
+                                }}>:</span>
+                                <span style={{
+                                  color: 'rgb(241, 245, 249)',
+                                  textShadow: textShadowWithGlow,
+                                }}>{parts[2]}</span>
                               </>
                             );
                           }
                           // フォーマットが異なる場合はそのまま表示
-                          return <span>{circleDisplayTime}</span>;
+                          return (
+                            <span style={{
+                              color: 'rgb(241, 245, 249)',
+                              textShadow: textShadowBase,
+                            }}>{circleDisplayTime}</span>
+                          );
                         })()}
                       </div>
                     )}
