@@ -284,8 +284,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   // 科目選択ボタンのクリックフィードバック
   const subjectSelectFeedback = useClickFeedback(
-    () => setIsSubjectDropdownOpen((prev) => !prev),
-    timerState.isRunning
+    () => {
+      if (subjects.length > 0) {
+        setIsSubjectDropdownOpen((prev) => !prev);
+      }
+    },
+    timerState.isRunning || subjects.length === 0
   );
 
   // 記録ボタンのdisabled条件
@@ -576,7 +580,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
           <div className="mb-8 relative">
             <button
               type="button"
-              onClick={() => subjects.length > 0 && setIsSubjectDropdownOpen(!isSubjectDropdownOpen)}
               disabled={timerState.isRunning || subjects.length === 0}
               onKeyDown={subjectSelectFeedback.handleKeyDown}
               onKeyUp={subjectSelectFeedback.handleKeyUp}
