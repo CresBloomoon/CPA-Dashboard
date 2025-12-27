@@ -72,6 +72,9 @@ export default function SummaryCards({
     return dow === start || dow === grace;
   }, [reportStartDay]);
 
+  // 開発用: 常時表示＆「報告済み」でも押せる
+  const devAlwaysEnableWizard = import.meta.env.DEV;
+
   const reportPeriod = useMemo(() => {
     // 報告日は reportStartDay（または翌日の猶予）とし、報告内容は「前週（7日）」を対象にする
     const now = new Date();
@@ -266,7 +269,7 @@ export default function SummaryCards({
       {/* 右側: リマインダとストリークカレンダー */}
       <div className="lg:col-span-1 flex flex-col gap-6">
         {/* 監査報告書ウィザード（報告日だけ表示） */}
-        {shouldShowWizardEntry && (
+        {(devAlwaysEnableWizard || shouldShowWizardEntry) && (
           <div
             className="rounded-lg shadow-lg p-6"
             style={{
@@ -283,21 +286,21 @@ export default function SummaryCards({
             </p>
             <button
               type="button"
-              disabled={isReported}
+              disabled={!devAlwaysEnableWizard && isReported}
               onClick={() => setIsWizardOpen(true)}
               className="w-full px-4 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               style={{
-                backgroundColor: isReported ? colors.buttonDisabled : colors.accent,
+                backgroundColor: (!devAlwaysEnableWizard && isReported) ? colors.buttonDisabled : colors.accent,
                 color: colors.textInverse,
               }}
               onMouseEnter={(e) => {
-                if (!isReported) e.currentTarget.style.backgroundColor = colors.accentHover;
+                if (devAlwaysEnableWizard || !isReported) e.currentTarget.style.backgroundColor = colors.accentHover;
               }}
               onMouseLeave={(e) => {
-                if (!isReported) e.currentTarget.style.backgroundColor = colors.accent;
+                if (devAlwaysEnableWizard || !isReported) e.currentTarget.style.backgroundColor = colors.accent;
               }}
             >
-              {isReported ? '報告済み' : 'ウィザードを開始'}
+              {devAlwaysEnableWizard ? 'ウィザードを開始（開発用）' : (isReported ? '報告済み' : 'ウィザードを開始')}
             </button>
           </div>
         )}
