@@ -255,278 +255,314 @@ export default function ReportWizard({
 
           {/* body */}
           <div className="px-6 py-5">
-            <AnimatePresence mode="wait">
-              {step === 0 && (
-                <motion.div
-                  key="step-1"
-                  initial={{ opacity: 0, x: 18 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -18 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                >
-                  <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                    Step 1: 実績（自動抽出）
-                  </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* 左：入力（ステップごと） */}
+              <div className="min-w-0">
+                <AnimatePresence mode="wait">
+                  {step === 0 && (
+                    <motion.div
+                      key="step-1"
+                      initial={{ opacity: 0, x: 18 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -18 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                    >
+                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
+                        Step 1: 実績（自動抽出）
+                      </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-                    <div className="rounded-xl p-4" style={{ backgroundColor: colors.backgroundSecondary }}>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>
-                        先週の総勉強時間
-                      </p>
-                      <p className="text-3xl font-bold mt-1" style={{ color: colors.textPrimary }}>
-                        {lastWeekTotalHours.toFixed(1)} 時間
-                      </p>
-                    </div>
-                    <div className="rounded-xl p-4" style={{ backgroundColor: colors.backgroundSecondary }}>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>
-                        完了したリマインダ（科目別）
-                      </p>
-                      <pre
-                        className="text-xs mt-2 whitespace-pre-wrap max-h-28 overflow-auto"
-                        style={{ color: colors.textPrimary }}
-                      >
-                        {todoListText}
-                      </pre>
-                    </div>
-                  </div>
-
-                  {/* Debug（開発用）: 集計対象期間 */}
-                  <div className="mt-2 text-[10px] text-right" style={{ color: colors.textTertiary }}>
-                    {periodStartKey}〜{periodEndKey} / matched: {lastWeekHoursDebug.matched}
-                  </div>
-
-                  <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                    先週の振り返り
-                  </label>
-                  <textarea
-                    value={reportData.reflection}
-                    onChange={(e) => setReportData((prev) => ({ ...prev, reflection: e.target.value }))}
-                    rows={5}
-                    className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                    style={{
-                      borderColor: colors.border,
-                      backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                      color: colors.textPrimary,
-                    }}
-                  />
-                </motion.div>
-              )}
-
-              {step === 1 && (
-                <motion.div
-                  key="step-2"
-                  initial={{ opacity: 0, x: 18 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -18 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                >
-                  <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                    Step 2: 答練点数
-                  </h3>
-
-                  <div className="space-y-3">
-                    {reportData.scores.map((row, idx) => (
-                      <div
-                        key={idx}
-                        className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-xl p-3 border"
-                        style={{ borderColor: colors.border, backgroundColor: colors.backgroundSecondary }}
-                      >
-                        <div className="md:col-span-2">
-                          <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                            答練名
-                          </label>
-                          <input
-                            value={row.name}
-                            onChange={(e) =>
-                              setReportData((prev) => ({
-                                ...prev,
-                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)),
-                              }))
-                            }
-                            className="w-full px-3 py-2 rounded-lg border focus:outline-none"
-                            style={{
-                              borderColor: colors.border,
-                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                              color: colors.textPrimary,
-                            }}
-                            placeholder="例：財務会計レギュラー答練第1回"
-                          />
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+                        <div className="rounded-xl p-4" style={{ backgroundColor: colors.backgroundSecondary }}>
+                          <p className="text-xs" style={{ color: colors.textSecondary }}>
+                            先週の総勉強時間
+                          </p>
+                          <p className="text-3xl font-bold mt-1" style={{ color: colors.textPrimary }}>
+                            {lastWeekTotalHours.toFixed(1)} 時間
+                          </p>
                         </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                            得点
-                          </label>
-                          <input
-                            value={row.score}
-                            onChange={(e) =>
-                              setReportData((prev) => ({
-                                ...prev,
-                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, score: e.target.value } : r)),
-                              }))
-                            }
-                            inputMode="numeric"
-                            className="w-full px-3 py-2 rounded-lg border focus:outline-none"
-                            style={{
-                              borderColor: colors.border,
-                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                              color: colors.textPrimary,
-                            }}
-                            placeholder="得点（例: 80）"
-                          />
-                        </div>
-                        <div className="md:col-span-1">
-                          <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                            満点
-                          </label>
-                          <input
-                            value={row.fullScore}
-                            onChange={(e) =>
-                              setReportData((prev) => ({
-                                ...prev,
-                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, fullScore: e.target.value } : r)),
-                              }))
-                            }
-                            inputMode="numeric"
-                            className="w-full px-3 py-2 rounded-lg border focus:outline-none"
-                            style={{
-                              borderColor: colors.border,
-                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                              color: colors.textPrimary,
-                            }}
-                            placeholder="満点（例: 100）"
-                          />
-                        </div>
-                        <div className="md:col-span-1 flex items-end">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReportData((prev) => {
-                                const next = prev.scores.filter((_, i) => i !== idx);
-                                return { ...prev, scores: next.length ? next : [{ name: '', score: '', fullScore: '' }] };
-                              });
-                            }}
-                            className="w-full px-3 py-2 rounded-lg transition-colors"
-                            style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
+                        <div className="rounded-xl p-4" style={{ backgroundColor: colors.backgroundSecondary }}>
+                          <p className="text-xs" style={{ color: colors.textSecondary }}>
+                            完了したリマインダ（科目別）
+                          </p>
+                          <pre
+                            className="text-xs mt-2 whitespace-pre-wrap max-h-28 overflow-auto"
+                            style={{ color: colors.textPrimary }}
                           >
-                            削除
-                          </button>
+                            {todoListText}
+                          </pre>
                         </div>
                       </div>
-                    ))}
-                  </div>
 
-                  <div className="mt-3">
+                      {/* Debug（開発用）: 集計対象期間 */}
+                      <div className="mt-2 text-[10px] text-right" style={{ color: colors.textTertiary }}>
+                        {periodStartKey}〜{periodEndKey} / matched: {lastWeekHoursDebug.matched}
+                      </div>
+
+                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
+                        先週の振り返り
+                      </label>
+                      <textarea
+                        value={reportData.reflection}
+                        onChange={(e) => setReportData((prev) => ({ ...prev, reflection: e.target.value }))}
+                        rows={8}
+                        className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                        style={{
+                          borderColor: colors.border,
+                          backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                          color: colors.textPrimary,
+                        }}
+                      />
+                    </motion.div>
+                  )}
+
+                  {step === 1 && (
+                    <motion.div
+                      key="step-2"
+                      initial={{ opacity: 0, x: 18 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -18 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                    >
+                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
+                        Step 2: 答練点数
+                      </h3>
+
+                      <div className="space-y-3">
+                        {reportData.scores.map((row, idx) => (
+                          <div
+                            key={idx}
+                            className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-xl p-3 border"
+                            style={{ borderColor: colors.border, backgroundColor: colors.backgroundSecondary }}
+                          >
+                            <div className="md:col-span-2">
+                              <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
+                                答練名
+                              </label>
+                              <input
+                                value={row.name}
+                                onChange={(e) =>
+                                  setReportData((prev) => ({
+                                    ...prev,
+                                    scores: prev.scores.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)),
+                                  }))
+                                }
+                                className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                                style={{
+                                  borderColor: colors.border,
+                                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                                  color: colors.textPrimary,
+                                }}
+                                placeholder="例：財務会計レギュラー答練第1回"
+                              />
+                            </div>
+                            <div className="md:col-span-1">
+                              <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
+                                得点
+                              </label>
+                              <input
+                                value={row.score}
+                                onChange={(e) =>
+                                  setReportData((prev) => ({
+                                    ...prev,
+                                    scores: prev.scores.map((r, i) => (i === idx ? { ...r, score: e.target.value } : r)),
+                                  }))
+                                }
+                                inputMode="numeric"
+                                className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                                style={{
+                                  borderColor: colors.border,
+                                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                                  color: colors.textPrimary,
+                                }}
+                                placeholder="得点（例: 80）"
+                              />
+                            </div>
+                            <div className="md:col-span-1">
+                              <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
+                                満点
+                              </label>
+                              <input
+                                value={row.fullScore}
+                                onChange={(e) =>
+                                  setReportData((prev) => ({
+                                    ...prev,
+                                    scores: prev.scores.map((r, i) => (i === idx ? { ...r, fullScore: e.target.value } : r)),
+                                  }))
+                                }
+                                inputMode="numeric"
+                                className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                                style={{
+                                  borderColor: colors.border,
+                                  backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                                  color: colors.textPrimary,
+                                }}
+                                placeholder="満点（例: 100）"
+                              />
+                            </div>
+                            <div className="md:col-span-1 flex items-end">
+                              <button
+                                type="button"
+                                aria-label="行を削除"
+                                onClick={() => {
+                                  setReportData((prev) => {
+                                    const next = prev.scores.filter((_, i) => i !== idx);
+                                    return { ...prev, scores: next.length ? next : [{ name: '', score: '', fullScore: '' }] };
+                                  });
+                                }}
+                                className="w-full px-3 py-2 rounded-lg transition-colors"
+                                style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
+                              >
+                                削除
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-3">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setReportData((prev) => ({ ...prev, scores: [...prev.scores, { name: '', score: '', fullScore: '' }] }))
+                          }
+                          className="px-4 py-2 rounded-lg font-semibold transition-colors"
+                          style={{ backgroundColor: colors.accent, color: colors.textInverse }}
+                        >
+                          ＋答練を追加
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {step === 2 && (
+                    <motion.div
+                      key="step-3"
+                      initial={{ opacity: 0, x: 18 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: -18 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                    >
+                      <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
+                        Step 3: 課題とアクション
+                      </h3>
+
+                      <div className="grid grid-cols-1 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
+                            現状課題と解決策
+                          </label>
+                          <textarea
+                            value={reportData.issues}
+                            onChange={(e) => setReportData((prev) => ({ ...prev, issues: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 mb-2"
+                            style={{
+                              borderColor: colors.border,
+                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                              color: colors.textPrimary,
+                            }}
+                            placeholder="（課題）"
+                          />
+                          <textarea
+                            value={reportData.solutions}
+                            onChange={(e) => setReportData((prev) => ({ ...prev, solutions: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                            style={{
+                              borderColor: colors.border,
+                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                              color: colors.textPrimary,
+                            }}
+                            placeholder="（解決策）"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
+                            今週実施すること
+                          </label>
+                          <textarea
+                            value={reportData.nextWeekPlan}
+                            onChange={(e) => setReportData((prev) => ({ ...prev, nextWeekPlan: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                            style={{
+                              borderColor: colors.border,
+                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                              color: colors.textPrimary,
+                            }}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
+                            相談したいこと
+                          </label>
+                          <textarea
+                            value={reportData.questions}
+                            onChange={(e) => setReportData((prev) => ({ ...prev, questions: e.target.value }))}
+                            rows={3}
+                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                            style={{
+                              borderColor: colors.border,
+                              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
+                              color: colors.textPrimary,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* 右：リアルタイムプレビュー（成果物） */}
+              <div className="min-w-0">
+                <div
+                  className="rounded-2xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
+                  style={{
+                    borderColor: theme === 'modern' ? 'rgba(255,255,255,0.12)' : colors.border,
+                    backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.65)' : colors.backgroundSecondary,
+                  }}
+                >
+                  <div className="px-4 py-3 border-b flex items-center justify-between gap-3"
+                    style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}
+                  >
+                    <div>
+                      <p className="text-xs" style={{ color: colors.textSecondary }}>
+                        リアルタイムプレビュー
+                      </p>
+                      <p className="text-sm font-semibold" style={{ color: colors.textPrimary }}>
+                        生成される報告書
+                      </p>
+                    </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        setReportData((prev) => ({ ...prev, scores: [...prev.scores, { name: '', score: '', fullScore: '' }] }))
-                      }
-                      className="px-4 py-2 rounded-lg font-semibold transition-colors"
+                      onClick={handleCopy}
+                      disabled={isCopying}
+                      className="px-3 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                     >
-                      ＋答練を追加
+                      {isCopying ? 'コピー中...' : 'コピー'}
                     </button>
                   </div>
-                </motion.div>
-              )}
 
-              {step === 2 && (
-                <motion.div
-                  key="step-3"
-                  initial={{ opacity: 0, x: 18 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -18 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
-                >
-                  <h3 className="text-base font-semibold mb-3" style={{ color: colors.textPrimary }}>
-                    Step 3: 課題とアクション
-                  </h3>
-
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                        現状課題と解決策
-                      </label>
-                      <textarea
-                        value={reportData.issues}
-                        onChange={(e) => setReportData((prev) => ({ ...prev, issues: e.target.value }))}
-                        rows={3}
-                        className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 mb-2"
-                        style={{
-                          borderColor: colors.border,
-                          backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                          color: colors.textPrimary,
-                        }}
-                        placeholder="（課題）"
-                      />
-                      <textarea
-                        value={reportData.solutions}
-                        onChange={(e) => setReportData((prev) => ({ ...prev, solutions: e.target.value }))}
-                        rows={3}
-                        className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                        style={{
-                          borderColor: colors.border,
-                          backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                          color: colors.textPrimary,
-                        }}
-                        placeholder="（解決策）"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                        今週実施すること
-                      </label>
-                      <textarea
-                        value={reportData.nextWeekPlan}
-                        onChange={(e) => setReportData((prev) => ({ ...prev, nextWeekPlan: e.target.value }))}
-                        rows={3}
-                        className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                        style={{
-                          borderColor: colors.border,
-                          backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                          color: colors.textPrimary,
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                        相談したいこと
-                      </label>
-                      <textarea
-                        value={reportData.questions}
-                        onChange={(e) => setReportData((prev) => ({ ...prev, questions: e.target.value }))}
-                        rows={3}
-                        className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
-                        style={{
-                          borderColor: colors.border,
-                          backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                          color: colors.textPrimary,
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-2" style={{ color: colors.textPrimary }}>
-                        生成プレビュー
-                      </label>
-                      <textarea
-                        value={outputText}
-                        readOnly
-                        rows={10}
-                        className="w-full px-4 py-3 rounded-xl border focus:outline-none"
-                        style={{
-                          borderColor: colors.border,
-                          backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
-                          color: colors.textPrimary,
-                        }}
-                      />
+                  <div className="p-4">
+                    <div
+                      className="rounded-xl border px-4 py-3 overflow-auto"
+                      style={{
+                        borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
+                        backgroundColor: theme === 'modern' ? 'rgba(2, 6, 23, 0.45)' : colors.card,
+                        color: colors.textPrimary,
+                        maxHeight: '60vh',
+                      }}
+                    >
+                      <pre className="text-xs whitespace-pre-wrap leading-relaxed">{outputText}</pre>
                     </div>
                   </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* footer */}
@@ -554,12 +590,11 @@ export default function ReportWizard({
               ) : (
                 <button
                   type="button"
-                  onClick={handleCopy}
-                  disabled={isCopying}
-                  className="px-4 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={onClose}
+                  className="px-4 py-2 rounded-lg font-semibold transition-colors"
                   style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                 >
-                  {isCopying ? 'コピー中...' : 'クリップボードにコピー'}
+                  閉じる
                 </button>
               )}
             </div>
