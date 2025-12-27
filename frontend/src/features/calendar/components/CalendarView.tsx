@@ -573,6 +573,7 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
                 getTextColor={getTextColor}
                 onUpdateTodos={handleUpdateTodos}
                 getTodosForDate={getTodosForDate}
+                colors={colors}
               />
             );
           })}
