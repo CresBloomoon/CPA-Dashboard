@@ -100,8 +100,10 @@ function DurationRow({
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
         ref={containerRef}
-        className={`relative min-w-[140px] h-20 rounded-xl bg-slate-900/40 ring-1 backdrop-blur-md transition-all duration-300 px-4 ${
-          isHovering || isFocusWithin ? 'ring-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.2)]' : 'ring-white/10'
+        className={`relative flex-1 min-w-[200px] h-24 rounded-xl bg-slate-900/40 ring-1 backdrop-blur-md transition-all duration-300 px-12 ${
+          isHovering || isFocusWithin 
+            ? 'ring-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.2)] bg-white/5' 
+            : 'ring-white/10'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-ns-resize'}`}
         onMouseEnter={() => !disabled && setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
