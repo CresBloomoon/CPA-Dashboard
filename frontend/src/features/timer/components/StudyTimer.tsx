@@ -215,17 +215,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const settingsHoverTimerRef = useRef<number | null>(null);
   const [isHoveringTimeText, setIsHoveringTimeText] = useState(false);
   const popoverHoverRef = useRef(false);
-  // 手動入力モード用の状態
-  const [focusedManualUnit, setFocusedManualUnit] = useState<'hours' | 'minutes' | null>(null);
-  const [isHoveringManualHours, setIsHoveringManualHours] = useState(false);
-  const [isHoveringManualMinutes, setIsHoveringManualMinutes] = useState(false);
-  const [isFocusedManualHours, setIsFocusedManualHours] = useState(false);
-  const [isFocusedManualMinutes, setIsFocusedManualMinutes] = useState(false);
-  const manualInputContainerRef = useRef<HTMLDivElement>(null);
-  const manualHoursRef = useRef<HTMLDivElement>(null);
-  const manualMinutesRef = useRef<HTMLDivElement>(null);
-  const manualHoursThrottleRef = useRef<number | null>(null);
-  const manualMinutesThrottleRef = useRef<number | null>(null);
 
   // 科目名から色を取得（未定義ならグレーにフォールバック）
   const getSubjectColor = (subjectName?: string): string | undefined =>
@@ -421,87 +410,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     if (timerState.isRunning) setIsPomodoroSettingsOpen(false);
   }, [timerState.isRunning]);
 
-  // 手動入力モードの時部分のwheelイベントハンドラー
-  const manualHoursValueRef = useRef(timerState.manualHours);
-  const setManualHoursRef = useRef(setManualHours);
-  const adjustByStepRef = useRef(adjustByStep);
-
-  useEffect(() => {
-    manualHoursValueRef.current = timerState.manualHours;
-    setManualHoursRef.current = setManualHours;
-    adjustByStepRef.current = adjustByStep;
-  }, [timerState.manualHours, setManualHours, adjustByStep]);
-
-  useEffect(() => {
-    const container = manualHoursRef.current;
-    if (!container || timerState.isRunning || timerState.mode !== 'manual') return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Throttle処理: 16ms（約60fps）ごとに更新
-      if (manualHoursThrottleRef.current !== null) return;
-      
-      manualHoursThrottleRef.current = window.setTimeout(() => {
-        manualHoursThrottleRef.current = null;
-      }, 16);
-
-      const direction = e.deltaY > 0 ? -1 : 1;
-      const next = adjustByStepRef.current(manualHoursValueRef.current, direction, 0, 23);
-      setManualHoursRef.current(next);
-    };
-
-    // passive: false を明示的に指定して preventDefault を可能にする
-    container.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-      if (manualHoursThrottleRef.current !== null) {
-        window.clearTimeout(manualHoursThrottleRef.current);
-      }
-    };
-  }, [timerState.isRunning, timerState.mode]);
-
-  // 手動入力モードの分部分のwheelイベントハンドラー
-  const manualMinutesValueRef = useRef(timerState.manualMinutes);
-  const setManualMinutesRef = useRef(setManualMinutes);
-
-  useEffect(() => {
-    manualMinutesValueRef.current = timerState.manualMinutes;
-    setManualMinutesRef.current = setManualMinutes;
-  }, [timerState.manualMinutes, setManualMinutes]);
-
-  useEffect(() => {
-    const container = manualMinutesRef.current;
-    if (!container || timerState.isRunning || timerState.mode !== 'manual') return;
-
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      
-      // Throttle処理: 16ms（約60fps）ごとに更新
-      if (manualMinutesThrottleRef.current !== null) return;
-      
-      manualMinutesThrottleRef.current = window.setTimeout(() => {
-        manualMinutesThrottleRef.current = null;
-      }, 16);
-
-      const direction = e.deltaY > 0 ? -1 : 1;
-      const next = adjustByStepRef.current(manualMinutesValueRef.current, direction, 0, 59);
-      setManualMinutesRef.current(next);
-    };
-
-    // passive: false を明示的に指定して preventDefault を可能にする
-    container.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      container.removeEventListener('wheel', handleWheel);
-      if (manualMinutesThrottleRef.current !== null) {
-        window.clearTimeout(manualMinutesThrottleRef.current);
-      }
-    };
-  }, [timerState.isRunning, timerState.mode]);
 
 
   const adjustMinutes = (current: number, deltaSteps: number, min: number, max: number) => {
@@ -1046,215 +954,166 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
                 {/* 数字はモダンに：monoを外しつつ tabular-nums で揃える */}
                 {timerState.mode === 'manual' ? (
-                  // 手動入力モード：統合レイアウト（一つの操作パネル）
-                  <div
-                    ref={manualInputContainerRef}
-                    role="group"
-                    className="relative z-10 pointer-events-auto"
-                  >
-                    {/* 時刻表示（時:分）をflexで統合 */}
-                    <div className="flex items-baseline gap-0.5">
-                      {/* 時間部分 */}
-                      <motion.div
-                        ref={manualHoursRef}
-                        role="spinbutton"
-                        tabIndex={timerState.isRunning ? -1 : 0}
-                        aria-valuenow={timerState.manualHours}
-                        aria-valuemin={0}
-                        aria-valuemax={23}
-                        aria-label={`時間: ${timerState.manualHours}時`}
-                        className={`relative rounded-xl transition-all duration-300 px-1 py-2 w-12 cursor-ns-resize ${
-                          isHoveringManualHours || isFocusedManualHours
-                            ? 'ring-2 ring-sky-400/50 bg-slate-900/60 shadow-[0_0_20px_rgba(14,165,233,0.15)]'
-                            : 'ring-1 ring-transparent bg-transparent'
-                        }`}
-                        onMouseEnter={() => {
-                          if (!timerState.isRunning) {
-                            setIsHoveringManualHours(true);
-                            setFocusedManualUnit('hours');
+                  // 手動入力モード：共通コンポーネントで再構築
+                  (() => {
+                    // 共通数値入力コンポーネント
+                    function TimeUnitBox({
+                      value,
+                      label,
+                      min,
+                      max,
+                      onChange,
+                      disabled = false,
+                    }: {
+                      value: number;
+                      label: string;
+                      min: number;
+                      max: number;
+                      onChange: (next: number) => void;
+                      disabled?: boolean;
+                    }) {
+                      const containerRef = useRef<HTMLDivElement>(null);
+                      const [isHovering, setIsHovering] = useState(false);
+                      const valueRef = useRef(value);
+                      const onChangeRef = useRef(onChange);
+                      const throttleTimerRef = useRef<number | null>(null);
+
+                      useEffect(() => {
+                        valueRef.current = value;
+                        onChangeRef.current = onChange;
+                      }, [value, onChange]);
+
+                      // wheelイベントハンドラー
+                      useEffect(() => {
+                        const container = containerRef.current;
+                        if (!container || disabled || timerState.isRunning || timerState.mode !== 'manual') return;
+
+                        const handleWheel = (e: WheelEvent) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          
+                          if (throttleTimerRef.current !== null) return;
+                          
+                          throttleTimerRef.current = window.setTimeout(() => {
+                            throttleTimerRef.current = null;
+                          }, 16);
+
+                          const direction = e.deltaY > 0 ? -1 : 1;
+                          const next = adjustByStep(valueRef.current, direction, min, max);
+                          onChangeRef.current(next);
+                        };
+
+                        container.addEventListener('wheel', handleWheel, { passive: false });
+
+                        return () => {
+                          container.removeEventListener('wheel', handleWheel);
+                          if (throttleTimerRef.current !== null) {
+                            window.clearTimeout(throttleTimerRef.current);
                           }
-                        }}
-                        onMouseLeave={() => {
-                          setIsHoveringManualHours(false);
-                          if (focusedManualUnit === 'hours' && document.activeElement !== manualHoursRef.current) {
-                            setFocusedManualUnit(null);
-                          }
-                        }}
-                        onFocus={() => {
-                          if (!timerState.isRunning) {
-                            setIsFocusedManualHours(true);
-                            setFocusedManualUnit('hours');
-                          }
-                        }}
-                        onBlur={() => {
-                          setIsFocusedManualHours(false);
-                          if (document.activeElement !== manualMinutesRef.current) {
-                            setFocusedManualUnit(null);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (timerState.isRunning || timerState.mode !== 'manual') return;
-                          if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const next = adjustByStep(timerState.manualHours, 1, 0, 23);
-                            setManualHours(next);
-                          } else if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const next = adjustByStep(timerState.manualHours, -1, 0, 23);
-                            setManualHours(next);
-                          }
-                        }}
-                      >
-                        {/* 上矢印アイコン */}
-                        <AnimatePresence>
-                          {isHoveringManualHours && timerState.manualHours < 23 && (
-                            <motion.div
-                              key="manual-hours-arrow-up"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="absolute top-1 left-0 w-full flex justify-center pointer-events-none"
-                            >
-                              <ChevronUp size={20} className="text-white/80" />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                        
-                        <div 
-                          className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} w-full flex justify-center items-baseline`}
-                          style={{
-                            color: '#FFFFFF',
-                            filter: 'none',
-                            textShadow: 'none',
-                          }}
-                        >
-                          {String(timerState.manualHours).padStart(2, '0')}
+                        };
+                      }, [disabled, min, max, timerState.isRunning, timerState.mode]);
+
+                      // キーボードイベントハンドラー
+                      const handleKeyDown = (e: React.KeyboardEvent) => {
+                        if (disabled || timerState.isRunning || timerState.mode !== 'manual') return;
+                        if (e.key === 'ArrowUp') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const next = adjustByStep(value, 1, min, max);
+                          onChange(next);
+                        } else if (e.key === 'ArrowDown') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const next = adjustByStep(value, -1, min, max);
+                          onChange(next);
+                        }
+                      };
+
+                      return (
+                        <div className="relative">
+                          {/* 上矢印アイコン（箱の真上・外側） */}
+                          <AnimatePresence>
+                            {isHovering && !disabled && value < max && (
+                              <motion.div
+                                key="arrow-up"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute -top-8 left-1/2 -translate-x-1/2 pointer-events-none"
+                              >
+                                <ChevronUp size={32} className="w-8 h-8 text-white/80" />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* 数値入力ボックス */}
+                          <div
+                            ref={containerRef}
+                            role="spinbutton"
+                            tabIndex={disabled || timerState.isRunning ? -1 : 0}
+                            aria-valuenow={value}
+                            aria-valuemin={min}
+                            aria-valuemax={max}
+                            aria-label={`${label}: ${value}`}
+                            className={`relative w-16 h-24 rounded-xl transition-all duration-300 cursor-ns-resize flex items-center justify-center ${
+                              isHovering && !disabled
+                                ? 'border-2 border-sky-500/50 bg-slate-900/60'
+                                : 'border border-transparent bg-transparent'
+                            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            onMouseEnter={() => !disabled && !timerState.isRunning && setIsHovering(true)}
+                            onMouseLeave={() => setIsHovering(false)}
+                            onKeyDown={handleKeyDown}
+                          >
+                            <div className="flex items-baseline gap-1">
+                              <span className="text-4xl font-medium text-white tabular-nums">
+                                {String(value).padStart(2, '0')}
+                              </span>
+                              <span className="text-xs text-slate-400 font-medium">{label}</span>
+                            </div>
+                          </div>
+
+                          {/* 下矢印アイコン（箱の真下・外側） */}
+                          <AnimatePresence>
+                            {isHovering && !disabled && value > min && (
+                              <motion.div
+                                key="arrow-down"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="absolute -bottom-8 left-1/2 -translate-x-1/2 pointer-events-none"
+                              >
+                                <ChevronDown size={32} className="w-8 h-8 text-white/80" />
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
                         </div>
-                        
-                        {/* 下矢印アイコン */}
-                        <AnimatePresence>
-                          {isHoveringManualHours && timerState.manualHours > 0 && (
-                            <motion.div
-                              key="manual-hours-arrow-down"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="absolute bottom-1 left-0 w-full flex justify-center pointer-events-none"
-                            >
-                              <ChevronDown size={20} className="text-white/80" />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                      
-                      {/* コロン */}
-                      <div 
-                        className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
-                        style={{
-                          color: '#FFFFFF',
-                        }}
-                      >
-                        :
+                      );
+                    }
+
+                    return (
+                      <div className="relative z-10 pointer-events-auto">
+                        <div className="flex items-center justify-center gap-4">
+                          <TimeUnitBox
+                            value={timerState.manualHours}
+                            label="時"
+                            min={0}
+                            max={23}
+                            onChange={setManualHours}
+                            disabled={timerState.isRunning}
+                          />
+                          <span className="text-4xl font-medium text-white">:</span>
+                          <TimeUnitBox
+                            value={timerState.manualMinutes}
+                            label="分"
+                            min={0}
+                            max={59}
+                            onChange={setManualMinutes}
+                            disabled={timerState.isRunning}
+                          />
+                        </div>
                       </div>
-                      
-                      {/* 分部分 */}
-                      <motion.div
-                        ref={manualMinutesRef}
-                        role="spinbutton"
-                        tabIndex={timerState.isRunning ? -1 : 0}
-                        aria-valuenow={timerState.manualMinutes}
-                        aria-valuemin={0}
-                        aria-valuemax={59}
-                        aria-label={`分: ${timerState.manualMinutes}分`}
-                        className={`relative rounded-xl transition-all duration-300 px-1 py-2 w-12 cursor-ns-resize ${
-                          isHoveringManualMinutes || isFocusedManualMinutes
-                            ? 'ring-2 ring-sky-400/50 bg-slate-900/60 shadow-[0_0_20px_rgba(14,165,233,0.15)]'
-                            : 'ring-1 ring-transparent bg-transparent'
-                        }`}
-                        onMouseEnter={() => {
-                          if (!timerState.isRunning) {
-                            setIsHoveringManualMinutes(true);
-                            setFocusedManualUnit('minutes');
-                          }
-                        }}
-                        onMouseLeave={() => {
-                          setIsHoveringManualMinutes(false);
-                          if (focusedManualUnit === 'minutes' && document.activeElement !== manualMinutesRef.current) {
-                            setFocusedManualUnit(null);
-                          }
-                        }}
-                        onFocus={() => {
-                          if (!timerState.isRunning) {
-                            setIsFocusedManualMinutes(true);
-                            setFocusedManualUnit('minutes');
-                          }
-                        }}
-                        onBlur={() => {
-                          setIsFocusedManualMinutes(false);
-                          if (document.activeElement !== manualHoursRef.current) {
-                            setFocusedManualUnit(null);
-                          }
-                        }}
-                        onKeyDown={(e) => {
-                          if (timerState.isRunning || timerState.mode !== 'manual') return;
-                          if (e.key === 'ArrowUp') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const next = adjustByStep(timerState.manualMinutes, 1, 0, 59);
-                            setManualMinutes(next);
-                          } else if (e.key === 'ArrowDown') {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            const next = adjustByStep(timerState.manualMinutes, -1, 0, 59);
-                            setManualMinutes(next);
-                          }
-                        }}
-                      >
-                        {/* 上矢印アイコン */}
-                        <AnimatePresence>
-                          {isHoveringManualMinutes && timerState.manualMinutes < 59 && (
-                            <motion.div
-                              key="manual-minutes-arrow-up"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="absolute top-1 left-0 w-full flex justify-center pointer-events-none"
-                            >
-                              <ChevronUp size={20} className="text-white/80" />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                        
-                        <div 
-                          className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} w-full flex justify-center items-baseline`}
-                          style={{
-                            color: '#FFFFFF',
-                            filter: 'none',
-                            textShadow: 'none',
-                          }}
-                        >
-                          {String(timerState.manualMinutes).padStart(2, '0')}
-                        </div>
-                        
-                        {/* 下矢印アイコン */}
-                        <AnimatePresence>
-                          {isHoveringManualMinutes && timerState.manualMinutes > 0 && (
-                            <motion.div
-                              key="manual-minutes-arrow-down"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              className="absolute bottom-1 left-0 w-full flex justify-center pointer-events-none"
-                            >
-                              <ChevronDown size={20} className="text-white/80" />
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </motion.div>
-                    </div>
-                  </div>
+                    );
+                  })()
                 ) : (
                   // ポモドーロ/ストップウォッチモード
                   <div
