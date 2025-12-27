@@ -426,6 +426,18 @@ export default function SummaryCards({
             </div>
           </div>
         </div>
+
+        {/* ストリークカレンダーカード */}
+        <div 
+          className="rounded-lg shadow-lg p-4"
+          style={{
+            backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+            backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+            border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+          }}
+        >
+          <CompactStreakCalendar progressList={progressList} compact={false} />
+        </div>
       </div>
     </div>
   );
