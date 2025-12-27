@@ -14,6 +14,9 @@ import type { StudyProgress, Subject } from '../../../api/types';
 import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
 import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 import CompactStreakCalendar from '../../calendar/components/CompactStreakCalendar';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getThemeColors } from '../../../styles/theme';
+import CompactStreakCalendar from '../../calendar/components/CompactStreakCalendar';
 
 ChartJS.register(
   CategoryScale,
@@ -47,6 +50,9 @@ export default function SummaryCards({
   progressList = [],
   subjectsWithColors = []
 }: SummaryCardsProps) {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
+
   // 科目名から色を取得する関数
   const getSubjectColor = (subjectName: string): string => {
     return resolveSubjectColor(subjectName, subjectsWithColors, SUBJECT_COLOR_FALLBACK) || SUBJECT_COLOR_FALLBACK;
@@ -171,18 +177,50 @@ export default function SummaryCards({
 
   return (
     <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div className="md:col-span-2 bg-white rounded-lg shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-700 mb-4">1週間の学習時間</h3>
+      <div 
+        className="md:col-span-2 rounded-lg shadow-lg p-6"
+        style={{
+          backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+          backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+          border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+        }}
+      >
+        <h3 
+          className="text-lg font-semibold mb-4"
+          style={{ color: colors.textPrimary }}
+        >
+          1週間の学習時間
+        </h3>
         
         {/* 今日と今月のサマリー */}
         <div className="flex gap-6 mb-6">
           <div>
-            <p className="text-gray-600 text-sm mb-1">今日</p>
-            <p className="text-2xl font-bold text-gray-800">{todayHours.toFixed(1)} 時間</p>
+            <p 
+              className="text-sm mb-1"
+              style={{ color: colors.textSecondary }}
+            >
+              今日
+            </p>
+            <p 
+              className="text-2xl font-bold"
+              style={{ color: colors.textPrimary }}
+            >
+              {todayHours.toFixed(1)} 時間
+            </p>
           </div>
           <div>
-            <p className="text-gray-600 text-sm mb-1">今週</p>
-            <p className="text-2xl font-bold text-gray-800">{thisWeekHours.toFixed(1)} 時間</p>
+            <p 
+              className="text-sm mb-1"
+              style={{ color: colors.textSecondary }}
+            >
+              今週
+            </p>
+            <p 
+              className="text-2xl font-bold"
+              style={{ color: colors.textPrimary }}
+            >
+              {thisWeekHours.toFixed(1)} 時間
+            </p>
           </div>
         </div>
 
@@ -190,48 +228,143 @@ export default function SummaryCards({
         <div className="h-64">
           <Bar data={chartData} options={options} />
         </div>
+
+        {/* コンパクトストリークカレンダー（グラフの下） */}
+        <div className="mt-4">
+          <CompactStreakCalendar progressList={progressList} compact={true} />
+        </div>
       </div>
 
-      <div className="md:col-span-1 bg-white rounded-lg shadow-lg p-6">
+      <div 
+        className="md:col-span-1 rounded-lg shadow-lg p-6"
+        style={{
+          backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+          backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+          border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+        }}
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">リマインダ</h3>
+            <h3 
+              className="text-lg font-semibold mb-4"
+              style={{ color: colors.textPrimary }}
+            >
+              リマインダ
+            </h3>
             <div className="space-y-4">
               <div 
-                className={`flex items-center justify-between pb-3 border-b border-gray-200 ${
+                className={`flex items-center justify-between pb-3 ${
                   onTodayDueClick 
-                    ? 'cursor-pointer hover:bg-orange-50 rounded-lg p-2 -m-2 transition-colors' 
+                    ? 'cursor-pointer rounded-lg p-2 -m-2 transition-colors' 
                     : ''
                 }`}
+                style={{
+                  borderBottom: `1px solid ${colors.border}`,
+                }}
                 onClick={onTodayDueClick}
+                onMouseEnter={(e) => {
+                  if (onTodayDueClick) {
+                    e.currentTarget.style.backgroundColor = colors.cardHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (onTodayDueClick) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
               >
                 <div>
-                  <p className="text-gray-600 text-sm mb-1">今日が期限</p>
-                  <p className="text-2xl font-bold text-gray-800">{todayDueTodos}</p>
-                  <p className="text-gray-500 text-xs mt-1">件</p>
+                  <p 
+                    className="text-sm mb-1"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    今日が期限
+                  </p>
+                  <p 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    {todayDueTodos}
+                  </p>
+                  <p 
+                    className="text-xs mt-1"
+                    style={{ color: colors.textTertiary }}
+                  >
+                    件
+                  </p>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div 
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: theme === 'modern' ? 'rgba(249, 115, 22, 0.2)' : '#fed7aa',
+                  }}
+                >
+                  <svg 
+                    className="w-6 h-6" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: theme === 'modern' ? '#fb923c' : '#f97316' }}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
               </div>
               
               <div 
-                className={`flex items-center justify-between pb-3 border-b border-gray-200 ${
+                className={`flex items-center justify-between pb-3 ${
                   onTotalTodosClick 
-                    ? 'cursor-pointer hover:bg-purple-50 rounded-lg p-2 -m-2 transition-colors' 
+                    ? 'cursor-pointer rounded-lg p-2 -m-2 transition-colors' 
                     : ''
                 }`}
+                style={{
+                  borderBottom: `1px solid ${colors.border}`,
+                }}
                 onClick={onTotalTodosClick}
+                onMouseEnter={(e) => {
+                  if (onTotalTodosClick) {
+                    e.currentTarget.style.backgroundColor = colors.cardHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (onTotalTodosClick) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
               >
                 <div>
-                  <p className="text-gray-600 text-sm mb-1">総リマインダ数</p>
-                  <p className="text-2xl font-bold text-gray-800">{totalTodos}</p>
-                  <p className="text-gray-500 text-xs mt-1">件</p>
+                  <p 
+                    className="text-sm mb-1"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    総リマインダ数
+                  </p>
+                  <p 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    {totalTodos}
+                  </p>
+                  <p 
+                    className="text-xs mt-1"
+                    style={{ color: colors.textTertiary }}
+                  >
+                    件
+                  </p>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div 
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: theme === 'modern' ? 'rgba(168, 85, 247, 0.2)' : '#e9d5ff',
+                  }}
+                >
+                  <svg 
+                    className="w-6 h-6" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: theme === 'modern' ? '#a855f7' : '#9333ea' }}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                   </svg>
                 </div>
@@ -240,18 +373,54 @@ export default function SummaryCards({
               <div 
                 className={`flex items-center justify-between ${
                   onCompletedTodosClick 
-                    ? 'cursor-pointer hover:bg-green-50 rounded-lg p-2 -m-2 transition-colors' 
+                    ? 'cursor-pointer rounded-lg p-2 -m-2 transition-colors' 
                     : ''
                 }`}
                 onClick={onCompletedTodosClick}
+                onMouseEnter={(e) => {
+                  if (onCompletedTodosClick) {
+                    e.currentTarget.style.backgroundColor = colors.cardHover;
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (onCompletedTodosClick) {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }
+                }}
               >
                 <div>
-                  <p className="text-gray-600 text-sm mb-1">完了リマインダ数</p>
-                  <p className="text-2xl font-bold text-gray-800">{completedTodos}</p>
-                  <p className="text-gray-500 text-xs mt-1">件</p>
+                  <p 
+                    className="text-sm mb-1"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    完了リマインダ数
+                  </p>
+                  <p 
+                    className="text-2xl font-bold"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    {completedTodos}
+                  </p>
+                  <p 
+                    className="text-xs mt-1"
+                    style={{ color: colors.textTertiary }}
+                  >
+                    件
+                  </p>
                 </div>
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                  <svg className="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div 
+                  className="w-12 h-12 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: theme === 'modern' ? 'rgba(34, 197, 94, 0.2)' : '#bbf7d0',
+                  }}
+                >
+                  <svg 
+                    className="w-6 h-6" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                    style={{ color: theme === 'modern' ? '#22c55e' : '#16a34a' }}
+                  >
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
