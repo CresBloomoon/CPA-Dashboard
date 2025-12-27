@@ -241,7 +241,7 @@ export default function SummaryCards({
             border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
           }}
         >
-        <div className="flex items-start justify-between mb-4">
+          <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 
               className="text-lg font-semibold mb-4"
@@ -425,6 +425,7 @@ export default function SummaryCards({
               </div>
             </div>
           </div>
+        </div>
         </div>
 
         {/* ストリークカレンダーカード */}
