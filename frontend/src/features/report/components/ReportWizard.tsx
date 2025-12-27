@@ -202,7 +202,7 @@ export default function ReportWizard({
         />
 
         <motion.div
-          className="relative w-full max-w-3xl rounded-2xl shadow-2xl overflow-hidden"
+          className="relative w-full max-w-6xl h-[90vh] max-h-[90vh] rounded-2xl shadow-2xl overflow-hidden flex flex-col"
           initial={{ opacity: 0, y: 12, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 12, scale: 0.98 }}
@@ -214,7 +214,7 @@ export default function ReportWizard({
           }}
         >
           {/* header */}
-          <div className="px-6 py-5 border-b" style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}>
+          <div className="p-8 border-b" style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-semibold" style={{ color: colors.textPrimary }}>
@@ -254,8 +254,8 @@ export default function ReportWizard({
           </div>
 
           {/* body */}
-          <div className="px-6 py-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="p-8 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 md:grid-cols-[1.05fr_0.95fr] gap-8">
               {/* 左：入力（ステップごと） */}
               <div className="min-w-0">
                 <AnimatePresence mode="wait">
@@ -305,7 +305,7 @@ export default function ReportWizard({
                         value={reportData.reflection}
                         onChange={(e) => setReportData((prev) => ({ ...prev, reflection: e.target.value }))}
                         rows={8}
-                        className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                        className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
                         style={{
                           borderColor: colors.border,
                           backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -346,7 +346,7 @@ export default function ReportWizard({
                                     scores: prev.scores.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)),
                                   }))
                                 }
-                                className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                                className="w-full max-w-2xl px-3 py-2 rounded-lg border focus:outline-none"
                                 style={{
                                   borderColor: colors.border,
                                   backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -368,7 +368,7 @@ export default function ReportWizard({
                                   }))
                                 }
                                 inputMode="numeric"
-                                className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                                className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
                                 style={{
                                   borderColor: colors.border,
                                   backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -390,7 +390,7 @@ export default function ReportWizard({
                                   }))
                                 }
                                 inputMode="numeric"
-                                className="w-full px-3 py-2 rounded-lg border focus:outline-none"
+                                className="w-full max-w-[14rem] px-3 py-2 rounded-lg border focus:outline-none"
                                 style={{
                                   borderColor: colors.border,
                                   backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -455,7 +455,7 @@ export default function ReportWizard({
                             value={reportData.issues}
                             onChange={(e) => setReportData((prev) => ({ ...prev, issues: e.target.value }))}
                             rows={3}
-                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 mb-2"
+                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2 mb-2"
                             style={{
                               borderColor: colors.border,
                               backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -467,7 +467,7 @@ export default function ReportWizard({
                             value={reportData.solutions}
                             onChange={(e) => setReportData((prev) => ({ ...prev, solutions: e.target.value }))}
                             rows={3}
-                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
                             style={{
                               borderColor: colors.border,
                               backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -485,7 +485,7 @@ export default function ReportWizard({
                             value={reportData.nextWeekPlan}
                             onChange={(e) => setReportData((prev) => ({ ...prev, nextWeekPlan: e.target.value }))}
                             rows={3}
-                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
                             style={{
                               borderColor: colors.border,
                               backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -502,7 +502,7 @@ export default function ReportWizard({
                             value={reportData.questions}
                             onChange={(e) => setReportData((prev) => ({ ...prev, questions: e.target.value }))}
                             rows={3}
-                            className="w-full px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
+                            className="w-full max-w-2xl px-4 py-3 rounded-xl border focus:outline-none focus:ring-2"
                             style={{
                               borderColor: colors.border,
                               backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
@@ -517,7 +517,7 @@ export default function ReportWizard({
               </div>
 
               {/* 右：リアルタイムプレビュー（成果物） */}
-              <div className="min-w-0">
+              <div className="min-w-0 md:sticky md:top-6 self-start">
                 <div
                   className="rounded-2xl border shadow-[0_18px_50px_rgba(0,0,0,0.35)]"
                   style={{
@@ -554,7 +554,7 @@ export default function ReportWizard({
                         borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border,
                         backgroundColor: theme === 'modern' ? 'rgba(2, 6, 23, 0.45)' : colors.card,
                         color: colors.textPrimary,
-                        maxHeight: '60vh',
+                        maxHeight: '68vh',
                       }}
                     >
                       <pre className="text-xs whitespace-pre-wrap leading-relaxed">{outputText}</pre>
@@ -566,7 +566,7 @@ export default function ReportWizard({
           </div>
 
           {/* footer */}
-          <div className="px-6 py-5 border-t flex items-center justify-between gap-3" style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}>
+          <div className="p-8 border-t flex items-center justify-between gap-3" style={{ borderColor: theme === 'modern' ? 'rgba(255,255,255,0.10)' : colors.border }}>
             <button
               type="button"
               onClick={() => setStep((s) => Math.max(0, s - 1))}
