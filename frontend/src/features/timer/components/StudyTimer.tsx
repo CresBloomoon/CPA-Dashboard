@@ -1005,11 +1005,13 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               className="absolute inset-0 flex items-center justify-center pointer-events-none"
               style={{ transformOrigin: '50% 50%' }}
               initial={{ scale: ANIMATION_THEME.SCALES.POMODORO.CONTENT_INTRO_START, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{
-                duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
-                ease: ANIMATION_THEME.EASINGS.OUT_BACK,
-              }}
+              animate={{ scale: 1, opacity: shouldShowMainCount ? 1 : 0 }}
+              transition={shouldShowMainCount
+                ? {
+                    duration: ANIMATION_THEME.DURATIONS_S.POMODORO_RING_INTRO,
+                    ease: ANIMATION_THEME.EASINGS.OUT_BACK,
+                  }
+                : fadeTransition}
             >
               <div className="relative flex items-center justify-center">
                 {/* ステータス背景アイコン（再生/一時停止） */}

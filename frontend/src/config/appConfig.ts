@@ -76,9 +76,9 @@ export const TIMER_SETTINGS = {
 export const ANIMATION_THEME = {
   IMMERSIVE: {
     /** フェードアウト時間（秒） */
-    FADE_OUT_S: 0.5, // 0.3: キビキビ / 0.5: 標準 / 0.8: ゆったり
+    FADE_OUT_S: 1.0, // 0.5: 標準 / 1.0: ふんわり消える / 1.5: かなりゆったり
     /** フェードイン時間（秒） */
-    FADE_IN_S: 0.15, // 0.1: 速い / 0.15: 標準 / 0.25: しっとり
+    FADE_IN_S: 0.15, // 0.1: 速い / 0.15: 標準（パッと表示） / 0.25: しっとり
   },
   DURATIONS_S: {
     /** 汎用フェード時間（秒）（例: overlay） */
