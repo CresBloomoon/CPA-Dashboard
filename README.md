@@ -31,35 +31,35 @@
 
 ## ⚡ たった3ステップで起動
 
-### Step 1: Dockerをインストール
+> **Step 1: Dockerをインストール**  
+> [Docker Desktop](https://www.docker.com/products/docker-desktop/)をダウンロードしてインストールしてください。
+> 
+> *💻 Windows/Mac/Linuxすべてに対応しています*
 
-[Docker Desktop](https://www.docker.com/products/docker-desktop/)をダウンロードしてインストールしてください。
+---
 
-> 💻 Windows/Mac/Linuxすべてに対応しています
+> **Step 2: プロジェクトをダウンロード**
+> 
+> ```bash
+> git clone <repository-url>
+> cd CPA-Dashboard
+> ```
+> 
+> *または、[ZIPファイルとしてダウンロード](https://github.com/your-username/CPA-Dashboard/archive/main.zip)して解凍してください*
 
-### Step 2: プロジェクトをダウンロード
+---
 
-```bash
-git clone <repository-url>
-cd CPA-Dashboard
-```
-
-または、[ZIPファイルとしてダウンロード](https://github.com/your-username/CPA-Dashboard/archive/main.zip)して解凍してください。
-
-### Step 3: 起動する
-
-ターミナル（コマンドプロンプト）で以下のコマンドを実行してください：
-
-```bash
-docker compose up --build
-```
-
-初回のみ数分かかります。以下のメッセージが表示されたら準備完了です！
-
-```
-✅ cpa_backend  | Application startup complete.
-✅ cpa_frontend | VITE ready
-```
+> **Step 3: 起動する**
+> 
+> ```bash
+> docker compose up --build
+> ```
+> 
+> *⏱️ 初回のみ数分かかります。以下のメッセージが表示されたら準備完了です！*
+> ```
+> ✅ cpa_backend  | Application startup complete.
+> ✅ cpa_frontend | VITE ready
+> ```
 
 ---
 
@@ -69,33 +69,38 @@ docker compose up --build
 
 🔗 **http://localhost:5173**
 
+<details>
+<summary>その他のURL（クリックで展開）</summary>
+
+- Backend API: http://localhost:8000
+- API ドキュメント: http://localhost:8000/docs
+
+</details>
+
 ---
 
-## ❓ 困ったときは
+<details>
+<summary>❓ 困ったときは（クリックで展開）</summary>
 
 エラーが出た、起動しない、など問題が発生した場合は、[トラブルシューティングガイド](docs/TROUBLESHOOTING.md)をご覧ください。
 
----
-
-## 📚 もっと詳しく知りたい方へ
-
-- **Dockerの設定方法**: [README_DOCKER.md](./README_DOCKER.md)を参照
-- **カスタマイズ方法**: [docs/CONFIG_GUIDE.md](./docs/CONFIG_GUIDE.md)を参照
-- **アーキテクチャについて**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)を参照
+</details>
 
 ---
-
-## 🔧 開発者向け情報
 
 <details>
-<summary>技術スタック・設計思想について（クリックで展開）</summary>
+<summary>📚 もっと詳しく知りたい方へ（クリックで展開）</summary>
 
-### 技術スタック
+- **Dockerの設定方法**: [README_DOCKER.md](./README_DOCKER.md)
+- **カスタマイズ方法**: [docs/CONFIG_GUIDE.md](./docs/CONFIG_GUIDE.md)
+- **アーキテクチャについて**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)
 
-- **Backend**: FastAPI (Python 3.11)
-- **Frontend**: React + TypeScript + Vite + Tailwind CSS
-- **データベース**: SQLite
-- **コンテナ**: Docker Compose
+</details>
+
+---
+
+<details>
+<summary>🔧 開発者向け情報（クリックで展開）</summary>
 
 ### 設計思想
 
@@ -106,14 +111,14 @@ docker compose up --build
 - **テストカバレッジ**: Domain層のテストカバレッジ100%
 - **型安全性**: TypeScriptの型システムを最大限活用
 
-詳細は[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)を参照してください。
-
 ### 開発
 
 すべてのコードはDockerコンテナ内で実行されるため、ローカルPCを汚しません。
 
 - **Backend**: `./backend` ディレクトリ内のコードが自動的にホットリロードされます
 - **Frontend**: `./frontend` ディレクトリ内のコードが自動的にホットリロードされます
+
+詳細は[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)を参照してください。
 
 </details>
 

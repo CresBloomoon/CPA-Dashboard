@@ -21,7 +21,7 @@ export default function TodoItem({
   projects,
   batchCompletionDelay,
 }: TodoItemProps) {
-  const subjectColor = getSubjectColor(todo.subject, subjectsWithColors) || '#3b82f6';
+  const subjectColor = getSubjectColor(todo.subject, subjectsWithColors);
   const displayTitle = (() => {
     // 互換: 以前のデータで title に「【科目】」が含まれている場合は表示時に除去する
     const match = todo.title.match(/^【(.+?)】(.+)$/);

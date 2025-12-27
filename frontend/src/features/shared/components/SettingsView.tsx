@@ -20,6 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { settingsApi } from '../../../api/api';
 import type { Subject, ReviewTiming } from '../../../api/types';
 import { APP_LIMITS } from '../../../config/appConfig';
+import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../../../config/subjects';
 
 interface SettingsViewProps {
   onSubjectsChange: (subjects: string[]) => void;
@@ -27,21 +28,8 @@ interface SettingsViewProps {
   onDataUpdate?: () => void;
 }
 
-// デフォルトの色パレット（Googleカレンダー風）
-const DEFAULT_COLORS = [
-  '#4285F4', // 青
-  '#EA4335', // 赤
-  '#FBBC04', // 黄
-  '#34A853', // 緑
-  '#FF6D01', // オレンジ
-  '#9334E6', // 紫
-  '#E67C73', // ピンク
-  '#7CB342', // ライムグリーン
-  '#039BE5', // ライトブルー
-  '#616161', // グレー
-  '#F06292', // ピンク
-  '#AB47BC', // パープル
-];
+// 色パレットは共通定数に一元化（アプリ全体の整合性を担保）
+const DEFAULT_COLORS = [...SUBJECT_COLOR_PALETTE];
 
 type SettingsMenu = 'subjects' | 'review-timing';
 
@@ -294,49 +282,46 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
               await saveSubjects(convertedSubjects);
             }
           } else {
-            // デフォルト値を使用
-            const defaultSubjects: Subject[] = ['財計', '財理', '管計', '管理', '企業法', '監査論', '租税法', '経営学'].map((name, index) => ({
-              id: index + 1,
-              name,
-              color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
-            }));
+            // デフォルト値を使用（科目マスタは共通定数に一元化）
+            const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
             setSubjects(defaultSubjects);
             onSubjectsChange(defaultSubjects.map(s => s.name));
             if (onSubjectsWithColorsChange) {
               onSubjectsWithColorsChange(defaultSubjects);
             }
+            // DBにも保存しておく（ソースをDBに一本化）
+            await saveSubjects(defaultSubjects);
           }
         } catch (parseError) {
           console.error('Error parsing subjects:', parseError);
           // デフォルト値を使用
-          const defaultSubjects: Subject[] = ['財務会計', '管理会計', '監査論', '企業法', '租税法'].map((name, index) => ({
-            id: index + 1,
-            name,
-            color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
-          }));
+          const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
           setSubjects(defaultSubjects);
           onSubjectsChange(defaultSubjects.map(s => s.name));
+          if (onSubjectsWithColorsChange) {
+            onSubjectsWithColorsChange(defaultSubjects);
+          }
+          await saveSubjects(defaultSubjects);
         }
       } else {
         // デフォルト値を使用
-        const defaultSubjects: Subject[] = ['財務会計', '管理会計', '監査論', '企業法', '租税法'].map((name, index) => ({
-          id: index + 1,
-          name,
-          color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
-        }));
+        const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
         setSubjects(defaultSubjects);
         onSubjectsChange(defaultSubjects.map(s => s.name));
+        if (onSubjectsWithColorsChange) {
+          onSubjectsWithColorsChange(defaultSubjects);
+        }
+        await saveSubjects(defaultSubjects);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
       // デフォルト値を使用
-      const defaultSubjects: Subject[] = ['財務会計', '管理会計', '監査論', '企業法', '租税法'].map((name, index) => ({
-        id: index + 1,
-        name,
-        color: DEFAULT_COLORS[index % DEFAULT_COLORS.length],
-      }));
+      const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
       setSubjects(defaultSubjects);
       onSubjectsChange(defaultSubjects.map(s => s.name));
+      if (onSubjectsWithColorsChange) {
+        onSubjectsWithColorsChange(defaultSubjects);
+      }
     } finally {
       setIsLoading(false);
     }

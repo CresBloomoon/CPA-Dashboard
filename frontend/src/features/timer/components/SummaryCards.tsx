@@ -11,6 +11,8 @@ import {
 import { Bar } from 'react-chartjs-2';
 import { startOfWeek, endOfWeek, eachDayOfInterval, format, parseISO } from 'date-fns';
 import type { StudyProgress, Subject } from '../../../api/types';
+import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
+import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 
 ChartJS.register(
   CategoryScale,
@@ -46,8 +48,7 @@ export default function SummaryCards({
 }: SummaryCardsProps) {
   // 科目名から色を取得する関数
   const getSubjectColor = (subjectName: string): string => {
-    const subject = subjectsWithColors.find(s => s.name === subjectName);
-    return subject?.color || '#9ca3af';
+    return resolveSubjectColor(subjectName, subjectsWithColors, SUBJECT_COLOR_FALLBACK) || SUBJECT_COLOR_FALLBACK;
   };
 
   // 1週間分のデータを集計

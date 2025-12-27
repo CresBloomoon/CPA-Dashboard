@@ -24,6 +24,8 @@ import TodoCreateModal from './TodoCreateModal';
 import ProjectCreateModal from './ProjectCreateModal';
 import AnimatedCheckbox from './AnimatedCheckbox';
 import AnimatedProjectCheckbox from './AnimatedProjectCheckbox';
+import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
+import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 
 registerLocale('ja', ja);
 
@@ -396,9 +398,7 @@ export default function KanbanBoard({
 
   // 科目の色を取得する関数
   const getSubjectColor = (subjectName: string | null): string => {
-    if (!subjectName) return '#9ca3af';
-    const subject = subjectsWithColors.find(s => s.name === subjectName);
-    return subject?.color || '#9ca3af';
+    return resolveSubjectColor(subjectName ?? undefined, subjectsWithColors, SUBJECT_COLOR_FALLBACK) || SUBJECT_COLOR_FALLBACK;
   };
   
   // リマインダ作成モーダルを開く

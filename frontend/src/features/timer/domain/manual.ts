@@ -1,5 +1,9 @@
 export function clampInt(value: number, min: number, max: number): number {
-  const v = Number.isFinite(value) ? Math.trunc(value) : min;
+  const v = Number.isFinite(value)
+    ? Math.trunc(value)
+    : value === Infinity
+      ? max
+      : min;
   return Math.min(max, Math.max(min, v));
 }
 

@@ -1,39 +1,51 @@
 import { useState } from 'react';
 import { settingsApi } from '../api/api';
 import type { Subject } from '../api/types';
+import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../config/subjects';
 
 /**
  * アプリの設定読み込みロジック
  */
 export const useAppSettings = () => {
-  const [subjects, setSubjects] = useState<string[]>(['財計', '財理', '管計', '管理', '企業法', '監査論', '租税法', '経営学']);
-  const [subjectsWithColors, setSubjectsWithColors] = useState<Subject[]>([]);
+  // 画面間の一貫性を最優先：Subject[] を単一ソースとして扱い、必要ならnamesを派生させる
+  const [subjectsWithColors, setSubjectsWithColors] = useState<Subject[]>([...DEFAULT_SUBJECTS]);
+  const [subjects, setSubjects] = useState<string[]>(DEFAULT_SUBJECTS.map((s) => s.name));
 
   const loadSettings = async () => {
     try {
       const settings = await settingsApi.getAll();
       const subjectsSetting = settings.find(s => s.key === 'subjects');
       if (subjectsSetting) {
-        const parsedSubjects = JSON.parse(subjectsSetting.value);
+        const parsedSubjects: unknown = JSON.parse(subjectsSetting.value);
         // Subject型の配列か、文字列の配列かを判定
         if (Array.isArray(parsedSubjects) && parsedSubjects.length > 0) {
-          if (parsedSubjects[0] && typeof parsedSubjects[0] === 'object' && 'id' in parsedSubjects[0]) {
-            setSubjectsWithColors(parsedSubjects as Subject[]);
-            setSubjects((parsedSubjects as Subject[]).map(s => s.name));
+          const first = parsedSubjects[0] as unknown;
+          if (first && typeof first === 'object' && first !== null && 'id' in (first as Record<string, unknown>)) {
+            const nextSubjects = parsedSubjects as Subject[];
+            setSubjectsWithColors(nextSubjects);
+            setSubjects(nextSubjects.map(s => s.name));
           } else {
             // 文字列配列の場合は名前のみを設定（色情報なし）
-            setSubjects(parsedSubjects as string[]);
-            setSubjectsWithColors([]);
+            const names = parsedSubjects as string[];
+            const converted: Subject[] = names.map((name, index) => ({
+              id: index + 1,
+              name,
+              color: SUBJECT_COLOR_PALETTE[index % SUBJECT_COLOR_PALETTE.length] ?? SUBJECT_COLOR_PALETTE[0]!,
+            }));
+            setSubjectsWithColors(converted);
+            setSubjects(converted.map((s) => s.name));
           }
         }
       } else {
-        // 設定が存在しない場合は空にする
-        setSubjectsWithColors([]);
+        // 設定が存在しない場合はデフォルト値を使用（UIの整合性を守る）
+        setSubjectsWithColors([...DEFAULT_SUBJECTS]);
+        setSubjects(DEFAULT_SUBJECTS.map((s) => s.name));
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      // エラー時はデフォルト値を使用
-      setSubjectsWithColors([]);
+      // エラー時もUIを壊さないためデフォルト値にフォールバック
+      setSubjectsWithColors([...DEFAULT_SUBJECTS]);
+      setSubjects(DEFAULT_SUBJECTS.map((s) => s.name));
     }
   };
 

@@ -3,8 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Subject } from '../../../api/types';
 import { ANIMATION_THEME, TIMER_SETTINGS, UI_VISUALS } from '../../../config/appConfig';
+import { SUBJECT_COLOR_FALLBACK, SUBJECT_NAME_ALIASES } from '../../../config/subjects';
 import { useTimer } from '../hooks/TimerContext';
 import { useClickFeedback } from '../hooks/useClickFeedback';
+import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 import {
   adjustByStep,
   adjustPomodoroMinutes,
@@ -96,12 +98,25 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [isHoveringManualHours, setIsHoveringManualHours] = useState(false);
   const [isHoveringManualMinutes, setIsHoveringManualMinutes] = useState(false);
 
-  // 科目名から色を取得
-  const getSubjectColor = (subjectName?: string): string | undefined => {
-    if (!subjectName) return undefined;
-    const subject = subjectsWithColors.find(s => s.name === subjectName);
-    return subject?.color || '#ef4444'; // デフォルトは赤系
-  };
+  // 科目名から色を取得（未定義ならグレーにフォールバック）
+  const getSubjectColor = (subjectName?: string): string | undefined =>
+    resolveSubjectColor(subjectName, subjectsWithColors, SUBJECT_COLOR_FALLBACK);
+
+  // DB初期化後でもUIがズレないよう、LocalStorage由来の旧科目名を正規化する
+  useEffect(() => {
+    const selected = timerState.selectedSubject;
+    if (!selected) return;
+    const validNames = (subjectsWithColors.length > 0 ? subjectsWithColors.map((s) => s.name) : subjects).filter(Boolean);
+    if (validNames.includes(selected)) return;
+
+    const mapped = SUBJECT_NAME_ALIASES[selected] || '';
+    if (mapped && validNames.includes(mapped)) {
+      setSelectedSubject(mapped);
+      return;
+    }
+    // どれにも一致しない場合は未選択に戻す（色/名称の不整合を回避）
+    setSelectedSubject('');
+  }, [subjects, subjectsWithColors, timerState.selectedSubject, setSelectedSubject]);
 
   // 時間を記録
   const handleRecord = async () => {

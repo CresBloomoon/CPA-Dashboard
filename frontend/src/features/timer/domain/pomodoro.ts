@@ -82,7 +82,13 @@ export function clampToStep(value: number, stepMinutes: number, min: number, max
  * ポモドーロ設定のホイール入力調整に使用する。
  */
 export function adjustPomodoroMinutes(current: number, deltaSteps: number, stepMinutes: number, min: number, max: number): number {
-  return clampToStep(current + deltaSteps * stepMinutes, stepMinutes, min, max);
+  // 「現在値から次/前のステップへ進む」挙動に合わせる
+  // 例: current=23, step=5, +1 => 25 / current=27, step=5, +1 => 30
+  const baseIndex = deltaSteps >= 0
+    ? Math.floor(current / stepMinutes)
+    : Math.ceil(current / stepMinutes);
+  const next = (baseIndex + deltaSteps) * stepMinutes;
+  return Math.min(max, Math.max(min, next));
 }
 
 

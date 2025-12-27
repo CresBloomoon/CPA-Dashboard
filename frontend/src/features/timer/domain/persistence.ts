@@ -11,7 +11,7 @@ export type SerializedTimerState = Omit<TimerState, 'elapsedTime' | 'startTime'>
 export function serializeTimerState(state: TimerState): SerializedTimerState {
   return {
     ...state,
-    startTime: state.isRunning && state.startTime ? state.startTime : null,
+    startTime: state.isRunning && state.startTime !== null ? state.startTime : null,
   };
 }
 
@@ -69,10 +69,10 @@ export function deserializeTimerState(
   const manualMinutes = typeof state.manualMinutes === 'number' ? clampInt(state.manualMinutes, ranges.manualMinutes.min, ranges.manualMinutes.max) : 0;
 
   const isRunning = state.isRunning === true;
-  const startTime = typeof state.startTime === 'number' && state.startTime > 0 ? Math.floor(state.startTime) : null;
+  const startTime = typeof state.startTime === 'number' && state.startTime >= 0 ? Math.floor(state.startTime) : null;
 
   // 実行中だった場合：経過を再計算して復元
-  if (isRunning && startTime) {
+  if (isRunning && startTime !== null) {
     if (mode === 'stopwatch') {
       return {
         ...base,

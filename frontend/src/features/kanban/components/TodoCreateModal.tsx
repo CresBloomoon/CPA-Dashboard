@@ -8,6 +8,8 @@ import { addDays, format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
 import { todoApi, settingsApi } from '../../../api/api';
 import type { TodoCreate, Subject, ReviewTiming } from '../../../api/types';
+import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
+import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 
 registerLocale('ja', ja);
 
@@ -38,12 +40,9 @@ export default function TodoCreateModal({
   const [selectedSetListTiming, setSelectedSetListTiming] = useState<number | null>(null);
   const [isSetListDropdownOpen, setIsSetListDropdownOpen] = useState(false);
 
-  // 科目名から色を取得
-  const getSubjectColor = (subjectName?: string): string | undefined => {
-    if (!subjectName) return undefined;
-    const subject = subjectsWithColors.find(s => s.name === subjectName);
-    return subject?.color;
-  };
+  // 科目名から色を取得（未定義ならグレーにフォールバック）
+  const getSubjectColor = (subjectName?: string): string | undefined =>
+    resolveSubjectColor(subjectName, subjectsWithColors, SUBJECT_COLOR_FALLBACK);
 
   // 復習タイミング設定を読み込む
   useEffect(() => {
@@ -459,10 +458,10 @@ export default function TodoCreateModal({
                           } ${isAdding ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'}`}
                           disabled={isAdding}
                         >
-                          {newTodoSubject && getSubjectColor(newTodoSubject) && (
+                          {newTodoSubject && (
                             <span
                               className="w-3 h-3 rounded-full flex-shrink-0"
-                              style={{ backgroundColor: getSubjectColor(newTodoSubject) || '#ccc' }}
+                              style={{ backgroundColor: getSubjectColor(newTodoSubject) || SUBJECT_COLOR_FALLBACK }}
                             />
                           )}
                           <span className="flex-1">
@@ -499,7 +498,7 @@ export default function TodoCreateModal({
                                 <span>選択してください</span>
                               </button>
                               {subjects.map((subject) => {
-                                const color = getSubjectColor(subject);
+                                const color = getSubjectColor(subject) || SUBJECT_COLOR_FALLBACK;
                                 return (
                                   <button
                                     key={subject}
@@ -512,14 +511,10 @@ export default function TodoCreateModal({
                                       newTodoSubject === subject ? 'bg-blue-50' : ''
                                     }`}
                                   >
-                                    {color ? (
-                                      <span
-                                        className="w-3 h-3 rounded-full flex-shrink-0"
-                                        style={{ backgroundColor: color }}
-                                      />
-                                    ) : (
-                                      <span className="w-3 h-3 flex-shrink-0" />
-                                    )}
+                                    <span
+                                      className="w-3 h-3 rounded-full flex-shrink-0"
+                                      style={{ backgroundColor: color }}
+                                    />
                                     <span>{subject}</span>
                                   </button>
                                 );

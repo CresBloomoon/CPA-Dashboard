@@ -142,7 +142,7 @@ export function setManualMinutes(state: TimerState, minutes: number, ranges: Tim
 
 export function tick(state: TimerState, nowMs: number): TimerState {
   if (!state.isRunning) return state;
-  if (!state.startTime) return state;
+  if (state.startTime === null) return state;
 
   if (state.mode === 'stopwatch') {
     return { ...state, elapsedTime: computeStopwatchElapsedSeconds(state.startTime, nowMs) };
