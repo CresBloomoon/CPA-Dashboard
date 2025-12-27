@@ -33,6 +33,7 @@ function DurationRow({
   onChange,
   adjustMinutes,
   unit = '分',
+  disabled = false,
 }: {
   label: string;
   value: number;
@@ -41,6 +42,7 @@ function DurationRow({
   onChange: (next: number) => void;
   adjustMinutes: (current: number, deltaSteps: number, min: number, max: number) => number;
   unit?: string;
+  disabled?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const throttleTimerRef = useRef<number | null>(null);
@@ -57,7 +59,7 @@ function DurationRow({
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || disabled) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -84,14 +86,16 @@ function DurationRow({
         window.clearTimeout(throttleTimerRef.current);
       }
     };
-  }, [min, max]);
+  }, [min, max, disabled]);
 
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
         ref={containerRef}
-        className="flex-1 rounded-xl bg-slate-800/45 ring-1 ring-sky-200/12 backdrop-blur-md px-4 py-3 select-none cursor-ns-resize hover:bg-slate-800/55 transition-colors"
+        className={`flex-1 rounded-xl bg-slate-800/45 ring-1 ring-sky-200/12 backdrop-blur-md px-4 py-3 select-none transition-colors ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-ns-resize hover:bg-slate-800/55'
+        }`}
       >
         <div className="flex items-baseline justify-center gap-2">
           <div className="text-2xl font-semibold text-slate-200 tabular-nums">
@@ -284,6 +288,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
 
   const handleToggle = () => {
+    if (subjects.length === 0) return;
     if (!timerState.selectedSubject) return;
     if (!circleIsInteractive) return;
     // 設定ポップアップ表示中でも、開始操作は許可（押したらフェードアウトさせる）
@@ -299,7 +304,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   };
 
   // タイマーサークルのクリックフィードバック
-  const circleClickFeedback = useClickFeedback(handleToggle, !circleIsInteractive);
+  const circleClickFeedback = useClickFeedback(handleToggle, !circleIsInteractive || subjects.length === 0);
 
   // 科目選択ボタンのクリックフィードバック
   const subjectSelectFeedback = useClickFeedback(
@@ -345,7 +350,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   useEffect(() => {
     const container = manualHoursRef.current;
-    if (!container || timerState.isRunning) return;
+    if (!container || timerState.isRunning || subjects.length === 0) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -372,7 +377,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
         window.clearTimeout(manualHoursThrottleRef.current);
       }
     };
-  }, [timerState.isRunning]);
+  }, [timerState.isRunning, subjects.length]);
 
   // 手動入力モードの分部分のwheelイベントハンドラー
   const manualMinutesValueRef = useRef(timerState.manualMinutes);
@@ -385,7 +390,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   useEffect(() => {
     const container = manualMinutesRef.current;
-    if (!container || timerState.isRunning) return;
+    if (!container || timerState.isRunning || subjects.length === 0) return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -412,7 +417,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
         window.clearTimeout(manualMinutesThrottleRef.current);
       }
     };
-  }, [timerState.isRunning]);
+  }, [timerState.isRunning, subjects.length]);
 
 
   const adjustMinutes = (current: number, deltaSteps: number, min: number, max: number) => {
@@ -420,6 +425,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   };
 
   const openSettingsWithDelay = () => {
+    if (subjects.length === 0) return;
     if (settingsHoverTimerRef.current) window.clearTimeout(settingsHoverTimerRef.current);
     settingsHoverTimerRef.current = window.setTimeout(() => {
       setIsPomodoroSettingsOpen(true);
@@ -727,7 +733,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               >
                 <button
                   onClick={resetTimer}
-                  disabled={timerState.isRunning}
+                  disabled={timerState.isRunning || subjects.length === 0}
                   aria-label="リセット"
                   title="リセット"
                   className="relative group w-12 h-12 inline-flex items-center justify-center bg-slate-800/50 hover:bg-slate-800/60 text-slate-200/60 hover:text-slate-200/90 rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
@@ -758,7 +764,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             onPointerUp={circleClickFeedback.handlePointerUp}
             onPointerLeave={circleClickFeedback.handlePointerLeave}
             className={`relative w-80 h-80 rounded-full bg-slate-900/35 ring-1 ring-sky-200/22 shadow-[0_6px_12px_rgba(0,0,0,0.38),0_18px_70px_rgba(0,0,0,0.42),0_0_0_1px_rgba(186,230,253,0.22)] focus:outline-none focus:ring-2 focus:ring-sky-200/25 backdrop-blur-md ${
-              circleIsInteractive ? 'cursor-pointer hover:shadow-[0_8px_14px_rgba(0,0,0,0.40),0_22px_82px_rgba(0,0,0,0.45),0_0_0_1px_rgba(186,230,253,0.26)] hover:bg-slate-900/40' : 'cursor-default opacity-80'
+              circleIsInteractive && subjects.length > 0 ? 'cursor-pointer hover:shadow-[0_8px_14px_rgba(0,0,0,0.40),0_22px_82px_rgba(0,0,0,0.45),0_0_0_1px_rgba(186,230,253,0.26)] hover:bg-slate-900/40' : 'cursor-not-allowed opacity-50'
             } ${circleClickFeedback.activeClass}`}
           >
             {/* フラットな質感（球体ハイライトは入れない） */}
@@ -1139,6 +1145,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         max={TIMER_SETTINGS.POMODORO.RANGE.FOCUS.MAX_MINUTES}
                         onChange={(next) => setPomodoroFocusMinutes(next)}
                         adjustMinutes={adjustMinutes}
+                        disabled={subjects.length === 0}
                       />
                       <div className="h-3" />
                       <DurationRow
@@ -1148,6 +1155,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         max={TIMER_SETTINGS.POMODORO.RANGE.BREAK.MAX_MINUTES}
                         onChange={(next) => setPomodoroBreakMinutes(next)}
                         adjustMinutes={adjustMinutes}
+                        disabled={subjects.length === 0}
                       />
                       <div className="h-3" />
                       <DurationRow
@@ -1158,6 +1166,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         onChange={(next) => setPomodoroSets(next)}
                         adjustMinutes={adjustMinutes}
                         unit="セット"
+                        disabled={subjects.length === 0}
                       />
                     </motion.div>
                   </div>
