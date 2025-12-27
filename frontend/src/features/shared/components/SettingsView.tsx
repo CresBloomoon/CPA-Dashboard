@@ -20,7 +20,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { settingsApi } from '../../../api/api';
 import type { Subject, ReviewTiming } from '../../../api/types';
 import { APP_LIMITS } from '../../../config/appConfig';
-import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../../../config/subjects';
+import { SUBJECT_COLOR_PALETTE } from '../../../config/subjects';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
 
@@ -401,33 +401,28 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
           }
         } catch (parseError) {
           console.error('Error parsing subjects:', parseError);
-          // デフォルト値を使用
-          const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
-          setSubjects(defaultSubjects);
-          onSubjectsChange(defaultSubjects.map(s => s.name));
+          // エラー時は空配列のまま（ユーザーが設定画面で追加する）
+          setSubjects([]);
+          onSubjectsChange([]);
           if (onSubjectsWithColorsChange) {
-            onSubjectsWithColorsChange(defaultSubjects);
+            onSubjectsWithColorsChange([]);
           }
-          await saveSubjects(defaultSubjects);
         }
       } else {
-        // デフォルト値を使用
-        const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
-        setSubjects(defaultSubjects);
-        onSubjectsChange(defaultSubjects.map(s => s.name));
+        // 設定が存在しない場合は空配列のまま（ユーザーが設定画面で追加する）
+        setSubjects([]);
+        onSubjectsChange([]);
         if (onSubjectsWithColorsChange) {
-          onSubjectsWithColorsChange(defaultSubjects);
+          onSubjectsWithColorsChange([]);
         }
-        await saveSubjects(defaultSubjects);
       }
     } catch (error) {
       console.error('Error loading settings:', error);
-      // デフォルト値を使用
-      const defaultSubjects: Subject[] = [...DEFAULT_SUBJECTS];
-      setSubjects(defaultSubjects);
-      onSubjectsChange(defaultSubjects.map(s => s.name));
+      // エラー時も空配列を維持（ユーザーが設定画面で追加する）
+      setSubjects([]);
+      onSubjectsChange([]);
       if (onSubjectsWithColorsChange) {
-        onSubjectsWithColorsChange(defaultSubjects);
+        onSubjectsWithColorsChange([]);
       }
     } finally {
       setIsLoading(false);
