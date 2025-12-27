@@ -297,6 +297,9 @@ function DroppableDateCell({
 }
 
 export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] }: CalendarViewProps) {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
+  
   // 科目名から色を取得
   const getSubjectColor = (subjectName?: string): string | undefined => {
     if (!subjectName) return undefined;
