@@ -1188,8 +1188,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         )}
                       </AnimatePresence>
                       {/* 上下矢印アイコン */}
-                      <AnimatePresence>
-                        {isHoveringManualMinutes && (
+                      {(isHoveringManualMinutes && (timerState.manualMinutes < 59 || timerState.manualMinutes > 0)) && (
+                        <AnimatePresence>
                           <motion.div
                             key="manual-minutes-arrows"
                             initial={{ opacity: 0, y: -4 }}
@@ -1198,11 +1198,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                             transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
                             className="absolute -top-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5"
                           >
-                            <ChevronUp size={14} className="text-slate-200/70" />
-                            <ChevronDown size={14} className="text-slate-200/70" />
+                            {timerState.manualMinutes < 59 && (
+                              <ChevronUp size={14} className="text-slate-200/70" />
+                            )}
+                            {timerState.manualMinutes > 0 && (
+                              <ChevronDown size={14} className="text-slate-200/70" />
+                            )}
                           </motion.div>
-                        )}
-                      </AnimatePresence>
+                        </AnimatePresence>
+                      )}
                       <div 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
