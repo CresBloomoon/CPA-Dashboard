@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { RotateCcw, ChevronUp, ChevronDown } from 'lucide-react';
 import type { Subject } from '../../../api/types';
