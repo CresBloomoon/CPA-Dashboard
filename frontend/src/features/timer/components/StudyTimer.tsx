@@ -775,7 +775,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               style={{ boxShadow: '0 8px 14px rgba(0,0,0,0.32), 0 22px 70px rgba(0,0,0,0.36)' }}
             />
 
-            {/* 稼働中の柔らかいグロウ（呼吸）: ポモドーロのみ */}
+            {/* 稼働中の柔らかいグロウ（呼吸）: ポモドーロ動作中 */}
             {timerState.mode === 'pomodoro' && timerState.isRunning && (
               <motion.div
                 aria-hidden="true"
@@ -791,7 +791,112 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
               />
             )}
 
+            {/* 手動入力モード: 常時薄いグロウ */}
+            {timerState.mode === 'manual' && (
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 rounded-full pointer-events-none"
+                style={{
+                  boxShadow:
+                    // 科目カラーの薄いグロウ（静止時）
+                    `0 0 0 1px rgba(186,230,253,0.08), 0 0 32px rgba(56,189,248,0.08), 0 0 36px ${subjectGlowSoft}`,
+                }}
+              />
+            )}
 
+
+
+            {/* ストップウォッチ動作中: 1分ごとに一周する回転リング */}
+            {timerState.mode === 'stopwatch' && timerState.isRunning && (() => {
+              // 1分（60秒）ごとに一周するリング
+              const elapsedSecondsInMinute = timerState.elapsedTime % 60;
+              // 1分周期での進行度（0〜1）
+              const progressInMinute = elapsedSecondsInMinute / 60;
+              // リングの円周に基づいた進行距離
+              const progressLength = ringCircumference * progressInMinute;
+              
+              const stopwatchRingGradientId = `stopwatch-ring-${gradientSeed}`;
+              
+              return (
+                <div className="absolute inset-0 -rotate-90">
+                  <motion.svg
+                    viewBox="0 0 100 100"
+                    className="w-full h-full"
+                    style={{ transformOrigin: '50% 50%' }}
+                  >
+                    <defs>
+                      <linearGradient id={stopwatchRingGradientId} x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stopColor={subjectStroke} stopOpacity="0.18" />
+                        <stop offset="70%" stopColor={subjectStroke} stopOpacity="0.32" />
+                        <stop offset="100%" stopColor={subjectStroke} stopOpacity="0.70" />
+                      </linearGradient>
+                    </defs>
+                    {/* ベースリング（背景） */}
+                    <circle
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      fill="none"
+                      stroke="rgba(186, 230, 253, 0.20)"
+                      strokeWidth="3.2"
+                    />
+                    {/* 進行リング */}
+                    <motion.circle
+                      key={`stopwatch-progress-${Math.floor(timerState.elapsedTime / 60)}`}
+                      cx="50"
+                      cy="50"
+                      r="45"
+                      fill="none"
+                      stroke={subjectStroke}
+                      strokeWidth="3.2"
+                      strokeOpacity="0.62"
+                      strokeDasharray={`${progressLength} ${ringCircumference}`}
+                      strokeDashoffset="0"
+                      strokeLinecap="round"
+                      animate={{
+                        strokeDasharray: [`${ringCircumference * progressInMinute} ${ringCircumference}`, `${ringCircumference} ${ringCircumference}`],
+                      }}
+                      transition={{ ease: 'linear', duration: 60, repeat: Infinity }}
+                    />
+                    {/* 先端ハイライト */}
+                    {progressLength > 0 && (
+                      <motion.circle
+                        key={`stopwatch-tip-${Math.floor(timerState.elapsedTime / 60)}`}
+                        cx="50"
+                        cy="50"
+                        r="45"
+                        fill="none"
+                        stroke={`url(#${stopwatchRingGradientId})`}
+                        strokeWidth="3.15"
+                        strokeDasharray={`${Math.min(tipLen, progressLength)} ${ringCircumference}`}
+                        strokeDashoffset={-(progressLength - Math.min(tipLen, progressLength))}
+                        strokeLinecap="round"
+                        animate={{
+                          strokeDashoffset: [-(ringCircumference * progressInMinute - Math.min(tipLen, ringCircumference * progressInMinute)), -ringCircumference],
+                        }}
+                        transition={{ ease: 'linear', duration: 60, repeat: Infinity }}
+                      />
+                    )}
+                  </motion.svg>
+                </div>
+              );
+            })()}
+
+            {/* ストップウォッチ動作中: グロウエフェクト */}
+            {timerState.mode === 'stopwatch' && timerState.isRunning && (
+              <motion.div
+                aria-hidden="true"
+                className="absolute inset-0 rounded-full pointer-events-none"
+                initial={false}
+                animate={{ opacity: [0.10, 0.22, 0.10], scale: [1.0, ANIMATION_THEME.SCALES.GLOW.BREATH_MAX, 1.0] }}
+                transition={{ duration: ANIMATION_THEME.LOOPS.GLOW_BREATH_S, repeat: Infinity, ease: 'easeInOut' }}
+                style={{
+                  boxShadow:
+                    // 科目カラー優先 + 背景ブルーに馴染む薄いグロウ
+                    `0 0 0 1px rgba(186,230,253,0.10), 0 0 36px rgba(56,189,248,0.12), 0 0 42px ${subjectGlow}, 0 0 88px ${subjectGlowSoft}`,
+                }}
+              />
+            )}
 
             {/* プログレスリング（ポモドーロのみ / 残り時間が減るほどリングが減る） */}
             {timerState.mode === 'pomodoro' && (
