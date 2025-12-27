@@ -50,6 +50,11 @@ export default function ReportWizard({
   const [step, setStep] = useState(0); // 0..2
   const [toast, setToast] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
+  const [isCopySuccess, setIsCopySuccess] = useState(false);
+  const [isCopyGlow, setIsCopyGlow] = useState(false);
+
+  const copySuccessTimeoutRef = useRef<number | null>(null);
+  const copyGlowTimeoutRef = useRef<number | null>(null);
 
   const primaryFooterButtonRef = useRef<HTMLButtonElement | null>(null);
   const focusPrimaryFooterButton = () => {
@@ -212,6 +217,13 @@ export default function ReportWizard({
       setIsCopying(true);
       await navigator.clipboard.writeText(outputText);
       onCopied(periodId);
+
+      setIsCopySuccess(true);
+      setIsCopyGlow(true);
+      if (copySuccessTimeoutRef.current) window.clearTimeout(copySuccessTimeoutRef.current);
+      if (copyGlowTimeoutRef.current) window.clearTimeout(copyGlowTimeoutRef.current);
+      copyGlowTimeoutRef.current = window.setTimeout(() => setIsCopyGlow(false), 550);
+      copySuccessTimeoutRef.current = window.setTimeout(() => setIsCopySuccess(false), 2000);
     } catch (e) {
       console.error('[ReportWizard] Failed to copy:', e);
       showToast('コピーに失敗しました（ブラウザ権限を確認してください）');
@@ -589,16 +601,33 @@ export default function ReportWizard({
                         生成される報告書
                       </p>
                     </div>
-                    <button
+                    <motion.button
                       type="button"
                       onClick={handleCopy}
                       disabled={isCopying}
                       tabIndex={-1}
                       className="px-3 py-2 rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      style={{ backgroundColor: colors.accent, color: colors.textInverse }}
+                      animate={{
+                        scale: isCopyGlow ? 1.06 : 1,
+                        backgroundColor: isCopyGlow ? 'rgba(34, 197, 94, 0.92)' : colors.accent,
+                        boxShadow: isCopyGlow ? '0 0 18px rgba(34, 197, 94, 0.35)' : 'none',
+                      }}
+                      transition={{ type: 'spring', stiffness: 520, damping: 28 }}
+                      style={{ color: colors.textInverse }}
                     >
-                      {isCopying ? 'コピー中...' : 'コピー'}
-                    </button>
+                      <AnimatePresence mode="wait" initial={false}>
+                        <motion.span
+                          key={isCopying ? 'copying' : isCopySuccess ? 'success' : 'idle'}
+                          initial={{ opacity: 0, y: 6, scale: 0.96 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -6, scale: 0.96 }}
+                          transition={{ type: 'spring', stiffness: 520, damping: 30 }}
+                          className="inline-block"
+                        >
+                          {isCopying ? 'コピー中...' : isCopySuccess ? 'コピー完了！ ✅' : 'コピー'}
+                        </motion.span>
+                      </AnimatePresence>
+                    </motion.button>
                   </div>
 
                   <div className="p-4">

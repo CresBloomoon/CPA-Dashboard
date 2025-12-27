@@ -58,7 +58,6 @@ export default function SummaryCards({
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
-  const [wizardToast, setWizardToast] = useState<string | null>(null);
 
   // 科目名から色を取得する関数
   const getSubjectColor = (subjectName: string): string => {
@@ -526,21 +525,8 @@ export default function SummaryCards({
           onClose={() => setIsWizardOpen(false)}
           onCopied={(periodId) => {
             localStorage.setItem('reportWizard:lastReportedPeriodId', periodId);
-            setWizardToast('クリップボードにコピーしました');
-            setIsWizardOpen(false);
-            window.setTimeout(() => setWizardToast(null), 1500);
           }}
         />
-      )}
-
-      {/* トースト通知（コピー成功） */}
-      {wizardToast && (
-        <div
-          className="fixed bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300"
-          style={{ backgroundColor: theme === 'modern' ? 'rgba(34, 197, 94, 0.85)' : '#22c55e', color: '#fff' }}
-        >
-          {wizardToast}
-        </div>
       )}
     </div>
   );
