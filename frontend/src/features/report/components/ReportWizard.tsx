@@ -6,9 +6,9 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
 
 type ScoreRow = {
-  subject: string;
-  calculation: string; // number入力でも空文字を許容したい
-  theory: string;
+  name: string;
+  score: string; // 空文字を許容
+  fullScore: string; // 空文字を許容
 };
 
 export type ReportData = {
@@ -53,7 +53,7 @@ export default function ReportWizard({
 
   const [reportData, setReportData] = useState<ReportData>({
     reflection: '',
-    scores: [{ subject: '', calculation: '', theory: '' }],
+    scores: [{ name: '', score: '', fullScore: '' }],
     issues: '',
     solutions: '',
     nextWeekPlan: '',
@@ -122,17 +122,18 @@ export default function ReportWizard({
   const scoresText = useMemo(() => {
     const rows = reportData.scores
       .map((r) => ({
-        subject: r.subject.trim(),
-        calculation: r.calculation.trim(),
-        theory: r.theory.trim(),
+        name: r.name.trim(),
+        score: r.score.trim(),
+        fullScore: r.fullScore.trim(),
       }))
-      .filter((r) => r.subject || r.calculation || r.theory);
+      .filter((r) => r.name || r.score || r.fullScore);
     if (rows.length === 0) return '（未入力）';
     return rows
       .map((r) => {
-        const calc = r.calculation ? `${r.calculation}点` : '-';
-        const theo = r.theory ? `${r.theory}点` : '-';
-        return `【${r.subject || '（科目未入力）'}】計算:${calc} / 理論:${theo}`;
+        const label = r.name || '（答練名未入力）';
+        const s = r.score || '-';
+        const f = r.fullScore || '-';
+        return `・${label}: ${s}/${f}点`;
       })
       .join('\n');
   }, [reportData.scores]);
@@ -330,37 +331,37 @@ export default function ReportWizard({
                         className="grid grid-cols-1 md:grid-cols-4 gap-2 rounded-xl p-3 border"
                         style={{ borderColor: colors.border, backgroundColor: colors.backgroundSecondary }}
                       >
-                        <div className="md:col-span-1">
+                        <div className="md:col-span-2">
                           <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                            科目名
+                            答練名
                           </label>
                           <input
-                            value={row.subject}
+                            value={row.name}
                             onChange={(e) =>
                               setReportData((prev) => ({
                                 ...prev,
-                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, subject: e.target.value } : r)),
+                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, name: e.target.value } : r)),
                               }))
                             }
-                            list="report-subjects"
                             className="w-full px-3 py-2 rounded-lg border focus:outline-none"
                             style={{
                               borderColor: colors.border,
                               backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
                               color: colors.textPrimary,
                             }}
+                            placeholder="例：財務会計レギュラー答練第1回"
                           />
                         </div>
                         <div className="md:col-span-1">
                           <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                            計算
+                            得点
                           </label>
                           <input
-                            value={row.calculation}
+                            value={row.score}
                             onChange={(e) =>
                               setReportData((prev) => ({
                                 ...prev,
-                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, calculation: e.target.value } : r)),
+                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, score: e.target.value } : r)),
                               }))
                             }
                             inputMode="numeric"
@@ -370,19 +371,19 @@ export default function ReportWizard({
                               backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
                               color: colors.textPrimary,
                             }}
-                            placeholder="例: 60"
+                            placeholder="得点（例: 80）"
                           />
                         </div>
                         <div className="md:col-span-1">
                           <label className="block text-xs mb-1" style={{ color: colors.textSecondary }}>
-                            理論
+                            満点
                           </label>
                           <input
-                            value={row.theory}
+                            value={row.fullScore}
                             onChange={(e) =>
                               setReportData((prev) => ({
                                 ...prev,
-                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, theory: e.target.value } : r)),
+                                scores: prev.scores.map((r, i) => (i === idx ? { ...r, fullScore: e.target.value } : r)),
                               }))
                             }
                             inputMode="numeric"
@@ -392,7 +393,7 @@ export default function ReportWizard({
                               backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.55)' : colors.card,
                               color: colors.textPrimary,
                             }}
-                            placeholder="例: 55"
+                            placeholder="満点（例: 100）"
                           />
                         </div>
                         <div className="md:col-span-1 flex items-end">
@@ -401,7 +402,7 @@ export default function ReportWizard({
                             onClick={() => {
                               setReportData((prev) => {
                                 const next = prev.scores.filter((_, i) => i !== idx);
-                                return { ...prev, scores: next.length ? next : [{ subject: '', calculation: '', theory: '' }] };
+                                return { ...prev, scores: next.length ? next : [{ name: '', score: '', fullScore: '' }] };
                               });
                             }}
                             className="w-full px-3 py-2 rounded-lg transition-colors"
@@ -414,22 +415,16 @@ export default function ReportWizard({
                     ))}
                   </div>
 
-                  <datalist id="report-subjects">
-                    {subjectsWithColors.map((s) => (
-                      <option key={s.id} value={s.name} />
-                    ))}
-                  </datalist>
-
                   <div className="mt-3">
                     <button
                       type="button"
                       onClick={() =>
-                        setReportData((prev) => ({ ...prev, scores: [...prev.scores, { subject: '', calculation: '', theory: '' }] }))
+                        setReportData((prev) => ({ ...prev, scores: [...prev.scores, { name: '', score: '', fullScore: '' }] }))
                       }
                       className="px-4 py-2 rounded-lg font-semibold transition-colors"
                       style={{ backgroundColor: colors.accent, color: colors.textInverse }}
                     >
-                      行を追加
+                      ＋答練を追加
                     </button>
                   </div>
                 </motion.div>
