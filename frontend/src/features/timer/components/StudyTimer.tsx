@@ -573,6 +573,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const fadeTransition = isImmersiveHidden
     ? { duration: ANIMATION_THEME.IMMERSIVE.FADE_OUT_S, ease: 'easeInOut' as const }
     : { duration: ANIMATION_THEME.IMMERSIVE.FADE_IN_S, ease: 'easeOut' as const };
+  
+  // メインカウントの表示制御（手動入力モードでは常に表示）
+  const shouldShowMainCount = !isImmersiveHidden || timerState.mode === 'manual' || !timerState.isRunning;
 
   const toggleFullscreen = async () => {
     const el = timerContainerRef.current;
