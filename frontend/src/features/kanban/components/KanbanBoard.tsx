@@ -167,7 +167,7 @@ function DraggableTodoCard({
             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 transition-colors flex-shrink-0"
             style={{ color: colors.textTertiary }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = colors.error;
+              e.currentTarget.style.color = colors.textError;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = colors.textTertiary;
