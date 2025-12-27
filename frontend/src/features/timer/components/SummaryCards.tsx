@@ -75,6 +75,14 @@ export default function SummaryCards({
   const devAlwaysEnableWizard = import.meta.env.DEV;
 
   const reportPeriod = useMemo(() => {
+    // 開発用: 集計期間を固定（2025/12/21〜2025/12/27）
+    if (devAlwaysEnableWizard) {
+      const periodStart = startOfDay(new Date(2025, 11, 21)); // months are 0-based
+      const periodEnd = endOfDay(new Date(2025, 11, 27));
+      const periodId = `${format(periodStart, 'yyyy-MM-dd')}__${format(periodEnd, 'yyyy-MM-dd')}`;
+      return { periodStart, periodEnd, periodId };
+    }
+
     // 報告日は reportStartDay（または翌日の猶予）とし、報告内容は「前週（7日）」を対象にする
     const now = new Date();
     const start = Math.max(0, Math.min(6, Math.floor(reportStartDay)));
@@ -85,7 +93,7 @@ export default function SummaryCards({
     const periodStart = startOfDay(subDays(periodEnd, 6));
     const periodId = `${format(periodStart, 'yyyy-MM-dd')}__${format(periodEnd, 'yyyy-MM-dd')}`;
     return { periodStart, periodEnd, periodId };
-  }, [reportStartDay]);
+  }, [devAlwaysEnableWizard, reportStartDay]);
 
   const isReported = useMemo(() => {
     const last = localStorage.getItem('reportWizard:lastReportedPeriodId');
