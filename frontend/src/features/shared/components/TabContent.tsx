@@ -1,7 +1,7 @@
 import { calculateTodoCounts } from '../../../utils/todoCounts';
 import type { StudyProgress, Subject, Project, Todo } from '../../../api/types';
 import SummaryCards from '../../timer/components/SummaryCards';
-import Heatmap from '../../calendar/components/Heatmap';
+import StreakCalendar from '../../calendar/components/StreakCalendar';
 import StudyTimer from '../../timer/components/StudyTimer';
 import TodoList from '../../kanban/components/TodoList';
 import CalendarView from '../../calendar/components/CalendarView';
@@ -66,7 +66,7 @@ export default function TabContent({
             onTotalTodosClick={() => onTodoFilterClick('all')}
             onCompletedTodosClick={() => onTodoFilterClick('completed')}
           />
-          <Heatmap progressList={progressList} todos={todos} />
+          <StreakCalendar progressList={progressList} />
         </div>
       )}
 
