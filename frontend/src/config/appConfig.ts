@@ -221,7 +221,7 @@ export const UI_VISUALS = {
       /** フォントサイズクラス */
       SIZE_CLASS: 'text-7xl',
       /** フォントウェイト（extralight: 細い / light: やや細い / normal: 標準 / medium: やや太い / semibold: 太め / bold: 太い） */
-      WEIGHT_CLASS: 'font-bold',
+      WEIGHT_CLASS: 'font-medium',
       /** テキストカラー（不透明度100%） */
       COLOR_CLASS: 'text-white',
       /** 文字間隔 */
@@ -232,7 +232,7 @@ export const UI_VISUALS = {
        * 完全なTailwindクラス文字列（一元化されたスタイル定義）。
        * この定義を変更するだけで、すべてのモードの時刻表示が連動して変わります。
        */
-      CLASS: 'text-7xl font-bold text-white tabular-nums tracking-[0.02em]',
+      CLASS: 'text-7xl font-medium text-white tabular-nums tracking-[0.02em]',
     },
     /**
      * ポモドーロ待機中（FOCUS/REST表示）のスタイル。

@@ -924,6 +924,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                           strokeDashoffset: -(ringCircumference * progressInMinute - Math.min(tipLen, ringCircumference * progressInMinute)),
                         }}
                         transition={{ ease: 'linear', duration: 1 }}
+                        style={{
+                          filter: `drop-shadow(0 0 8px ${subjectStroke}80)`, // 科目カラーに基づいた淡い発光（不透明度約0.5）
+                        }}
                       />
                     )}
                   </svg>
@@ -993,6 +996,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     strokeDashoffset="0"
                     strokeLinecap="round"
                     transition={{ ease: 'linear', duration: 1 }}
+                    style={{
+                      filter: `drop-shadow(0 0 8px ${subjectStroke}80)`, // 科目カラーに基づいた淡い発光（不透明度約0.5）
+                    }}
                   />
                   {/* 先端ハイライト（明るい短い弧）
                       満タン(25:00)の初期状態では「左上だけ濃い」が出やすいので表示しない */}
@@ -1014,6 +1020,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       }}
                       strokeLinecap="round"
                       transition={{ ease: 'linear', duration: 1 }}
+                      style={{
+                        filter: `drop-shadow(0 0 8px ${subjectStroke}80)`, // 科目カラーに基づいた淡い発光（不透明度約0.5）
+                      }}
                     />
                   )}
                 </motion.svg>
@@ -1129,9 +1138,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
                           color: '#FFFFFF', // pure white (#FFFFFF)
-                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
-                          filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
-                          WebkitTextFillColor: '#FFFFFF', // Ensure WebKit browsers use pure white
                         }}
                       >
                         {String(timerState.manualHours).padStart(2, '0')}
@@ -1142,9 +1148,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                       style={{
                         color: '#FFFFFF', // pure white (#FFFFFF)
-                        textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
-                        filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
-                        WebkitTextFillColor: '#FFFFFF', // Ensure WebKit browsers use pure white
                       }}
                     >
                       :
@@ -1194,9 +1197,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
                           color: '#FFFFFF', // pure white (#FFFFFF)
-                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
-                          filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
-                          WebkitTextFillColor: '#FFFFFF', // Ensure WebKit browsers use pure white
                         }}
                       >
                         {String(timerState.manualMinutes).padStart(2, '0')}
@@ -1242,85 +1242,14 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         className={`relative ${UI_VISUALS.TIMER_DISPLAY.AWAITING_PHASE.CLASS}`}
                         style={{
                           color: 'rgb(255, 255, 255)', // pure white
-                          textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
-                          filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
                         }}
                       >
                         {circleDisplayTime}
                       </div>
                     ) : (
-                      // 手動入力モードと同じスタイルで統一（各部分を分けて表示）
+                      // ストップウォッチ/ポモドーロモードの数字表示（フラットな白文字）
                       <div className={`relative ${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} flex items-center gap-1`}>
-                        {(() => {
-                          // circleDisplayTimeを分割（MM:SS または HH:MM:SS）
-                          const textShadowBase = '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)';
-                          const dropShadowGlow = 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))';
-                          
-                          if (circleDisplayTime.includes(':')) {
-                            const parts = circleDisplayTime.split(':');
-                            if (parts.length === 2) {
-                              // MM:SS形式
-                              return (
-                                <>
-                                  <span style={{
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>{parts[0]}</span>
-                                  <span style={{ 
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>:</span>
-                                  <span style={{
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>{parts[1]}</span>
-                                </>
-                              );
-                            } else if (parts.length === 3) {
-                              // HH:MM:SS形式
-                              return (
-                                <>
-                                  <span style={{
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>{parts[0]}</span>
-                                  <span style={{ 
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>:</span>
-                                  <span style={{
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>{parts[1]}</span>
-                                  <span style={{ 
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>:</span>
-                                  <span style={{
-                                    color: 'rgb(255, 255, 255)',
-                                    textShadow: textShadowBase,
-                                    filter: dropShadowGlow,
-                                  }}>{parts[2]}</span>
-                                </>
-                              );
-                            }
-                          }
-                          // フォーマットが異なる場合はそのまま表示
-                          return (
-                            <span style={{
-                              color: 'rgb(255, 255, 255)',
-                              textShadow: textShadowBase,
-                              filter: dropShadowGlow,
-                            }}>{circleDisplayTime}</span>
-                          );
-                        })()}
+                        {circleDisplayTime}
                       </div>
                     )}
 
