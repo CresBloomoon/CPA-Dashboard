@@ -49,6 +49,7 @@ function DurationRow({
   const valueRef = useRef(value);
   const onChangeRef = useRef(onChange);
   const adjustMinutesRef = useRef(adjustMinutes);
+  const [isHovering, setIsHovering] = useState(false);
 
   // 最新の値を保持
   useEffect(() => {
@@ -93,10 +94,32 @@ function DurationRow({
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
         ref={containerRef}
-        className={`flex-1 rounded-xl bg-slate-800/45 ring-1 ring-sky-200/12 backdrop-blur-md px-4 py-3 select-none transition-colors ${
-          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-ns-resize hover:bg-slate-800/55'
+        className={`relative flex-1 rounded-xl bg-slate-800/45 ring-1 ring-sky-200/12 backdrop-blur-md px-4 py-3 select-none transition-colors ${
+          disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-ns-resize hover:bg-slate-800/55 hover:ring-sky-200/20'
         }`}
+        onMouseEnter={() => {
+          if (!disabled) setIsHovering(true);
+        }}
+        onMouseLeave={() => {
+          setIsHovering(false);
+        }}
       >
+        {/* ホバー時の上下矢印アイコン */}
+        <AnimatePresence>
+          {isHovering && !disabled && (
+            <motion.div
+              key="duration-row-arrows"
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -4 }}
+              transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
+              className="absolute -top-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none"
+            >
+              <ChevronUp size={14} className="text-slate-200/50" />
+              <ChevronDown size={14} className="text-slate-200/50" />
+            </motion.div>
+          )}
+        </AnimatePresence>
         <div className="flex items-baseline justify-center gap-2">
           <div className="text-2xl font-semibold text-slate-200 tabular-nums">
             {String(value).padStart(2, '0')}
