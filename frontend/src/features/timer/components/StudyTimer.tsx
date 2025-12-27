@@ -1050,14 +1050,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                   <div
                     ref={manualInputContainerRef}
                     role="group"
-                    tabIndex={timerState.isRunning ? -1 : 0}
-                    className="relative z-10 pointer-events-auto focus-visible:outline-none"
-                    onKeyDown={handleManualInputKeyDown}
+                    className="relative z-10 pointer-events-auto"
                   >
                     {/* 時刻表示（時:分）をflexで統合 */}
                     <div className="flex items-baseline gap-1">
                       {/* 時間部分 */}
-                      <div
+                      <motion.div
                         ref={manualHoursRef}
                         role="spinbutton"
                         tabIndex={timerState.isRunning ? -1 : 0}
@@ -1065,17 +1063,47 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         aria-valuemin={0}
                         aria-valuemax={23}
                         aria-label={`時間: ${timerState.manualHours}時`}
-                        className="flex items-baseline"
+                        className={`relative rounded-xl transition-all duration-300 px-3 py-2 cursor-ns-resize ${
+                          isHoveringManualHours || isFocusedManualHours
+                            ? 'ring-2 ring-sky-400/50 bg-slate-900/60 shadow-[0_0_20px_rgba(14,165,233,0.15)]'
+                            : 'ring-1 ring-transparent bg-transparent'
+                        }`}
                         onMouseEnter={() => {
-                          if (!timerState.isRunning) setFocusedManualUnit('hours');
+                          if (!timerState.isRunning) {
+                            setIsHoveringManualHours(true);
+                            setFocusedManualUnit('hours');
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          setIsHoveringManualHours(false);
+                          if (focusedManualUnit === 'hours' && document.activeElement !== manualHoursRef.current) {
+                            setFocusedManualUnit(null);
+                          }
                         }}
                         onFocus={() => {
-                          if (!timerState.isRunning) setFocusedManualUnit('hours');
+                          if (!timerState.isRunning) {
+                            setIsFocusedManualHours(true);
+                            setFocusedManualUnit('hours');
+                          }
                         }}
                         onBlur={() => {
-                          // フォーカスが分に移らない限りnullにしない（親コンテナのキーボード操作を維持）
+                          setIsFocusedManualHours(false);
                           if (document.activeElement !== manualMinutesRef.current) {
                             setFocusedManualUnit(null);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (timerState.isRunning || timerState.mode !== 'manual') return;
+                          if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const next = adjustByStep(timerState.manualHours, 1, 0, 23);
+                            setManualHours(next);
+                          } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const next = adjustByStep(timerState.manualHours, -1, 0, 23);
+                            setManualHours(next);
                           }
                         }}
                       >
@@ -1089,7 +1117,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         >
                           {String(timerState.manualHours).padStart(2, '0')}
                         </div>
-                      </div>
+                      </motion.div>
                       
                       {/* コロン */}
                       <div 
@@ -1102,7 +1130,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       </div>
                       
                       {/* 分部分 */}
-                      <div
+                      <motion.div
                         ref={manualMinutesRef}
                         role="spinbutton"
                         tabIndex={timerState.isRunning ? -1 : 0}
@@ -1110,16 +1138,47 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         aria-valuemin={0}
                         aria-valuemax={59}
                         aria-label={`分: ${timerState.manualMinutes}分`}
-                        className="flex items-baseline"
+                        className={`relative rounded-xl transition-all duration-300 px-3 py-2 cursor-ns-resize ${
+                          isHoveringManualMinutes || isFocusedManualMinutes
+                            ? 'ring-2 ring-sky-400/50 bg-slate-900/60 shadow-[0_0_20px_rgba(14,165,233,0.15)]'
+                            : 'ring-1 ring-transparent bg-transparent'
+                        }`}
                         onMouseEnter={() => {
-                          if (!timerState.isRunning) setFocusedManualUnit('minutes');
+                          if (!timerState.isRunning) {
+                            setIsHoveringManualMinutes(true);
+                            setFocusedManualUnit('minutes');
+                          }
+                        }}
+                        onMouseLeave={() => {
+                          setIsHoveringManualMinutes(false);
+                          if (focusedManualUnit === 'minutes' && document.activeElement !== manualMinutesRef.current) {
+                            setFocusedManualUnit(null);
+                          }
                         }}
                         onFocus={() => {
-                          if (!timerState.isRunning) setFocusedManualUnit('minutes');
+                          if (!timerState.isRunning) {
+                            setIsFocusedManualMinutes(true);
+                            setFocusedManualUnit('minutes');
+                          }
                         }}
                         onBlur={() => {
+                          setIsFocusedManualMinutes(false);
                           if (document.activeElement !== manualHoursRef.current) {
                             setFocusedManualUnit(null);
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (timerState.isRunning || timerState.mode !== 'manual') return;
+                          if (e.key === 'ArrowUp') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const next = adjustByStep(timerState.manualMinutes, 1, 0, 59);
+                            setManualMinutes(next);
+                          } else if (e.key === 'ArrowDown') {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const next = adjustByStep(timerState.manualMinutes, -1, 0, 59);
+                            setManualMinutes(next);
                           }
                         }}
                       >
@@ -1133,46 +1192,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         >
                           {String(timerState.manualMinutes).padStart(2, '0')}
                         </div>
-                      </div>
+                      </motion.div>
                     </div>
-                    
-                    {/* 上矢印アイコン（親コンテナの真上に配置） */}
-                    <AnimatePresence>
-                      {focusedManualUnit && (
-                        (focusedManualUnit === 'hours' && timerState.manualHours < 23) ||
-                        (focusedManualUnit === 'minutes' && timerState.manualMinutes < 59)
-                      ) && (
-                        <motion.div
-                          key="manual-arrow-up"
-                          initial={{ opacity: 0, y: -4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -4 }}
-                          transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-                          className="absolute top-[-40px] left-1/2 -translate-x-1/2 pointer-events-none"
-                        >
-                          <ChevronUp size={40} className="w-10 h-10 text-white/90" />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                    
-                    {/* 下矢印アイコン（親コンテナの真下に配置） */}
-                    <AnimatePresence>
-                      {focusedManualUnit && (
-                        (focusedManualUnit === 'hours' && timerState.manualHours > 0) ||
-                        (focusedManualUnit === 'minutes' && timerState.manualMinutes > 0)
-                      ) && (
-                        <motion.div
-                          key="manual-arrow-down"
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 4 }}
-                          transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-                          className="absolute bottom-[-40px] left-1/2 -translate-x-1/2 pointer-events-none"
-                        >
-                          <ChevronDown size={40} className="w-10 h-10 text-white/90" />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
                   </div>
                 ) : (
                   // ポモドーロ/ストップウォッチモード
