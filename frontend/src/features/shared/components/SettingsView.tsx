@@ -341,6 +341,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   const [colorPickerPosition, setColorPickerPosition] = useState<{ top: number; left: number } | null>(null);
   const colorButtonRefs = useRef<{ [key: number]: HTMLButtonElement | null }>({});
   const subjectNameRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
+  const newSubjectInputRef = useRef<HTMLInputElement | null>(null);
   const [reviewTimings, setReviewTimings] = useState<ReviewTiming[]>([]);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<number>>(new Set());
 
@@ -477,6 +478,11 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       }];
       await saveReviewTimings(updatedReviewTimings);
     }
+    
+    // 追加完了後、入力フォームにフォーカスを戻す（連続入力のUX向上）
+    setTimeout(() => {
+      newSubjectInputRef.current?.focus();
+    }, 0);
   };
 
   const handleRemoveSubject = async (index: number) => {
@@ -814,6 +820,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
         {/* 新規追加フォーム */}
         <div className="flex gap-2 mb-4">
           <input
+            ref={newSubjectInputRef}
             type="text"
             value={newSubject}
             onChange={(e) => setNewSubject(e.target.value)}
