@@ -16,7 +16,6 @@ import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpe
 import CompactStreakCalendar from '../../calendar/components/CompactStreakCalendar';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
-import CompactStreakCalendar from '../../calendar/components/CompactStreakCalendar';
 
 ChartJS.register(
   CategoryScale,
