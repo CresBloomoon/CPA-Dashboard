@@ -100,7 +100,7 @@ function DurationRow({
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
         ref={containerRef}
-        className={`relative min-w-[100px] h-20 rounded-xl bg-slate-900/40 ring-1 backdrop-blur-md transition-all duration-300 ${
+        className={`relative min-w-[140px] h-20 rounded-xl bg-slate-900/40 ring-1 backdrop-blur-md transition-all duration-300 px-4 ${
           isHovering || isFocusWithin ? 'ring-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.2)]' : 'ring-white/10'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-ns-resize'}`}
         onMouseEnter={() => !disabled && setIsHovering(true)}
@@ -123,7 +123,7 @@ function DurationRow({
 
         {/* Layer 2: 数値と単位 (中央配置) */}
         <div className="flex flex-col items-center justify-center h-full pt-1">
-          <div className="flex items-baseline justify-center gap-1">
+          <div className="flex items-baseline justify-center gap-2">
             <span className="text-3xl font-semibold text-white tabular-nums">
               {String(value).padStart(2, '0')}
             </span>
