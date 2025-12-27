@@ -1,20 +1,94 @@
 # CPA Dashboard
 
-公認会計士の勉強進捗を一覧できるダッシュボードWebアプリケーション
-
-## 目次
-
-1. [概要](#概要)
-2. [クイックスタート](#クイックスタート)
-3. [設計思想](#設計思想)
-4. [設定ガイド](#設定ガイド)
-5. [機能一覧](#機能一覧)
+🚀 **3分で起動完了** - 公認会計士受験生のための学習進捗管理アプリ
 
 ---
 
-## 概要
+## 📸 こんなことができます
 
-CPA Dashboardは、公認会計士試験の勉強進捗を管理するためのWebアプリケーションです。学習時間の記録、リマインダー管理、カレンダー表示、プロジェクト管理などの機能を提供します。
+> 💡 **プレースホルダー**: ここにアプリのスクリーンショットを追加してください
+
+<!-- 
+スクリーンショットの追加方法:
+1. アプリを起動してスクリーンショットを撮影
+2. 画像を `docs/images/` ディレクトリに保存
+3. 以下のようにマークダウンを追加:
+
+![メイン画面](docs/images/main-screen.png)
+![タイマー機能](docs/images/timer-feature.png)
+![学習進捗グラフ](docs/images/progress-chart.png)
+-->
+
+**公認会計士受験生の、公認会計士受験生による、公認会計士受験生のためのアプリ**
+
+- ⏱️ 学習時間の記録と管理
+- 📊 学習進捗の可視化
+- ✅ リマインダー機能
+- 📅 カレンダー表示
+- 📋 プロジェクト管理
+
+---
+
+## ⚡ たった3ステップで起動
+
+### Step 1: Dockerをインストール
+
+[Docker Desktop](https://www.docker.com/products/docker-desktop/)をダウンロードしてインストールしてください。
+
+> 💻 Windows/Mac/Linuxすべてに対応しています
+
+### Step 2: プロジェクトをダウンロード
+
+```bash
+git clone <repository-url>
+cd CPA-Dashboard
+```
+
+または、[ZIPファイルとしてダウンロード](https://github.com/your-username/CPA-Dashboard/archive/main.zip)して解凍してください。
+
+### Step 3: 起動する
+
+ターミナル（コマンドプロンプト）で以下のコマンドを実行してください：
+
+```bash
+docker compose up --build
+```
+
+初回のみ数分かかります。以下のメッセージが表示されたら準備完了です！
+
+```
+✅ cpa_backend  | Application startup complete.
+✅ cpa_frontend | VITE ready
+```
+
+---
+
+## 🌐 アクセス方法
+
+起動が完了したら、ブラウザで以下のURLを開いてください：
+
+🔗 **http://localhost:5173**
+
+---
+
+## ❓ 困ったときは
+
+エラーが出た、起動しない、など問題が発生した場合は、[トラブルシューティングガイド](docs/TROUBLESHOOTING.md)をご覧ください。
+
+---
+
+## 📚 もっと詳しく知りたい方へ
+
+- **Dockerの設定方法**: [README_DOCKER.md](./README_DOCKER.md)を参照
+- **カスタマイズ方法**: [docs/CONFIG_GUIDE.md](./docs/CONFIG_GUIDE.md)を参照
+- **アーキテクチャについて**: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)を参照
+
+---
+
+## 🔧 開発者向け情報
+
+<details>
+<summary>技術スタック・設計思想について（クリックで展開）</summary>
 
 ### 技術スタック
 
@@ -23,145 +97,28 @@ CPA Dashboardは、公認会計士試験の勉強進捗を管理するためのW
 - **データベース**: SQLite
 - **コンテナ**: Docker Compose
 
----
-
-## クイックスタート
-
-### Step 1: リポジトリのクローン
-
-```bash
-git clone <repository-url>
-cd CPA-Dashboard
-```
-
-### Step 2: Docker Composeで起動
-
-```bash
-docker compose up --build
-```
-
-初回起動時は、依存関係のインストールとイメージのビルドに数分かかります。
-
-### Step 3: アクセス
-
-起動が完了したら、以下のURLにアクセスできます：
-
-- **Frontend**: http://localhost:5173
-- **Backend API**: http://localhost:8000
-- **API ドキュメント**: http://localhost:8000/docs
-
-### 詳細情報
-
-Dockerのセットアップやトラブルシューティングについては、[README_DOCKER.md](./README_DOCKER.md)を参照してください。
-
----
-
-## 設計思想
+### 設計思想
 
 本プロジェクトは、**クリーンアーキテクチャ**と**DDD（ドメイン駆動設計）**の原則に基づいて設計されています。
-
-### 主な特徴
 
 - **Separation of Concerns**: UIとビジネスロジックの完全分離
 - **純粋関数**: Domain層は参照透過性を重視
 - **テストカバレッジ**: Domain層のテストカバレッジ100%
-- **型安全性**: TypeScriptの型システムを最大限活用（any禁止）
+- **型安全性**: TypeScriptの型システムを最大限活用
 
-### 詳細情報
+詳細は[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)を参照してください。
 
-アーキテクチャの詳細については、[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)を参照してください。
-
----
-
-## 設定ガイド
-
-アプリケーションの動作をカスタマイズするには、`frontend/src/config/appConfig.ts`を編集します。
-
-### 主な設定項目
-
-- **タイマー設定**: ポモドーロの時間、ストップウォッチの設定など
-- **アニメーション**: 各種UIアニメーションの速度やイージング
-- **見た目**: 色、フォントサイズ、UI要素のサイズなど
-- **表示上限**: カレンダーやリストの表示件数など
-
-### 詳細情報
-
-すべての設定パラメータの一覧と説明については、[docs/CONFIG_GUIDE.md](./docs/CONFIG_GUIDE.md)を参照してください。
-
----
-
-## 機能一覧
-
-- ✅ **学習時間タイマー**
-  - ストップウォッチモード
-  - ポモドーロタイマー
-  - 手動入力モード
-
-- ✅ **学習進捗の記録・集計**
-  - 科目別の学習時間集計
-  - 週間・月間の学習時間グラフ
-  - 学習ヒートマップ
-
-- ✅ **リマインダー管理**
-  - 期限管理
-  - 検索・フィルタ機能
-  - iOSリマインダー風のチェックボックスアニメーション
-
-- ✅ **カレンダー表示**
-  - ドラッグ&ドロップで期限変更
-  - 学習ヒートマップ表示
-
-- ✅ **プロジェクト管理**
-  - カンバンボード
-  - ドラッグ&ドロップで整理
-
-- ✅ **設定機能**
-  - 科目・色のカスタマイズ
-  - 復習セットリストの管理
-
-- ✅ **レスポンシブデザイン**
-  - PC・タブレット・スマートフォンに対応
-
----
-
-## 開発
+### 開発
 
 すべてのコードはDockerコンテナ内で実行されるため、ローカルPCを汚しません。
 
 - **Backend**: `./backend` ディレクトリ内のコードが自動的にホットリロードされます
 - **Frontend**: `./frontend` ディレクトリ内のコードが自動的にホットリロードされます
 
-### プロジェクト構成
-
-```
-cpa-dashboard/
-├── backend/              # FastAPI バックエンド
-│   ├── app/             # アプリケーションコード
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/             # React フロントエンド
-│   ├── src/
-│   │   ├── features/    # 機能別モジュール
-│   │   ├── api/         # APIクライアント
-│   │   └── hooks/       # グローバルHooks
-│   ├── Dockerfile
-│   └── package.json
-├── docs/                 # 詳細ドキュメント
-│   ├── ARCHITECTURE.md
-│   └── CONFIG_GUIDE.md
-├── docker-compose.yml
-├── README.md            # このファイル
-└── README_DOCKER.md     # Dockerセットアップガイド
-```
+</details>
 
 ---
 
-## データベース
-
-SQLiteを使用しています。データベースファイル（`cpa_dashboard.db`）はDockerコンテナ内の`/app/data`ディレクトリに自動的に作成され、`backend_db`ボリュームに永続化されます。
-
----
-
-## ライセンス
+## 📝 ライセンス
 
 （ライセンス情報があれば記載してください）
