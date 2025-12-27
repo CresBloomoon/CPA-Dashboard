@@ -170,7 +170,8 @@ function DroppableDateCell({
   getSubjectColor,
   getTextColor,
   onUpdateTodos,
-  getTodosForDate
+  getTodosForDate,
+  colors,
 }: { 
   date: Date;
   dateTodos: Todo[];
@@ -183,27 +184,62 @@ function DroppableDateCell({
   getTextColor: (bgColor?: string) => string;
   onUpdateTodos: () => void;
   getTodosForDate: (date: Date) => Todo[];
+  colors: ReturnType<typeof getThemeColors>;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: format(date, 'yyyy-MM-dd'),
   });
 
-  const baseClass = "min-h-32 p-2 border border-gray-200 hover:bg-gray-50 transition-colors";
-  let classes = baseClass;
+  const baseStyle: React.CSSProperties = {
+    minHeight: '8rem',
+    padding: '0.5rem',
+    border: `1px solid ${colors.border}`,
+    transition: 'colors 0.2s',
+  };
+  
+  let cellStyle: React.CSSProperties = { ...baseStyle };
+  
   if (!isCurrentMonth) {
-    classes += " bg-gray-50 text-gray-400";
+    cellStyle = {
+      ...cellStyle,
+      backgroundColor: colors.backgroundSecondary,
+      color: colors.textTertiary,
+    };
+  } else {
+    cellStyle.backgroundColor = colors.card;
   }
+  
   if (isToday) {
-    classes += " bg-blue-50 border-blue-300";
+    cellStyle = {
+      ...cellStyle,
+      backgroundColor: colors.accentLight,
+      borderColor: colors.accent,
+    };
   }
+  
   if (isDragOver || isOver) {
-    classes += " bg-green-100 border-green-400 border-2";
+    cellStyle = {
+      ...cellStyle,
+      backgroundColor: `${colors.success}33`, // 20% opacity
+      border: `2px solid ${colors.success}`,
+    };
   }
 
   return (
     <div
       ref={setNodeRef}
-      className={classes}
+      className="transition-colors"
+      style={cellStyle}
+      onMouseEnter={(e) => {
+        if (!isCurrentMonth && !isToday && !isDragOver && !isOver) {
+          e.currentTarget.style.backgroundColor = colors.cardHover;
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (!isCurrentMonth && !isToday && !isDragOver && !isOver) {
+          e.currentTarget.style.backgroundColor = colors.card;
+        }
+      }}
     >
       <div className="text-sm font-medium mb-1">
         {format(date, 'd')}
@@ -421,24 +457,46 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
 
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
+    <div 
+      className="rounded-lg shadow-lg p-6"
+      style={{
+        backgroundColor: colors.card,
+      }}
+    >
       {/* カレンダーヘッダー */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
             onClick={handlePrevMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: colors.textSecondary }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = colors.cardHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </button>
-          <h3 className="text-xl font-semibold text-gray-800">
+          <h3 
+            className="text-xl font-semibold"
+            style={{ color: colors.textPrimary }}
+          >
             {format(currentDate, 'yyyy年MM月', { locale: ja })}
           </h3>
           <button
             onClick={handleNextMonth}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-2 rounded-lg transition-colors"
+            style={{ color: colors.textSecondary }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = colors.cardHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -447,7 +505,17 @@ export default function CalendarView({ todos, onUpdate, subjectsWithColors = [] 
         </div>
         <button
           onClick={handleToday}
-          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-semibold"
+          className="px-4 py-2 rounded-lg transition-colors text-sm font-semibold"
+          style={{
+            backgroundColor: colors.accent,
+            color: colors.textInverse,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = colors.accentHover;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = colors.accent;
+          }}
         >
           今日
         </button>
