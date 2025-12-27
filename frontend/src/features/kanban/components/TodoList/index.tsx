@@ -12,6 +12,8 @@ import SearchBar from './SearchBar';
 import TodoItem from './TodoItem';
 import TodoListHeader from './TodoListHeader';
 import EmptyState from './EmptyState';
+import { useTheme } from '../../../../contexts/ThemeContext';
+import { getThemeColors } from '../../../../styles/theme';
 
 interface TodoListProps {
   todos: Todo[];
@@ -116,8 +118,15 @@ export default function TodoList({
         />
 
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="bg-white rounded-lg shadow-lg p-6 h-full flex flex-col overflow-hidden">
-            <TodoListHeader />
+          <div 
+            className="rounded-lg shadow-lg p-6 h-full flex flex-col overflow-hidden"
+            style={{
+              backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+              backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+              border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+            }}
+          >
+            <TodoListHeader colors={colors} />
 
             <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
               {filteredTodos.length > 0 && (
@@ -138,7 +147,8 @@ export default function TodoList({
 
               <EmptyState 
                 hasTodos={todos.length > 0} 
-                hasFilteredResults={filteredTodos.length > 0} 
+                hasFilteredResults={filteredTodos.length > 0}
+                colors={colors}
               />
             </div>
           </div>

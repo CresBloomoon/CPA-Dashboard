@@ -753,12 +753,34 @@ export default function KanbanBoard({
   ];
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
+    <div 
+      className="rounded-lg shadow-lg p-6"
+      style={{
+        backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+        backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+        border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+      }}
+    >
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold text-gray-700">プロジェクト</h2>
+        <h2 
+          className="text-2xl font-semibold"
+          style={{ color: colors.textPrimary }}
+        >
+          プロジェクト
+        </h2>
         <button
           onClick={openProjectModal}
-          className="w-10 h-10 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors flex items-center justify-center"
+          className="w-10 h-10 rounded-lg transition-colors flex items-center justify-center"
+          style={{
+            backgroundColor: colors.accent,
+            color: colors.textInverse,
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.backgroundColor = colors.accentHover;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.backgroundColor = colors.accent;
+          }}
           title="プロジェクトを追加"
         >
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -774,13 +796,32 @@ export default function KanbanBoard({
 
         {/* モーダルコンテンツ */}
         <div className="fixed inset-0 flex items-center justify-center p-4">
-          <Dialog.Panel className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] min-h-[600px] overflow-y-auto">
+          <Dialog.Panel 
+            className="rounded-lg shadow-xl max-w-2xl w-full max-h-[95vh] min-h-[600px] overflow-y-auto"
+            style={{
+              backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.95)' : colors.card,
+              backdropFilter: theme === 'modern' ? 'blur(16px)' : 'none',
+              border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+            }}
+          >
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-gray-700">プロジェクトを編集</h3>
+                  <h3 
+                    className="text-xl font-semibold"
+                    style={{ color: colors.textPrimary }}
+                  >
+                    プロジェクトを編集
+                  </h3>
                   <button
                     onClick={closeEditModal}
-                    className="text-gray-400 hover:text-gray-600 transition-colors"
+                    className="transition-colors"
+                    style={{ color: colors.textTertiary }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = colors.textSecondary;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = colors.textTertiary;
+                    }}
                   >
                     <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -790,52 +831,117 @@ export default function KanbanBoard({
 
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      プロジェクト名 <span className="text-red-500">*</span>
+                    <label 
+                      className="block text-sm font-medium mb-1"
+                      style={{ color: colors.textPrimary }}
+                    >
+                      プロジェクト名 <span style={{ color: colors.error }}>*</span>
                     </label>
                     <input
                       type="text"
                       value={editProjectName}
                       onChange={(e) => setEditProjectName(e.target.value)}
                       placeholder="例: 租税法レギュラー答練1回目"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
+                      style={{
+                        backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.5)' : colors.backgroundSecondary,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.textPrimary,
+                        focusRingColor: colors.accent,
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = colors.accent;
+                        e.target.style.boxShadow = `0 0 0 2px ${colors.accent}40`;
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = colors.border;
+                        e.target.style.boxShadow = 'none';
+                      }}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">期限日</label>
+                    <label 
+                      className="block text-sm font-medium mb-1"
+                      style={{ color: colors.textPrimary }}
+                    >
+                      期限日
+                    </label>
                     <DatePicker
                       selected={editProjectDueDate}
                       onChange={(date: Date | null) => setEditProjectDueDate(date)}
                       dateFormat="yyyy年MM月dd日"
                       locale="ja"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
+                      style={{
+                        backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.5)' : colors.backgroundSecondary,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.textPrimary,
+                      }}
                       placeholderText="期限日を選択"
                       isClearable
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">説明</label>
+                    <label 
+                      className="block text-sm font-medium mb-1"
+                      style={{ color: colors.textPrimary }}
+                    >
+                      説明
+                    </label>
                     <textarea
                       value={editProjectDescription}
                       onChange={(e) => setEditProjectDescription(e.target.value)}
                       placeholder="プロジェクトの説明（任意）"
                       rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 rounded-lg focus:outline-none focus:ring-2"
+                      style={{
+                        backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.5)' : colors.backgroundSecondary,
+                        border: `1px solid ${colors.border}`,
+                        color: colors.textPrimary,
+                      }}
+                      onFocus={(e) => {
+                        e.target.style.borderColor = colors.accent;
+                        e.target.style.boxShadow = `0 0 0 2px ${colors.accent}40`;
+                      }}
+                      onBlur={(e) => {
+                        e.target.style.borderColor = colors.border;
+                        e.target.style.boxShadow = 'none';
+                      }}
                     />
                   </div>
 
                   <div className="flex justify-end gap-2">
                     <button
                       onClick={closeEditModal}
-                      className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
+                      className="px-4 py-2 rounded-lg transition-colors"
+                      style={{
+                        color: colors.textSecondary,
+                        backgroundColor: colors.cardHover,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = theme === 'modern' ? 'rgba(30, 41, 59, 0.7)' : colors.backgroundSecondary;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.cardHover;
+                      }}
                     >
                       キャンセル
                     </button>
                     <button
                       onClick={handleSaveEdit}
-                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                      className="px-4 py-2 rounded-lg transition-colors"
+                      style={{
+                        backgroundColor: colors.accent,
+                        color: colors.textInverse,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.accentHover;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.accent;
+                      }}
                     >
                       保存
                     </button>
