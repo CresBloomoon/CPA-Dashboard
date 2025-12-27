@@ -1123,9 +1123,10 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       <div 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
-                          color: 'rgb(255, 255, 255)', // pure white
+                          color: '#FFFFFF', // pure white (#FFFFFF)
                           textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
                           filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
+                          WebkitTextFillColor: '#FFFFFF', // Ensure WebKit browsers use pure white
                         }}
                       >
                         {String(timerState.manualHours).padStart(2, '0')}
@@ -1135,9 +1136,10 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     <div 
                       className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                       style={{
-                        color: 'rgb(255, 255, 255)', // pure white
+                        color: '#FFFFFF', // pure white (#FFFFFF)
                         textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
                         filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
+                        WebkitTextFillColor: '#FFFFFF', // Ensure WebKit browsers use pure white
                       }}
                     >
                       :
@@ -1186,9 +1188,10 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       <div 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
-                          color: 'rgb(255, 255, 255)', // pure white
+                          color: '#FFFFFF', // pure white (#FFFFFF)
                           textShadow: '0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.5)',
                           filter: 'drop-shadow(0 0 15px rgba(255, 255, 255, 0.4))',
+                          WebkitTextFillColor: '#FFFFFF', // Ensure WebKit browsers use pure white
                         }}
                       >
                         {String(timerState.manualMinutes).padStart(2, '0')}
