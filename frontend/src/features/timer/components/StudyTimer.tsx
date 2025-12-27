@@ -205,6 +205,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isRecordSuccess, setIsRecordSuccess] = useState(false);
+  const [isRecordSuccessGlow, setIsRecordSuccessGlow] = useState(false);
   const [shouldSlideOutTimer, setShouldSlideOutTimer] = useState(false);
   const gradientSeed = useId();
   const idleTimerRef = useRef<number | null>(null);
