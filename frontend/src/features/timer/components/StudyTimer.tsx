@@ -202,7 +202,12 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   const ringRadius = 45;
   const ringCircumference = useMemo(() => 2 * Math.PI * ringRadius, []);
-  const remainingLen = useMemo(() => ringCircumference * pomodoroRemainingRatio, [ringCircumference, pomodoroRemainingRatio]);
+  const remainingLen = useMemo(() => {
+    const ratio = typeof pomodoroRemainingRatio === 'number' && !isNaN(pomodoroRemainingRatio) 
+      ? pomodoroRemainingRatio 
+      : 0;
+    return ringCircumference * ratio;
+  }, [ringCircumference, pomodoroRemainingRatio]);
   // 先端ハイライトは「塊」に見えやすいので短め＆控えめに
   const tipLen = useMemo(() => Math.min(Math.max(ringCircumference * 0.03, 8), 16), [ringCircumference]); // 先端だけ明るい部分
 
@@ -665,14 +670,14 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     stroke={subjectStroke}
                     strokeWidth="3.2"
                     strokeOpacity="0.62"
-                    strokeDasharray={`${remainingLen} ${ringCircumference}`}
+                    strokeDasharray={`${remainingLen || 0} ${ringCircumference || 0}`}
                     strokeDashoffset="0"
                     strokeLinecap="round"
                     transition={{ ease: 'linear', duration: 1 }}
                   />
                   {/* 先端ハイライト（明るい短い弧）
                       満タン(25:00)の初期状態では「左上だけ濃い」が出やすいので表示しない */}
-                  {remainingLen < ringCircumference - 0.5 && (
+                  {remainingLen < ringCircumference - 0.5 && !isNaN(remainingLen) && !isNaN(tipLen) && (
                     <motion.circle
                       cx="50"
                       cy="50"
@@ -680,10 +685,13 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                       fill="none"
                       stroke={`url(#${ringGradientId})`}
                       strokeWidth="3.15"
-                      strokeDasharray={`${Math.min(tipLen, remainingLen)} ${ringCircumference}`}
+                      strokeDasharray={`${Math.min(tipLen || 0, remainingLen || 0)} ${ringCircumference || 0}`}
+                      initial={{
+                        strokeDashoffset: -(Math.max((remainingLen || 0) - (tipLen || 0), 0)),
+                      }}
                       animate={{
                         // 先端位置へ移動（右回り）
-                        strokeDashoffset: -(Math.max(remainingLen - tipLen, 0)),
+                        strokeDashoffset: -(Math.max((remainingLen || 0) - (tipLen || 0), 0)),
                       }}
                       strokeLinecap="round"
                       transition={{ ease: 'linear', duration: 1 }}
