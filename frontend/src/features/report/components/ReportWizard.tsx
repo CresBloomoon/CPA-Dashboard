@@ -11,7 +11,7 @@ import { ReportStep2 } from './steps/ReportStep2';
 import { ReportStep3 } from './steps/ReportStep3';
 import { ReportStep4 } from './steps/ReportStep4';
 import type { SubjectHoursRow } from './steps/ReportStep1';
-import type { TodoItemsBySubject } from './steps/ReportStep1';
+import type { ReminderCountsBySubject } from './steps/ReportStep1';
 
 export default function ReportWizard({
   reportStartDay: _reportStartDay,
@@ -124,9 +124,50 @@ export default function ReportWizard({
     return [ `${indent}・${lines[0]}`, ...lines.slice(1).map((l) => `${indent}　${l}`) ].join('\n');
   };
 
-  const completedTodosBySubject = useMemo<TodoItemsBySubject>(() => {
+  const normalizeTodoTitle = (raw: string): string => {
+    let s = (raw || '').trim();
+    // 末尾の枝番を落とす（例: _復習12回目 / (12) など）
+    const suffixRe = /(_復習\d+回目|復習\d+回目|\(\d+\)|（\d+）|_第\d+回|第\d+回)$/;
+    while (suffixRe.test(s)) s = s.replace(suffixRe, '');
+    s = s.replace(/[_\s]+$/g, '');
+    s = s.replace(/_/g, ''); // 「成果連結_復習1回目」→「成果連結」
+    s = s.replace(/\s{2,}/g, ' ').trim();
+    return s || '（無題）';
+  };
+
+  const reminderCounts = useMemo(() => {
     const orderedSubjects = subjectsWithColors.map((s) => s.name);
-    const map = new Map<string, string[]>();
+    const countMap = new Map<string, number>();
+    const getCompletedDateKey = (t: Todo): string => format(parseISO(t.updated_at || t.created_at), 'yyyy-MM-dd');
+
+    let total = 0;
+    for (const t of todos) {
+      if (!t.completed) continue;
+      const key = getCompletedDateKey(t);
+      if (key < periodStartKey || key > periodEndKey) continue;
+      const subject = t.subject?.trim() || '未分類';
+      total += 1;
+      countMap.set(subject, (countMap.get(subject) ?? 0) + 1);
+    }
+
+    const countsBySubject: ReminderCountsBySubject = [];
+    for (const s of orderedSubjects) {
+      const c = countMap.get(s) ?? 0;
+      if (c > 0) countsBySubject.push({ subject: s, count: c });
+      countMap.delete(s);
+    }
+    Array.from(countMap.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+      .forEach(([subject, c]) => {
+        if (c > 0) countsBySubject.push({ subject, count: c });
+      });
+
+    return { total, countsBySubject };
+  }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
+
+  const performedTodosOutputText = useMemo(() => {
+    const orderedSubjects = subjectsWithColors.map((s) => s.name);
+    const setMap = new Map<string, Set<string>>();
     const getCompletedDateKey = (t: Todo): string => format(parseISO(t.updated_at || t.created_at), 'yyyy-MM-dd');
 
     for (const t of todos) {
@@ -134,33 +175,32 @@ export default function ReportWizard({
       const key = getCompletedDateKey(t);
       if (key < periodStartKey || key > periodEndKey) continue;
       const subject = t.subject?.trim() || '未分類';
-      if (!map.has(subject)) map.set(subject, []);
-      map.get(subject)!.push(t.title);
+      const base = normalizeTodoTitle(t.title);
+      if (!setMap.has(subject)) setMap.set(subject, new Set());
+      setMap.get(subject)!.add(base);
     }
 
-    const result: TodoItemsBySubject = [];
-    for (const s of orderedSubjects) {
-      const list = map.get(s);
-      if (list && list.length > 0) result.push([s, list]);
-      map.delete(s);
+    const subjects = [
+      ...orderedSubjects,
+      ...Array.from(setMap.keys())
+        .filter((s) => !orderedSubjects.includes(s))
+        .sort((a, b) => a.localeCompare(b, 'ja')),
+    ];
+
+    const chunks: string[] = [];
+    for (const subject of subjects) {
+      const titles = Array.from(setMap.get(subject) ?? [])
+        .filter(Boolean)
+        .sort((a, b) => a.localeCompare(b, 'ja'));
+      if (titles.length === 0) continue; // 0件科目は非表示
+      chunks.push(`${IND1}（${subject}）`);
+      chunks.push(titles.map((t) => `${IND2}・${t}`).join('\n'));
+      chunks.push('');
     }
-    Array.from(map.entries())
-      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
-      .forEach(([subject, list]) => {
-        if (list.length > 0) result.push([subject, list]);
-      });
-    return result;
+
+    if (chunks.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
+    return chunks.join('\n').trimEnd();
   }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
-
-  const todoPerformedOutputText = useMemo(() => {
-    if (completedTodosBySubject.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
-    return completedTodosBySubject
-      .map(([subject, items]) => {
-        const lines = items.map((t) => `${IND2}・${t}`).join('\n');
-        return `${IND1}（${subject}）\n${lines}`;
-      })
-      .join('\n\n');
-  }, [completedTodosBySubject]);
 
   // 表示幅（monospace想定）: 全角=2, 半角=1 でざっくり計算（半角カナは1）
   const getDisplayWidth = (s: string): number => {
@@ -214,7 +254,7 @@ export default function ReportWizard({
   const outputText = useMemo(() => {
     return [
       '■先週実施したこと',
-      todoPerformedOutputText,
+      performedTodosOutputText,
       '',
       '■先週解いた答練の点数',
       scoresText,
@@ -237,7 +277,7 @@ export default function ReportWizard({
       '■相談したいこと',
       bulletize(reportData.questions, IND1),
     ].join('\n');
-  }, [todoPerformedOutputText, scoresText, lastWeekTotalHours, reportData]);
+  }, [performedTodosOutputText, scoresText, lastWeekTotalHours, reportData]);
 
   const steps = useMemo(() => {
     return [
@@ -251,7 +291,8 @@ export default function ReportWizard({
             updateData={updateData}
             lastWeekTotalHours={lastWeekTotalHours}
             subjectHours={subjectHours}
-            todoItemsBySubject={completedTodosBySubject}
+            reminderTotalCount={reminderCounts.total}
+            reminderCountsBySubject={reminderCounts.countsBySubject}
             periodStartKey={periodStartKey}
             periodEndKey={periodEndKey}
             matchedCount={lastWeekHoursDebug.matched}
@@ -283,7 +324,8 @@ export default function ReportWizard({
     updateData,
     lastWeekTotalHours,
     subjectHours,
-    completedTodosBySubject,
+    reminderCounts.total,
+    reminderCounts.countsBySubject,
     periodStartKey,
     periodEndKey,
     lastWeekHoursDebug.matched,

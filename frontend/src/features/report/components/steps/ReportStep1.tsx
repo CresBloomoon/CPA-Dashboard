@@ -6,7 +6,7 @@ type ThemeColors = ReturnType<typeof getThemeColors>;
 
 export type SubjectHoursRow = { subject: string; hours: number };
 
-export type TodoItemsBySubject = Array<[subject: string, items: string[]]>;
+export type ReminderCountsBySubject = Array<{ subject: string; count: number }>;
 
 type Props = {
   theme: Theme;
@@ -15,7 +15,8 @@ type Props = {
   updateData: UpdateReportData;
   lastWeekTotalHours: number;
   subjectHours: SubjectHoursRow[];
-  todoItemsBySubject: TodoItemsBySubject;
+  reminderTotalCount: number;
+  reminderCountsBySubject: ReminderCountsBySubject;
   periodStartKey: string;
   periodEndKey: string;
   matchedCount: number;
@@ -29,7 +30,8 @@ export function ReportStep1({
   updateData,
   lastWeekTotalHours,
   subjectHours,
-  todoItemsBySubject,
+  reminderTotalCount,
+  reminderCountsBySubject,
   periodStartKey,
   periodEndKey,
   matchedCount,
@@ -76,27 +78,29 @@ export function ReportStep1({
 
         <div className="rounded-xl p-4" style={{ backgroundColor: colors.backgroundSecondary }}>
           <p className="text-xs" style={{ color: colors.textSecondary }}>
-            完了したリマインダ（科目別）
+            先週の完了リマインダ総数
           </p>
-          <div className="mt-3 max-h-56 overflow-auto pr-1">
-            {todoItemsBySubject.length === 0 ? (
+          <p className="text-3xl font-bold mt-1" style={{ color: colors.textPrimary }}>
+            {reminderTotalCount} 件
+          </p>
+          <div className="mt-3">
+            <p className="text-xs font-semibold mb-2" style={{ color: colors.textSecondary }}>
+              科目別
+            </p>
+            {reminderCountsBySubject.length === 0 ? (
               <p className="text-xs" style={{ color: colors.textTertiary }}>
                 （該当期間に完了したリマインダはありません）
               </p>
             ) : (
-              <div className="space-y-3">
-                {todoItemsBySubject.map(([subject, items]) => (
-                  <div key={subject}>
-                    <p className="text-xs font-semibold" style={{ color: colors.textPrimary }}>
-                      （{subject}）
-                    </p>
-                    <div className="mt-1 space-y-1">
-                      {items.map((t, i) => (
-                        <p key={`${subject}:${i}`} className="text-xs truncate" style={{ color: colors.textPrimary }}>
-                          ・{t}
-                        </p>
-                      ))}
-                    </div>
+              <div className="space-y-1">
+                {reminderCountsBySubject.map((row) => (
+                  <div key={row.subject} className="flex items-center justify-between gap-3">
+                    <span className="text-xs truncate" style={{ color: colors.textPrimary }}>
+                      {row.subject}
+                    </span>
+                    <span className="text-xs tabular-nums" style={{ color: colors.textPrimary }}>
+                      {row.count}件
+                    </span>
                   </div>
                 ))}
               </div>
