@@ -50,7 +50,7 @@ function DurationRow({
   const onChangeRef = useRef(onChange);
   const adjustMinutesRef = useRef(adjustMinutes);
   const [isHovering, setIsHovering] = useState(false);
-  const [isActive, setIsActive] = useState(false);
+  const [isFocusWithin, setIsFocusWithin] = useState(false);
 
   // 最新の値を保持
   useEffect(() => {
@@ -68,7 +68,7 @@ function DurationRow({
       e.stopPropagation();
       
       // 操作中フラグを立てる
-      setIsActive(true);
+      setIsFocusWithin(true);
       
       // Throttle処理: 16ms（約60fps）ごとに更新
       if (throttleTimerRef.current !== null) return;
@@ -76,7 +76,7 @@ function DurationRow({
       throttleTimerRef.current = window.setTimeout(() => {
         throttleTimerRef.current = null;
         // 操作が終了したら少し遅延してフラグを下ろす
-        setTimeout(() => setIsActive(false), 100);
+        setTimeout(() => setIsFocusWithin(false), 100);
       }, 16);
 
       const direction = e.deltaY > 0 ? -1 : 1;
@@ -100,60 +100,51 @@ function DurationRow({
       <div className="text-sm text-slate-200/80 w-14 flex-shrink-0 whitespace-nowrap">{label}</div>
       <div
         ref={containerRef}
-        className={`relative flex-1 rounded-xl bg-slate-800/45 ring-1 backdrop-blur-md px-4 py-3 select-none transition-all duration-200 min-w-[80px] ${
-          disabled 
-            ? 'opacity-50 cursor-not-allowed ring-sky-200/12' 
-            : `cursor-ns-resize ${
-                isHovering || isActive
-                  ? 'bg-slate-800/55 ring-sky-400/40 shadow-[0_0_12px_rgba(56,189,248,0.15)]' 
-                  : 'ring-sky-200/12 hover:bg-slate-800/55 hover:ring-sky-200/20'
-              }`
-        }`}
-        onMouseEnter={() => {
-          if (!disabled) setIsHovering(true);
-        }}
-        onMouseLeave={() => {
-          setIsHovering(false);
-        }}
+        className={`relative min-w-[100px] h-20 rounded-xl bg-slate-900/40 ring-1 backdrop-blur-md transition-all duration-300 ${
+          isHovering || isFocusWithin ? 'ring-sky-400/50 shadow-[0_0_15px_rgba(56,189,248,0.2)]' : 'ring-white/10'
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-ns-resize'}`}
+        onMouseEnter={() => !disabled && setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
       >
-        {/* ホバー時の上矢印アイコン */}
+        {/* Layer 1: 上矢印 (完全に中央固定) */}
         <AnimatePresence>
           {isHovering && !disabled && (
             <motion.div
-              key="duration-row-arrow-up"
-              initial={{ opacity: 0, y: -10, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.9 }}
-              transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-              className="absolute top-1 left-1/2 pointer-events-none"
-              style={{ transform: 'translateX(-50%)' }}
+              key="arrow-up"
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 5 }}
+              className="absolute top-1 left-0 w-full flex justify-center pointer-events-none"
             >
-              <ChevronUp size={18} className="text-white/80" />
+              <ChevronUp size={20} className="text-white/80" />
             </motion.div>
           )}
         </AnimatePresence>
-        {/* ホバー時の下矢印アイコン */}
-        <AnimatePresence>
-          {isHovering && !disabled && (
-            <motion.div
-              key="duration-row-arrow-down"
-              initial={{ opacity: 0, y: 10, scale: 0.9 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 10, scale: 0.9 }}
-              transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-              className="absolute bottom-1 left-1/2 pointer-events-none"
-              style={{ transform: 'translateX(-50%)' }}
-            >
-              <ChevronDown size={18} className="text-white/80" />
-            </motion.div>
-          )}
-        </AnimatePresence>
-        <div className="flex items-baseline justify-center gap-2">
-          <div className="text-2xl font-semibold text-slate-200 tabular-nums">
-            {String(value).padStart(2, '0')}
+
+        {/* Layer 2: 数値と単位 (中央配置) */}
+        <div className="flex flex-col items-center justify-center h-full pt-1">
+          <div className="flex items-baseline justify-center gap-1">
+            <span className="text-3xl font-semibold text-white tabular-nums">
+              {String(value).padStart(2, '0')}
+            </span>
+            <span className="text-xs text-slate-400 font-medium">{unit}</span>
           </div>
-          <div className="text-xs text-slate-200/60">{unit}</div>
         </div>
+
+        {/* Layer 3: 下矢印 (完全に中央固定) */}
+        <AnimatePresence>
+          {isHovering && !disabled && (
+            <motion.div
+              key="arrow-down"
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              className="absolute bottom-1 left-0 w-full flex justify-center pointer-events-none"
+            >
+              <ChevronDown size={20} className="text-white/80" />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
