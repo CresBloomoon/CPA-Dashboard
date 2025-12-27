@@ -6,6 +6,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
 import { ChevronDown } from 'lucide-react';
 import type { ReportData, UpdateReportData } from '../types/reportWizard';
+import { ReportStep0 } from './steps/ReportStep0';
 import { ReportStep1 } from './steps/ReportStep1';
 import { ReportStep2 } from './steps/ReportStep2';
 import { ReportStep3 } from './steps/ReportStep3';
@@ -40,7 +41,7 @@ export default function ReportWizard({
     [periodStart, periodEnd]
   );
 
-  const [step, setStep] = useState(0); // 0..N-1
+  const [step, setStep] = useState(0); // 0..4（0=イントロ）
   const [toast, setToast] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
   const [isCopySuccess, setIsCopySuccess] = useState(false);
@@ -282,6 +283,10 @@ export default function ReportWizard({
   const steps = useMemo(() => {
     return [
       {
+        id: 'step-0',
+        render: () => <ReportStep0 theme={theme} colors={colors} />,
+      },
+      {
         id: 'step-1',
         render: () => (
           <ReportStep1
@@ -331,7 +336,9 @@ export default function ReportWizard({
     lastWeekHoursDebug.matched,
   ]);
 
-  const isFinalStep = step === steps.length - 1;
+  const FINAL_STEP_INDEX = 4;
+  const isFinalStep = step === FINAL_STEP_INDEX;
+  const isIntroStep = step === 0;
 
   useEffect(() => {
     // 最終ステップは Enter 一発で確定できるよう、主要ボタンにフォーカス
@@ -345,7 +352,8 @@ export default function ReportWizard({
     setFinalDraftText(outputText);
   }, [isFinalStep, isFinalDraftDirty, outputText]);
 
-  const progressPct = ((step + 1) / steps.length) * 100;
+  // 表示上は Step 0/4 〜 Step 4/4（分母は4固定）
+  const progressPct = (step / FINAL_STEP_INDEX) * 100;
 
   const showToast = (message: string) => {
     setToast(message);
@@ -444,7 +452,7 @@ export default function ReportWizard({
                 />
               </div>
               <p className="text-xs mt-2" style={{ color: colors.textTertiary }}>
-                Step {step + 1} / {steps.length}
+                Step {step} / {FINAL_STEP_INDEX}
               </p>
             </div>
           </div>
@@ -572,11 +580,21 @@ export default function ReportWizard({
             </div>
 
             <div className="flex items-center gap-2">
-              {!isFinalStep ? (
+              {isIntroStep ? (
+                <button
+                  type="button"
+                  onClick={() => setStep(1)}
+                  ref={primaryFooterButtonRef}
+                  className="px-6 py-4 rounded-2xl font-semibold text-base transition-colors"
+                  style={{ backgroundColor: colors.accent, color: colors.textInverse, minWidth: 220 }}
+                >
+                  報告書を作成する
+                </button>
+              ) : !isFinalStep ? (
                 <button
                   type="button"
                   aria-label="次へ"
-                  onClick={() => setStep((s: number) => Math.min(steps.length - 1, s + 1))}
+                  onClick={() => setStep((s: number) => Math.min(FINAL_STEP_INDEX, s + 1))}
                   ref={primaryFooterButtonRef}
                   className="p-3 rounded-xl transition-colors"
                   style={{ backgroundColor: colors.accent, color: colors.textInverse }}
