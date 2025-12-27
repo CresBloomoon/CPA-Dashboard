@@ -26,6 +26,7 @@ interface SettingsViewProps {
   onSubjectsChange: (subjects: string[]) => void;
   onSubjectsWithColorsChange?: (subjects: Subject[]) => void;
   onDataUpdate?: () => void;
+  onSettingsUpdate?: () => void;
 }
 
 // 色パレットは共通定数に一元化（アプリ全体の整合性を担保）
@@ -221,7 +222,7 @@ function SortableSubjectItem({
   );
 }
 
-export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsChange, onDataUpdate }: SettingsViewProps) {
+export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsChange, onDataUpdate, onSettingsUpdate }: SettingsViewProps) {
   const [activeMenu, setActiveMenu] = useState<SettingsMenu>('subjects');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [newSubject, setNewSubject] = useState('');
@@ -380,6 +381,11 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     // 復習セットリストからも削除
     const updatedReviewTimings = reviewTimings.filter(t => t.subject_id !== subjectToRemove.id);
     await saveReviewTimings(updatedReviewTimings);
+    
+    // 削除後、他の画面にも反映させるため設定を再読み込み
+    if (onSettingsUpdate) {
+      onSettingsUpdate();
+    }
   };
 
   const handleStartEdit = (index: number) => {

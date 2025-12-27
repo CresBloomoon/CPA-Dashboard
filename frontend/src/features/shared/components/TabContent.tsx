@@ -22,6 +22,7 @@ interface TabContentProps {
   onFetchTodos: () => void;
   onSubjectsChange: (names: string[]) => void;
   onSubjectsWithColorsChange: (subjectsWithColors: Subject[]) => void;
+  onSettingsUpdate: () => void;
   onTodoFilterClick: (filterType: 'today' | 'all' | 'completed') => void;
 }
 
@@ -39,6 +40,7 @@ export default function TabContent({
   onFetchTodos,
   onSubjectsChange,
   onSubjectsWithColorsChange,
+  onSettingsUpdate,
   onTodoFilterClick,
 }: TabContentProps) {
   const todoCounts = calculateTodoCounts(todos);
@@ -113,6 +115,7 @@ export default function TabContent({
             onSubjectsChange={onSubjectsChange}
             onSubjectsWithColorsChange={onSubjectsWithColorsChange}
             onDataUpdate={onFetchData}
+            onSettingsUpdate={onSettingsUpdate}
           />
         </div>
       )}

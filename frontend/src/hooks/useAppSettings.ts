@@ -7,12 +7,14 @@ import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../config/subjects';
  * アプリの設定読み込みロジック
  */
 export const useAppSettings = () => {
-  // 画面間の一貫性を最優先：Subject[] を単一ソースとして扱い、必要ならnamesを派生させる
-  const [subjectsWithColors, setSubjectsWithColors] = useState<Subject[]>([...DEFAULT_SUBJECTS]);
-  const [subjects, setSubjects] = useState<string[]>(DEFAULT_SUBJECTS.map((s) => s.name));
+  // 空配列から開始し、DBの最新状態を正として扱う（デフォルト値での上書きを防止）
+  const [subjectsWithColors, setSubjectsWithColors] = useState<Subject[]>([]);
+  const [subjects, setSubjects] = useState<string[]>([]);
+  const [isLoadingSettings, setIsLoadingSettings] = useState<boolean>(true);
 
   const loadSettings = async () => {
     try {
+      setIsLoadingSettings(true);
       const settings = await settingsApi.getAll();
       const subjectsSetting = settings.find(s => s.key === 'subjects');
       if (subjectsSetting) {
@@ -43,7 +45,7 @@ export const useAppSettings = () => {
           }
         }
       } else {
-        // 設定が存在しない場合はデフォルト値を使用（UIの整合性を守る）
+        // 設定が存在しない場合はデフォルト値を使用（初回起動時のみ）
         setSubjectsWithColors([...DEFAULT_SUBJECTS]);
         setSubjects(DEFAULT_SUBJECTS.map((s) => s.name));
       }
@@ -52,6 +54,8 @@ export const useAppSettings = () => {
       // エラー時もUIを壊さないためデフォルト値にフォールバック
       setSubjectsWithColors([...DEFAULT_SUBJECTS]);
       setSubjects(DEFAULT_SUBJECTS.map((s) => s.name));
+    } finally {
+      setIsLoadingSettings(false);
     }
   };
 
@@ -61,6 +65,7 @@ export const useAppSettings = () => {
     setSubjects,
     setSubjectsWithColors,
     loadSettings,
+    isLoadingSettings,
   };
 };
 
