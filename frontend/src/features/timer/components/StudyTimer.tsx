@@ -104,19 +104,33 @@ function DurationRow({
           setIsHovering(false);
         }}
       >
-        {/* ホバー時の上下矢印アイコン */}
+        {/* ホバー時の上矢印アイコン */}
         <AnimatePresence>
           {isHovering && !disabled && (
             <motion.div
-              key="duration-row-arrows"
-              initial={{ opacity: 0, y: -4 }}
+              key="duration-row-arrow-up"
+              initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
+              exit={{ opacity: 0, y: -8 }}
               transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
-              className="absolute -top-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5 pointer-events-none"
+              className="absolute top-1 left-1/2 -translate-x-1/2 pointer-events-none"
             >
-              <ChevronUp size={14} className="text-slate-200/50" />
-              <ChevronDown size={14} className="text-slate-200/50" />
+              <ChevronUp size={16} className="text-white/80" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {/* ホバー時の下矢印アイコン */}
+        <AnimatePresence>
+          {isHovering && !disabled && (
+            <motion.div
+              key="duration-row-arrow-down"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 8 }}
+              transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
+              className="absolute bottom-1 left-1/2 -translate-x-1/2 pointer-events-none"
+            >
+              <ChevronDown size={16} className="text-white/80" />
             </motion.div>
           )}
         </AnimatePresence>
