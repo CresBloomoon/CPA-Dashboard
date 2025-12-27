@@ -348,7 +348,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
   };
 
   // タイマーサークルのクリックフィードバック
-  const circleClickFeedback = useClickFeedback(handleToggle, !circleIsInteractive || subjects.length === 0);
+  // 手動入力モードでは常にdisabled（クリック不可）
+  const circleClickFeedback = useClickFeedback(handleToggle, timerState.mode === 'manual' || !circleIsInteractive || subjects.length === 0);
 
   // 科目選択ボタンのクリックフィードバック
   const subjectSelectFeedback = useClickFeedback(
@@ -394,7 +395,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   useEffect(() => {
     const container = manualHoursRef.current;
-    if (!container || timerState.isRunning || subjects.length === 0 || timerState.mode !== 'manual') return;
+    if (!container || timerState.isRunning || timerState.mode !== 'manual') return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -434,7 +435,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
 
   useEffect(() => {
     const container = manualMinutesRef.current;
-    if (!container || timerState.isRunning || subjects.length === 0 || timerState.mode !== 'manual') return;
+    if (!container || timerState.isRunning || timerState.mode !== 'manual') return;
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -808,7 +809,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
             onPointerUp={circleClickFeedback.handlePointerUp}
             onPointerLeave={circleClickFeedback.handlePointerLeave}
             className={`relative w-80 h-80 rounded-full bg-slate-900/35 ring-1 ring-sky-200/22 shadow-[0_6px_12px_rgba(0,0,0,0.38),0_18px_70px_rgba(0,0,0,0.42),0_0_0_1px_rgba(186,230,253,0.22)] focus:outline-none focus:ring-2 focus:ring-sky-200/25 backdrop-blur-md ${
-              circleIsInteractive && subjects.length > 0 ? 'cursor-pointer hover:shadow-[0_8px_14px_rgba(0,0,0,0.40),0_22px_82px_rgba(0,0,0,0.45),0_0_0_1px_rgba(186,230,253,0.26)] hover:bg-slate-900/40' : 'cursor-not-allowed opacity-50'
+              timerState.mode === 'manual' 
+                ? 'cursor-default' // 手動入力モードではカーソルを通常に（クリック不可でも視覚的に無効化しない）
+                : (circleIsInteractive && subjects.length > 0 ? 'cursor-pointer hover:shadow-[0_8px_14px_rgba(0,0,0,0.40),0_22px_82px_rgba(0,0,0,0.45),0_0_0_1px_rgba(186,230,253,0.26)] hover:bg-slate-900/40' : 'cursor-not-allowed opacity-50')
             } ${circleClickFeedback.activeClass}`}
           >
             {/* フラットな質感（球体ハイライトは入れない） */}
