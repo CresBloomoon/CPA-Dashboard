@@ -154,13 +154,15 @@ function DurationRow({
           )}
         </AnimatePresence>
 
-        {/* Layer 2: 数値と単位 (中央配置) */}
+        {/* Layer 2: 数値と単位 (右端・左端整列) */}
         <div className="flex flex-col items-center justify-center h-full">
-          <div className="flex items-center justify-center gap-2">
-            <span className="text-3xl font-semibold text-white tabular-nums h-8 flex items-center justify-center">
+          <div className="flex items-baseline justify-center">
+            {/* 数字エリア (右寄せ、固定幅) */}
+            <span className="text-3xl font-semibold text-white tabular-nums flex justify-end items-baseline min-w-[3ch]">
               {String(value).padStart(2, '0')}
             </span>
-            <span className="text-xs text-slate-400 font-medium leading-none translate-y-[1px]">{unit}</span>
+            {/* 単位エリア (左寄せ、固定ギャップ) */}
+            <span className="text-xs text-slate-400 font-medium leading-none ml-2 flex justify-start items-baseline">{unit}</span>
           </div>
         </div>
 
@@ -1202,7 +1204,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         </AnimatePresence>
                       )}
                       <div 
-                        className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
+                        className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} min-w-[3ch] flex justify-end`}
                         style={{
                           color: '#FFFFFF', // pure white (#FFFFFF)
                         }}
@@ -1289,7 +1291,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         </AnimatePresence>
                       )}
                       <div 
-                        className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
+                        className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} min-w-[3ch] flex justify-end`}
                         style={{
                           color: '#FFFFFF', // pure white (#FFFFFF)
                         }}
