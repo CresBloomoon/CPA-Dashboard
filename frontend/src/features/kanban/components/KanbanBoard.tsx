@@ -92,7 +92,7 @@ function DraggableTodoCard({
     if (diffDays < 0) {
       // 期限超（前日以前）- 赤文字
       dueDateText = dateText;
-      dueDateStyle = { color: colors.textError };
+      dueDateStyle = { color: colors.textError || colors.error };
     } else if (diffDays === 0) {
       // 当日 - 青文字
       dueDateText = dateText;
@@ -167,7 +167,7 @@ function DraggableTodoCard({
             className="absolute right-2 top-1/2 -translate-y-1/2 p-1 transition-colors flex-shrink-0"
             style={{ color: colors.textTertiary }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.color = colors.textError;
+              e.currentTarget.style.color = colors.textError || colors.error;
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.color = colors.textTertiary;
@@ -377,10 +377,10 @@ function DroppableProjectColumn({
                     }}
                     className="w-full px-4 py-2 text-left text-sm flex items-center gap-2"
                     style={{
-                      color: colors.error,
+                      color: colors.textError || colors.error,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
+                      e.currentTarget.style.backgroundColor = `${colors.textError || colors.error}1A`; // 10% opacity
                     }}
                     onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = 'transparent';
