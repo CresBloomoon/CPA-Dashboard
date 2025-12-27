@@ -46,13 +46,15 @@ function DraggableTodoCard({
   getSubjectColor,
   onUpdate,
   onDelete,
-  subjectsWithColors = []
+  subjectsWithColors = [],
+  colors,
 }: { 
   todo: Todo; 
   getSubjectColor: (subject: string | null) => string;
   onUpdate: () => void;
   onDelete: (todo: Todo) => void;
   subjectsWithColors?: Subject[];
+  colors: ReturnType<typeof getThemeColors>;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
