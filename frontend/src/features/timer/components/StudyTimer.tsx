@@ -1053,7 +1053,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                     className="relative z-10 pointer-events-auto"
                   >
                     {/* 時刻表示（時:分）をflexで統合 */}
-                    <div className="flex items-baseline gap-1">
+                    <div className="flex items-baseline gap-0.5">
                       {/* 時間部分 */}
                       <motion.div
                         ref={manualHoursRef}
@@ -1063,7 +1063,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         aria-valuemin={0}
                         aria-valuemax={23}
                         aria-label={`時間: ${timerState.manualHours}時`}
-                        className={`relative rounded-xl transition-all duration-300 px-3 py-2 cursor-ns-resize ${
+                        className={`relative rounded-xl transition-all duration-300 px-1 py-2 w-12 cursor-ns-resize ${
                           isHoveringManualHours || isFocusedManualHours
                             ? 'ring-2 ring-sky-400/50 bg-slate-900/60 shadow-[0_0_20px_rgba(14,165,233,0.15)]'
                             : 'ring-1 ring-transparent bg-transparent'
@@ -1123,7 +1123,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         </AnimatePresence>
                         
                         <div 
-                          className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} min-w-[3ch] flex justify-end items-baseline`}
+                          className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} w-full flex justify-center items-baseline`}
                           style={{
                             color: '#FFFFFF',
                             filter: 'none',
@@ -1168,7 +1168,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         aria-valuemin={0}
                         aria-valuemax={59}
                         aria-label={`分: ${timerState.manualMinutes}分`}
-                        className={`relative rounded-xl transition-all duration-300 px-3 py-2 cursor-ns-resize ${
+                        className={`relative rounded-xl transition-all duration-300 px-1 py-2 w-12 cursor-ns-resize ${
                           isHoveringManualMinutes || isFocusedManualMinutes
                             ? 'ring-2 ring-sky-400/50 bg-slate-900/60 shadow-[0_0_20px_rgba(14,165,233,0.15)]'
                             : 'ring-1 ring-transparent bg-transparent'
@@ -1228,7 +1228,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         </AnimatePresence>
                         
                         <div 
-                          className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} min-w-[3ch] flex justify-end items-baseline`}
+                          className={`${UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS} w-full flex justify-center items-baseline`}
                           style={{
                             color: '#FFFFFF',
                             filter: 'none',
