@@ -104,10 +104,9 @@ export function ReportStep2({ theme, colors, reportData, updateData, onTabToNext
                 type="button"
                 aria-label="行を削除"
                 onClick={() => removeRow(idx)}
-                className="p-2 rounded-lg transition-colors"
-                style={{ backgroundColor: colors.buttonDisabled, color: colors.textInverse }}
+                className="p-1 transition-opacity hover:opacity-80"
               >
-                <Trash2 size={18} />
+                <Trash2 size={18} className="text-red-400" />
               </button>
             </div>
           </div>
@@ -118,10 +117,11 @@ export function ReportStep2({ theme, colors, reportData, updateData, onTabToNext
         <button
           type="button"
           onClick={addRow}
-          className="px-4 py-2 rounded-lg font-semibold transition-colors"
+          aria-label="答練を追加"
+          className="p-2 rounded-lg font-semibold transition-colors"
           style={{ backgroundColor: colors.accent, color: colors.textInverse }}
         >
-          ＋答練を追加
+          ＋
         </button>
       </div>
     </div>

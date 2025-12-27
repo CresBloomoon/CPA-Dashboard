@@ -11,7 +11,7 @@ import { ReportStep2 } from './steps/ReportStep2';
 import { ReportStep3 } from './steps/ReportStep3';
 import { ReportStep4 } from './steps/ReportStep4';
 import type { SubjectHoursRow } from './steps/ReportStep1';
-import type { TodoSubjectSummary } from './steps/ReportStep1';
+import type { TodoItemsBySubject } from './steps/ReportStep1';
 
 export default function ReportWizard({
   reportStartDay: _reportStartDay,
@@ -124,26 +124,9 @@ export default function ReportWizard({
     return [ `${indent}・${lines[0]}`, ...lines.slice(1).map((l) => `${indent}　${l}`) ].join('\n');
   };
 
-  const normalizeTodoTitle = (raw: string): string => {
-    let s = (raw || '').trim();
-    // よくある枝番パターンを除去
-    s = s.replace(/[_\s]*第\s*\d+\s*回/g, '');
-    s = s.replace(/[_\s]*復習\s*\d+\s*回目?/g, '');
-    s = s.replace(/[_\s]*\(\s*\d+\s*\)/g, '');
-    s = s.replace(/[_\s]*（\s*\d+\s*）/g, '');
-    s = s.replace(/[_\s]*\[\s*\d+\s*\]/g, '');
-    // 区切りの揺れを均す
-    s = s.replace(/_/g, ' ');
-    s = s.replace(/\s{2,}/g, ' ');
-    s = s.replace(/^\s+|\s+$/g, '');
-    return s || '（無題）';
-  };
-
-  const todoSummaryBySubject = useMemo<TodoSubjectSummary[]>(() => {
-    // subjectsWithColors にある科目は0件でも表示する
+  const completedTodosBySubject = useMemo<TodoItemsBySubject>(() => {
     const orderedSubjects = subjectsWithColors.map((s) => s.name);
-    const subjectMaps = new Map<string, Map<string, number>>();
-
+    const map = new Map<string, string[]>();
     const getCompletedDateKey = (t: Todo): string => format(parseISO(t.updated_at || t.created_at), 'yyyy-MM-dd');
 
     for (const t of todos) {
@@ -151,62 +134,33 @@ export default function ReportWizard({
       const key = getCompletedDateKey(t);
       if (key < periodStartKey || key > periodEndKey) continue;
       const subject = t.subject?.trim() || '未分類';
-      const base = normalizeTodoTitle(t.title);
-      if (!subjectMaps.has(subject)) subjectMaps.set(subject, new Map());
-      const m = subjectMaps.get(subject)!;
-      m.set(base, (m.get(base) ?? 0) + 1);
+      if (!map.has(subject)) map.set(subject, []);
+      map.get(subject)!.push(t.title);
     }
 
-    const allSubjects = new Set<string>(orderedSubjects);
-    for (const subj of subjectMaps.keys()) allSubjects.add(subj);
-
-    const result: TodoSubjectSummary[] = [];
-    const sortedSubjects = [
-      ...orderedSubjects,
-      ...Array.from(allSubjects)
-        .filter((s) => !orderedSubjects.includes(s))
-        .sort((a, b) => a.localeCompare(b, 'ja')),
-    ];
-
-    for (const subject of sortedSubjects) {
-      const m = subjectMaps.get(subject) ?? new Map<string, number>();
-      const groups = Array.from(m.entries())
-        .map(([title, count]) => ({ title, count, isKam: false }))
-        .sort((a, b) => (b.count - a.count) || a.title.localeCompare(b.title, 'ja'));
-
-      const kam = groups.slice(0, 3).map((g) => ({ ...g, isKam: true }));
-      const otherGroups = groups.slice(3);
-      const otherCount = otherGroups.reduce((acc, g) => acc + g.count, 0);
-      const totalCount = groups.reduce((acc, g) => acc + g.count, 0);
-
-      result.push({
-        subject,
-        totalCount,
-        kam,
-        otherCount,
-        allGroups: groups,
+    const result: TodoItemsBySubject = [];
+    for (const s of orderedSubjects) {
+      const list = map.get(s);
+      if (list && list.length > 0) result.push([s, list]);
+      map.delete(s);
+    }
+    Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+      .forEach(([subject, list]) => {
+        if (list.length > 0) result.push([subject, list]);
       });
-    }
     return result;
   }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
 
-  const todoKamOutputText = useMemo(() => {
-    const nonEmpty = todoSummaryBySubject.filter((s) => s.totalCount > 0);
-    if (nonEmpty.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
-
-    const lines: string[] = [];
-    for (const s of nonEmpty) {
-      lines.push(`${IND1}（${s.subject}）`);
-      for (const g of s.kam) {
-        lines.push(`${IND2}・${g.title} (計${g.count}件)`);
-      }
-      if (s.otherCount > 0) {
-        lines.push(`${IND2}・その他 ${s.otherCount}件のリマインダを完了`);
-      }
-      lines.push(''); // 科目間で1行空ける
-    }
-    return lines.join('\n').trimEnd();
-  }, [todoSummaryBySubject]);
+  const todoPerformedOutputText = useMemo(() => {
+    if (completedTodosBySubject.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
+    return completedTodosBySubject
+      .map(([subject, items]) => {
+        const lines = items.map((t) => `${IND2}・${t}`).join('\n');
+        return `${IND1}（${subject}）\n${lines}`;
+      })
+      .join('\n\n');
+  }, [completedTodosBySubject]);
 
   // 表示幅（monospace想定）: 全角=2, 半角=1 でざっくり計算（半角カナは1）
   const getDisplayWidth = (s: string): number => {
@@ -260,7 +214,7 @@ export default function ReportWizard({
   const outputText = useMemo(() => {
     return [
       '■先週実施したこと',
-      todoKamOutputText,
+      todoPerformedOutputText,
       '',
       '■先週解いた答練の点数',
       scoresText,
@@ -283,7 +237,7 @@ export default function ReportWizard({
       '■相談したいこと',
       bulletize(reportData.questions, IND1),
     ].join('\n');
-  }, [todoKamOutputText, scoresText, lastWeekTotalHours, reportData]);
+  }, [todoPerformedOutputText, scoresText, lastWeekTotalHours, reportData]);
 
   const steps = useMemo(() => {
     return [
@@ -297,7 +251,7 @@ export default function ReportWizard({
             updateData={updateData}
             lastWeekTotalHours={lastWeekTotalHours}
             subjectHours={subjectHours}
-            todoSummaryBySubject={todoSummaryBySubject}
+            todoItemsBySubject={completedTodosBySubject}
             periodStartKey={periodStartKey}
             periodEndKey={periodEndKey}
             matchedCount={lastWeekHoursDebug.matched}
@@ -329,7 +283,7 @@ export default function ReportWizard({
     updateData,
     lastWeekTotalHours,
     subjectHours,
-    todoSummaryBySubject,
+    completedTodosBySubject,
     periodStartKey,
     periodEndKey,
     lastWeekHoursDebug.matched,
