@@ -26,6 +26,8 @@ import AnimatedCheckbox from './AnimatedCheckbox';
 import AnimatedProjectCheckbox from './AnimatedProjectCheckbox';
 import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
 import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getThemeColors } from '../../../styles/theme';
 
 registerLocale('ja', ja);
 
@@ -105,12 +107,13 @@ function DraggableTodoCard({
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className={`p-3 bg-white rounded-lg shadow-sm border-l-4 cursor-move hover:shadow-md transition-all duration-200 relative ${
+      className={`p-3 rounded-lg shadow-sm border-l-4 cursor-move hover:shadow-md transition-all duration-200 relative ${
         isCompleted ? 'opacity-60' : ''
       } ${isDragging ? 'opacity-0 pointer-events-none scale-95' : 'hover:scale-[1.02]'}`}
       style={{
         ...style,
         borderLeftColor: todoColor,
+        backgroundColor: colors.card,
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -125,7 +128,10 @@ function DraggableTodoCard({
           />
         </div>
         <div className={`flex-1 min-w-0 ${isHovered ? 'pr-10' : ''}`}>
-          <div className={`text-sm font-medium text-gray-800 truncate ${isCompleted ? 'line-through' : ''}`}>
+          <div 
+            className={`text-sm font-medium truncate ${isCompleted ? 'line-through' : ''}`}
+            style={{ color: colors.textPrimary }}
+          >
             {getDisplayTitle()}
           </div>
           {(todo.subject || todo.due_date) && (
@@ -142,7 +148,7 @@ function DraggableTodoCard({
                 </span>
               )}
               {todo.due_date && (
-                <span className={`text-xs ${dueDateClassName}`}>
+                <span className="text-xs" style={dueDateStyle}>
                   {dueDateText}
                 </span>
               )}
@@ -156,7 +162,14 @@ function DraggableTodoCard({
               e.stopPropagation();
               onDelete(todo);
             }}
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 transition-colors flex-shrink-0"
+            style={{ color: colors.textTertiary }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = colors.error;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = colors.textTertiary;
+            }}
             title="削除"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -185,6 +198,7 @@ function DroppableProjectColumn({
   onToggleProject,
   subjectsWithColors = [],
   activeId,
+  colors,
 }: { 
   project: Project | { id: 'unassigned'; name: string; due_date: null; description: null }; 
   todos: Todo[]; 
@@ -200,6 +214,7 @@ function DroppableProjectColumn({
   onToggleProject: (project: Project) => void;
   subjectsWithColors?: Subject[];
   activeId: number | null;
+  colors: ReturnType<typeof getThemeColors>;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: project.id,
@@ -241,12 +256,16 @@ function DroppableProjectColumn({
     }
   }, [isDragOver, activeId]);
 
+  const isProjectCompleted = project.id !== 'unassigned' && 'completed' in project && (project as Project).completed;
+  
   return (
     <div
       ref={setNodeRef}
-      className={`project-column flex-shrink-0 w-80 bg-gray-50 rounded-lg p-4 ${
-        (isDragOver || isOver) ? 'bg-blue-50 border-2 border-blue-400' : ''
-      }`}
+      className="project-column flex-shrink-0 w-80 rounded-lg p-4"
+      style={{
+        backgroundColor: (isDragOver || isOver) ? colors.accentLight : colors.backgroundSecondary,
+        border: (isDragOver || isOver) ? `2px solid ${colors.accent}` : 'none',
+      }}
     >
       {/* プロジェクトヘッダー */}
       <div className="flex items-center gap-2 mb-4 relative">
@@ -257,12 +276,21 @@ function DroppableProjectColumn({
             onToggle={() => onToggleProject(project as Project)}
           />
         )}
-        <h3 className={`font-semibold flex-1 ${
-          project.id !== 'unassigned' && 'completed' in project && (project as Project).completed
-            ? 'text-gray-400 line-through'
-            : 'text-gray-800'
-        }`}>{project.name}</h3>
-        <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded">
+        <h3 
+          className={`font-semibold flex-1 ${isProjectCompleted ? 'line-through' : ''}`}
+          style={{
+            color: isProjectCompleted ? colors.textTertiary : colors.textPrimary,
+          }}
+        >
+          {project.name}
+        </h3>
+        <span 
+          className="text-sm px-2 py-1 rounded"
+          style={{
+            color: colors.textTertiary,
+            backgroundColor: colors.card,
+          }}
+        >
           {todos.length}
         </span>
         {/* リマインダ追加ボタン */}
@@ -271,7 +299,14 @@ function DroppableProjectColumn({
             e.stopPropagation();
             onAddTodoClick(project.id);
           }}
-          className="p-1 text-gray-300 hover:text-gray-500 transition-colors"
+          className="p-1 transition-colors"
+          style={{ color: colors.textTertiary }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.color = colors.textSecondary;
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.color = colors.textTertiary;
+          }}
           title="リマインダを追加"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -285,7 +320,14 @@ function DroppableProjectColumn({
                 e.stopPropagation();
                 setOpenMenuProjectId(openMenuProjectId === project.id ? null : project.id);
               }}
-              className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
+              className="p-1 transition-colors"
+              style={{ color: colors.textTertiary }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = colors.textSecondary;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = colors.textTertiary;
+              }}
               title="メニュー"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -298,13 +340,28 @@ function DroppableProjectColumn({
                   className="fixed inset-0 z-10"
                   onClick={() => setOpenMenuProjectId(null)}
                 />
-                <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-20">
+                <div 
+                  className="absolute right-0 mt-1 w-32 rounded-lg shadow-lg z-20"
+                  style={{
+                    backgroundColor: colors.card,
+                    border: `1px solid ${colors.border}`,
+                  }}
+                >
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
                       handleStartEdit(project);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm flex items-center gap-2"
+                    style={{
+                      color: colors.textSecondary,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = colors.cardHover;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -316,7 +373,16 @@ function DroppableProjectColumn({
                       e.stopPropagation();
                       handleDeleteProject(project.id);
                     }}
-                    className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                    className="w-full px-4 py-2 text-left text-sm flex items-center gap-2"
+                    style={{
+                      color: colors.error,
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -345,10 +411,14 @@ function DroppableProjectColumn({
             onUpdate={onUpdateTodos}
             onDelete={onDeleteTodo}
             subjectsWithColors={subjectsWithColors}
+            colors={colors}
           />
         ))}
         {todos.length === 0 && (
-          <div className="text-center py-8 text-gray-400 text-sm">
+          <div 
+            className="text-center py-8 text-sm"
+            style={{ color: colors.textTertiary }}
+          >
             リマインダがありません
           </div>
         )}
@@ -365,6 +435,8 @@ export default function KanbanBoard({
   onTodosUpdate,
   subjects 
 }: KanbanBoardProps) {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
   const [activeId, setActiveId] = useState<number | null>(null);
   const [overId, setOverId] = useState<number | 'unassigned' | null>(null);
@@ -814,16 +886,20 @@ export default function KanbanBoard({
             const todoColor = getSubjectColor(todo.subject || null);
             return (
               <div
-                className="p-3 bg-white rounded-lg border-l-4 transform scale-95 transition-transform"
+                className="p-3 rounded-lg border-l-4 transform scale-95 transition-transform"
                 style={{
                   borderLeftColor: todoColor,
                   width: '320px',
+                  backgroundColor: colors.card,
                   boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
                 }}
               >
                 <div className="flex items-start gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-gray-800 truncate">
+                    <div 
+                      className="text-sm font-medium truncate"
+                      style={{ color: colors.textPrimary }}
+                    >
                       {(() => {
                         const match = todo.title.match(/^【(.+?)】(.+)$/);
                         return match ? match[2] : todo.title;

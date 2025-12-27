@@ -21,6 +21,8 @@ import { settingsApi } from '../../../api/api';
 import type { Subject, ReviewTiming } from '../../../api/types';
 import { APP_LIMITS } from '../../../config/appConfig';
 import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../../../config/subjects';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getThemeColors } from '../../../styles/theme';
 
 interface SettingsViewProps {
   onSubjectsChange: (subjects: string[]) => void;
@@ -54,6 +56,7 @@ function SortableSubjectItem({
   onDelete,
   onCloseColorPicker,
   DEFAULT_COLORS,
+  colors,
 }: {
   subject: Subject;
   index: number;
@@ -73,6 +76,7 @@ function SortableSubjectItem({
   onDelete: (index: number) => void;
   onCloseColorPicker: () => void;
   DEFAULT_COLORS: string[];
+  colors: ReturnType<typeof getThemeColors>;
 }) {
   const {
     attributes,
@@ -92,15 +96,25 @@ function SortableSubjectItem({
   return (
     <div
       ref={setNodeRef}
-      style={style}
-      className={`flex items-center gap-2 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all duration-200 ${
+      style={{
+        ...style,
+        backgroundColor: colors.backgroundSecondary,
+      }}
+      className={`flex items-center gap-2 p-3 rounded-lg transition-all duration-200 ${
         editingIndex === null && colorPickerIndex === null ? 'cursor-move' : 'cursor-default'
       }`}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.backgroundColor = colors.cardHover;
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.backgroundColor = colors.backgroundSecondary;
+      }}
     >
       <div
         {...attributes}
         {...listeners}
-        className="flex-shrink-0 text-gray-400 cursor-grab active:cursor-grabbing"
+        className="flex-shrink-0 cursor-grab active:cursor-grabbing"
+        style={{ color: colors.textTertiary }}
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" />
@@ -119,14 +133,37 @@ function SortableSubjectItem({
                 onCancelEdit();
               }
             }}
-            className="flex-1 px-3 py-2 bg-white rounded border-2 border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 px-3 py-2 rounded border-2 focus:outline-none focus:ring-2"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: colors.accent,
+              color: colors.textPrimary,
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = colors.accent;
+              e.currentTarget.style.boxShadow = `0 0 0 2px ${colors.accentLight}`;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.boxShadow = 'none';
+            }}
             autoFocus
             disabled={isSaving}
           />
           <button
             onClick={() => onSaveEdit(index)}
             disabled={isSaving}
-            className="p-2 text-green-600 hover:bg-green-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              color: colors.success,
+            }}
+            onMouseEnter={(e) => {
+              if (!isSaving) {
+                e.currentTarget.style.backgroundColor = `${colors.success}1A`; // 10% opacity
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
             title="保存"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -136,7 +173,18 @@ function SortableSubjectItem({
           <button
             onClick={onCancelEdit}
             disabled={isSaving}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              color: colors.textSecondary,
+            }}
+            onMouseEnter={(e) => {
+              if (!isSaving) {
+                e.currentTarget.style.backgroundColor = colors.cardHover;
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
             title="キャンセル"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -150,8 +198,17 @@ function SortableSubjectItem({
             <button
               ref={(el) => { colorButtonRefs.current[index] = el; }}
               onClick={(e) => onColorButtonClick(e, index)}
-              className="w-8 h-8 rounded-full border-2 border-gray-300 hover:border-gray-400 transition-colors"
-              style={{ backgroundColor: subject.color }}
+              className="w-8 h-8 rounded-full border-2 transition-colors"
+              style={{
+                backgroundColor: subject.color,
+                borderColor: colors.borderSecondary,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = colors.borderFocus;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = colors.borderSecondary;
+              }}
               title="色を変更"
             />
           </div>
@@ -162,10 +219,12 @@ function SortableSubjectItem({
                 onClick={onCloseColorPicker}
               />
               <div
-                className="fixed z-50 bg-white border border-gray-300 rounded-lg shadow-xl p-3"
+                className="fixed z-50 rounded-lg shadow-xl p-3"
                 style={{
                   top: `${colorPickerPosition.top}px`,
                   left: `${colorPickerPosition.left}px`,
+                  backgroundColor: colors.card,
+                  border: `1px solid ${colors.border}`,
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -178,8 +237,21 @@ function SortableSubjectItem({
                         onColorChange(index, color);
                       }}
                       className={`w-8 h-8 rounded-full border-2 transition-all ${
-                        subject.color === color ? 'border-gray-800 scale-110' : 'border-gray-300 hover:border-gray-500'
+                        subject.color === color ? 'scale-110' : ''
                       }`}
+                      style={{
+                        borderColor: subject.color === color ? colors.textPrimary : colors.borderSecondary,
+                      }}
+                      onMouseEnter={(e) => {
+                        if (subject.color !== color) {
+                          e.currentTarget.style.borderColor = colors.textTertiary;
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (subject.color !== color) {
+                          e.currentTarget.style.borderColor = colors.borderSecondary;
+                        }
+                      }}
                       style={{ backgroundColor: color }}
                       title={color}
                     />
@@ -190,7 +262,18 @@ function SortableSubjectItem({
           )}
           <div
             ref={(el) => { subjectNameRefs.current[index] = el; }}
-            className="flex-1 px-3 py-2 bg-white rounded border border-gray-200 cursor-text hover:border-blue-300 transition-colors"
+            className="flex-1 px-3 py-2 rounded border cursor-text transition-colors"
+            style={{
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              color: colors.textPrimary,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = colors.accent;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = colors.border;
+            }}
             onClick={() => onEdit(index)}
             title="クリックして編集"
           >
@@ -199,7 +282,18 @@ function SortableSubjectItem({
           <button
             onClick={() => onEdit(index)}
             disabled={isSaving}
-            className="p-2 text-blue-600 hover:bg-blue-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              color: colors.accent,
+            }}
+            onMouseEnter={(e) => {
+              if (!isSaving) {
+                e.currentTarget.style.backgroundColor = colors.accentLight;
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
             title="編集"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,7 +303,18 @@ function SortableSubjectItem({
           <button
             onClick={() => onDelete(index)}
             disabled={isSaving}
-            className="p-2 text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              color: colors.error,
+            }}
+            onMouseEnter={(e) => {
+              if (!isSaving) {
+                e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
+              }
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
             title="削除"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -223,6 +328,8 @@ function SortableSubjectItem({
 }
 
 export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsChange, onDataUpdate, onSettingsUpdate }: SettingsViewProps) {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
   const [activeMenu, setActiveMenu] = useState<SettingsMenu>('subjects');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [newSubject, setNewSubject] = useState('');
@@ -653,10 +760,18 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-lg shadow-lg p-6">
+      <div 
+        className="rounded-lg shadow-lg p-6"
+        style={{
+          backgroundColor: colors.card,
+        }}
+      >
         <div className="text-center py-12">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          <p className="mt-4 text-gray-600">読み込み中...</p>
+          <div 
+            className="inline-block animate-spin rounded-full h-12 w-12 border-b-2"
+            style={{ borderColor: colors.accent }}
+          ></div>
+          <p className="mt-4" style={{ color: colors.textSecondary }}>読み込み中...</p>
         </div>
       </div>
     );
@@ -688,8 +803,18 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       {/* 右側コンテンツエリア - 独立したカード */}
       <div className="flex-1">
         {activeMenu === 'subjects' && (
-          <div className="bg-white rounded-lg shadow-lg p-6 h-full">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">科目リスト</h3>
+          <div 
+            className="rounded-lg shadow-lg p-6 h-full"
+            style={{
+              backgroundColor: colors.card,
+            }}
+          >
+            <h3 
+              className="text-lg font-semibold mb-4"
+              style={{ color: colors.textSecondary }}
+            >
+              科目リスト
+            </h3>
         
         {/* 新規追加フォーム */}
         <div className="flex gap-2 mb-4">
@@ -699,13 +824,42 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
             onChange={(e) => setNewSubject(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleAddSubject()}
             placeholder="新しい科目名を入力..."
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+            style={{
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              color: colors.textPrimary,
+            }}
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = colors.accent;
+              e.currentTarget.style.boxShadow = `0 0 0 2px ${colors.accentLight}`;
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = colors.border;
+              e.currentTarget.style.boxShadow = 'none';
+            }}
             disabled={isSaving}
           />
           <button
             onClick={handleAddSubject}
             disabled={isSaving || !newSubject.trim() || subjects.some(s => s.name === newSubject.trim())}
-            className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-semibold disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="px-6 py-2 rounded-lg transition-colors font-semibold disabled:cursor-not-allowed"
+            style={{
+              backgroundColor: isSaving || !newSubject.trim() || subjects.some(s => s.name === newSubject.trim()) 
+                ? colors.buttonDisabled 
+                : colors.accent,
+              color: colors.textInverse,
+            }}
+            onMouseEnter={(e) => {
+              if (!isSaving && newSubject.trim() && !subjects.some(s => s.name === newSubject.trim())) {
+                e.currentTarget.style.backgroundColor = colors.accentHover;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isSaving && newSubject.trim() && !subjects.some(s => s.name === newSubject.trim())) {
+                e.currentTarget.style.backgroundColor = colors.accent;
+              }
+            }}
           >
             追加
           </button>
@@ -723,7 +877,12 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
           >
             <div className="space-y-2">
               {subjects.length === 0 ? (
-                <p className="text-gray-500 text-sm py-4">科目が登録されていません</p>
+                <p 
+                  className="text-sm py-4"
+                  style={{ color: colors.textTertiary }}
+                >
+                  科目が登録されていません
+                </p>
               ) : (
                 subjects.map((subject, index) => (
                   <SortableSubjectItem
@@ -749,6 +908,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                       setColorPickerPosition(null);
                     }}
                     DEFAULT_COLORS={DEFAULT_COLORS}
+                    colors={colors}
                   />
                 ))
               )}
@@ -757,15 +917,35 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
         </DndContext>
 
             {isSaving && (
-              <p className="text-sm text-gray-500 mt-2">保存中...</p>
+              <p 
+                className="text-sm mt-2"
+                style={{ color: colors.textTertiary }}
+              >
+                保存中...
+              </p>
             )}
           </div>
         )}
 
         {activeMenu === 'review-timing' && (
-          <div className="bg-white rounded-lg shadow-lg p-6 h-full">
-            <h3 className="text-lg font-semibold text-gray-700 mb-4">復習セットリスト設定</h3>
-            <p className="text-sm text-gray-600 mb-6">科目ごとに復習日数を個別に設定できます</p>
+          <div 
+            className="rounded-lg shadow-lg p-6 h-full"
+            style={{
+              backgroundColor: colors.card,
+            }}
+          >
+            <h3 
+              className="text-lg font-semibold mb-4"
+              style={{ color: colors.textSecondary }}
+            >
+              復習セットリスト設定
+            </h3>
+            <p 
+              className="text-sm mb-6"
+              style={{ color: colors.textSecondary }}
+            >
+              科目ごとに復習日数を個別に設定できます
+            </p>
             
             <div className="space-y-4">
               {subjects.map((subject) => {
@@ -780,7 +960,11 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                 return (
                   <div
                     key={subject.id}
-                    className="p-4 bg-gray-50 rounded-lg border border-gray-200"
+                    className="p-4 rounded-lg border"
+                    style={{
+                      backgroundColor: colors.backgroundSecondary,
+                      borderColor: colors.border,
+                    }}
                   >
                     <button
                       onClick={() => {
@@ -794,10 +978,17 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                           return newSet;
                         });
                       }}
-                      className="w-full flex items-center gap-3 mb-4 hover:bg-gray-100 rounded-lg p-2 -m-2 transition-colors"
+                      className="w-full flex items-center gap-3 mb-4 rounded-lg p-2 -m-2 transition-colors"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = colors.cardHover;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'transparent';
+                      }}
                     >
                       <span
                         className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                        style={{ color: colors.textSecondary }}
                       >
                         ▶
                       </span>
@@ -805,14 +996,22 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                         className="w-4 h-4 rounded-full flex-shrink-0"
                         style={{ backgroundColor: subject.color }}
                       />
-                      <h4 className="font-semibold text-gray-700 text-left">{subject.name}</h4>
+                      <h4 
+                        className="font-semibold text-left"
+                        style={{ color: colors.textSecondary }}
+                      >
+                        {subject.name}
+                      </h4>
                     </button>
                     
                     {isExpanded && (
                       <div className="space-y-2">
                         {timing.review_days.map((day, index) => (
                           <div key={index} className="flex items-center gap-2">
-                            <label className="text-sm font-medium text-gray-700 w-20">
+                            <label 
+                              className="text-sm font-medium w-20"
+                              style={{ color: colors.textSecondary }}
+                            >
                               {index + 1}回目
                             </label>
                             <input
@@ -821,16 +1020,45 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                               max="365"
                               value={day}
                               onChange={(e) => handleReviewDayChange(subject.id, index, parseInt(e.target.value) || 1)}
-                              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                              style={{
+                                borderColor: colors.border,
+                                backgroundColor: colors.card,
+                                color: colors.textPrimary,
+                              }}
+                              onFocus={(e) => {
+                                e.currentTarget.style.borderColor = colors.accent;
+                                e.currentTarget.style.boxShadow = `0 0 0 2px ${colors.accentLight}`;
+                              }}
+                              onBlur={(e) => {
+                                e.currentTarget.style.borderColor = colors.border;
+                                e.currentTarget.style.boxShadow = 'none';
+                              }}
                               disabled={isSaving}
                               placeholder="日数"
                             />
-                            <span className="text-sm text-gray-600 w-12">日後</span>
+                            <span 
+                              className="text-sm w-12"
+                              style={{ color: colors.textSecondary }}
+                            >
+                              日後
+                            </span>
                             {index > 0 && (
                               <button
                                 onClick={() => handleRemoveReviewDay(subject.id, index)}
                                 disabled={isSaving}
-                                className="p-2 text-red-600 hover:bg-red-100 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                style={{
+                                  color: colors.error,
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!isSaving) {
+                                    e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                }}
                                 title="削除"
                               >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -844,7 +1072,18 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                         <button
                           onClick={() => handleAddReviewDay(subject.id)}
                           disabled={isSaving}
-                          className="mt-2 px-4 py-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          className="mt-2 px-4 py-2 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                          style={{
+                            color: colors.accent,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSaving) {
+                              e.currentTarget.style.backgroundColor = colors.accentLight;
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
                         >
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
