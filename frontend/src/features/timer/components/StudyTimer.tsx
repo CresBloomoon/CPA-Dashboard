@@ -110,7 +110,7 @@ function DurationRow({
       >
         {/* Layer 1: 上矢印 (完全に中央固定) */}
         <AnimatePresence>
-          {isHovering && !disabled && (
+          {isHovering && !disabled && value < max && (
             <motion.div
               key="arrow-up"
               initial={{ opacity: 0, y: 5 }}
@@ -135,7 +135,7 @@ function DurationRow({
 
         {/* Layer 3: 下矢印 (完全に中央固定) */}
         <AnimatePresence>
-          {isHovering && !disabled && (
+          {isHovering && !disabled && value > min && (
             <motion.div
               key="arrow-down"
               initial={{ opacity: 0, y: -5 }}
@@ -1125,8 +1125,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                         )}
                       </AnimatePresence>
                       {/* 上下矢印アイコン */}
-                      <AnimatePresence>
-                        {isHoveringManualHours && (
+                      {(isHoveringManualHours && (timerState.manualHours < 23 || timerState.manualHours > 0)) && (
+                        <AnimatePresence>
                           <motion.div
                             key="manual-hours-arrows"
                             initial={{ opacity: 0, y: -4 }}
@@ -1135,11 +1135,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
                             transition={{ duration: ANIMATION_THEME.DURATIONS_S.HOVER_FEEDBACK, ease: 'easeOut' }}
                             className="absolute -top-6 left-0 right-0 flex flex-col items-center justify-center gap-0.5"
                           >
-                            <ChevronUp size={14} className="text-slate-200/70" />
-                            <ChevronDown size={14} className="text-slate-200/70" />
+                            {timerState.manualHours < 23 && (
+                              <ChevronUp size={14} className="text-slate-200/70" />
+                            )}
+                            {timerState.manualHours > 0 && (
+                              <ChevronDown size={14} className="text-slate-200/70" />
+                            )}
                           </motion.div>
-                        )}
-                      </AnimatePresence>
+                        </AnimatePresence>
+                      )}
                       <div 
                         className={UI_VISUALS.TIMER_DISPLAY.DIGITS.CLASS}
                         style={{
