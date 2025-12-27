@@ -17,26 +17,9 @@ Base.metadata.create_all(bind=engine)
 # 初期データの投入（設定が存在しない場合のみ）
 def init_default_settings():
     """デフォルトの設定を投入"""
-    db = next(get_db())
-    try:
-        import json
-        # 科目リストの設定をチェック
-        subjects_setting = crud.get_setting(db, 'subjects')
-        if not subjects_setting:
-            # デフォルトの科目リスト（フロントエンドのSettingsView.tsxと一致させる）
-            default_subjects = [
-                {"id": 1, "name": "財務会計", "color": "#4285F4"},
-                {"id": 2, "name": "管理会計", "color": "#EA4335"},
-                {"id": 3, "name": "監査論", "color": "#FBBC04"},
-                {"id": 4, "name": "企業法", "color": "#34A853"},
-                {"id": 5, "name": "租税法", "color": "#FF6D01"},
-            ]
-            crud.create_or_update_setting(db, 'subjects', json.dumps(default_subjects, ensure_ascii=False))
-            logger.info("デフォルトの科目リストを投入しました")
-    except Exception as e:
-        logger.error(f"初期データの投入に失敗しました: {e}")
-    finally:
-        db.close()
+    # 科目リストは初期状態では空のままとする（ユーザーが設定画面で追加する）
+    # デフォルト科目の自動投入は削除しました
+    pass
 
 # アプリケーション起動時に初期データを投入
 init_default_settings()
