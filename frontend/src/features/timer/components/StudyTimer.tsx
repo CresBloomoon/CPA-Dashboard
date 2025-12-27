@@ -124,12 +124,12 @@ function DurationRow({
         </AnimatePresence>
 
         {/* Layer 2: 数値と単位 (中央配置) */}
-        <div className="flex flex-col items-center justify-center h-full pt-1">
-          <div className="flex items-baseline justify-center gap-2">
-            <span className="text-3xl font-semibold text-white tabular-nums">
+        <div className="flex flex-col items-center justify-center h-full">
+          <div className="flex items-center justify-center gap-2">
+            <span className="text-3xl font-semibold text-white tabular-nums h-8 flex items-center justify-center">
               {String(value).padStart(2, '0')}
             </span>
-            <span className="text-xs text-slate-400 font-medium">{unit}</span>
+            <span className="text-xs text-slate-400 font-medium leading-none translate-y-[1px]">{unit}</span>
           </div>
         </div>
 
