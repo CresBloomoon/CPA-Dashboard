@@ -45,6 +45,8 @@ export default function ReportWizard({
   const [isCopying, setIsCopying] = useState(false);
   const [isCopySuccess, setIsCopySuccess] = useState(false);
   const [isCopyGlow, setIsCopyGlow] = useState(false);
+  const [finalDraftText, setFinalDraftText] = useState<string>('');
+  const [isFinalDraftDirty, setIsFinalDraftDirty] = useState(false);
 
   const copySuccessTimeoutRef = useRef<number | null>(null);
   const copyGlowTimeoutRef = useRef<number | null>(null);
@@ -189,18 +191,17 @@ export default function ReportWizard({
   }, [todos, subjectsWithColors, periodStartKey, periodEndKey]);
 
   const todoKamOutputText = useMemo(() => {
+    const nonEmpty = todoSummaryBySubject.filter((s) => s.totalCount > 0);
+    if (nonEmpty.length === 0) return `${IND1}（該当期間に完了したリマインダはありません）`;
+
     const lines: string[] = [];
-    for (const s of todoSummaryBySubject) {
+    for (const s of nonEmpty) {
       lines.push(`${IND1}（${s.subject}）`);
-      if (s.totalCount === 0) {
-        lines.push(`${IND2}・（該当期間に完了したリマインダはありません）`);
-      } else {
-        for (const g of s.kam) {
-          lines.push(`${IND2}・${g.title} (計${g.count}件)`);
-        }
-        if (s.otherCount > 0) {
-          lines.push(`${IND2}・その他 ${s.otherCount}件のリマインダを完了`);
-        }
+      for (const g of s.kam) {
+        lines.push(`${IND2}・${g.title} (計${g.count}件)`);
+      }
+      if (s.otherCount > 0) {
+        lines.push(`${IND2}・その他 ${s.otherCount}件のリマインダを完了`);
       }
       lines.push(''); // 科目間で1行空ける
     }
@@ -341,6 +342,13 @@ export default function ReportWizard({
     if (isFinalStep) window.setTimeout(() => primaryFooterButtonRef.current?.focus(), 0);
   }, [isFinalStep]);
 
+  // Step4（最終確認）に入ったら、自動生成文をドラフトに流し込む（未編集のときだけ追従）
+  useEffect(() => {
+    if (!isFinalStep) return;
+    if (isFinalDraftDirty) return;
+    setFinalDraftText(outputText);
+  }, [isFinalStep, isFinalDraftDirty, outputText]);
+
   const progressPct = ((step + 1) / steps.length) * 100;
 
   const showToast = (message: string) => {
@@ -351,7 +359,8 @@ export default function ReportWizard({
   const handleCopyInternal = async (opts?: { closeAfter?: boolean }) => {
     try {
       setIsCopying(true);
-      await navigator.clipboard.writeText(outputText);
+      const textToCopy = isFinalStep ? finalDraftText : outputText;
+      await navigator.clipboard.writeText(textToCopy);
       onCopied(periodId);
 
       setIsCopySuccess(true);
@@ -525,7 +534,22 @@ export default function ReportWizard({
                         maxHeight: isFinalStep ? '74vh' : '68vh',
                       }}
                     >
-                      <pre className={`${isFinalStep ? 'text-sm' : 'text-xs'} font-mono whitespace-pre-wrap leading-relaxed`}>{outputText}</pre>
+                      {isFinalStep ? (
+                        <textarea
+                          value={finalDraftText}
+                          onChange={(e) => {
+                            setFinalDraftText(e.target.value);
+                            setIsFinalDraftDirty(true);
+                          }}
+                          className="w-full h-full min-h-[64vh] resize-none bg-transparent outline-none font-mono text-sm leading-relaxed rounded-lg border-2 px-3 py-2"
+                          style={{
+                            borderColor: theme === 'modern' ? 'rgba(56, 189, 248, 0.35)' : colors.accent,
+                            color: colors.textPrimary,
+                          }}
+                        />
+                      ) : (
+                        <pre className="text-xs font-mono whitespace-pre-wrap leading-relaxed">{outputText}</pre>
+                      )}
                     </div>
                   </div>
                 </div>
