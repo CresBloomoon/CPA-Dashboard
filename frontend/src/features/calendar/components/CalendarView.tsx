@@ -18,6 +18,8 @@ import { todoApi } from '../../../api/api';
 import type { Todo, Subject } from '../../../api/types';
 import AnimatedCheckbox from '../../kanban/components/AnimatedCheckbox';
 import { APP_LIMITS } from '../../../config/appConfig';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getThemeColors } from '../../../styles/theme';
 
 interface CalendarViewProps {
   todos: Todo[];
@@ -241,7 +243,10 @@ function DroppableDateCell({
         }
       }}
     >
-      <div className="text-sm font-medium mb-1">
+      <div 
+        className="text-sm font-medium mb-1"
+        style={{ color: isCurrentMonth ? colors.textPrimary : colors.textTertiary }}
+      >
         {format(date, 'd')}
       </div>
       <div className="space-y-1">
@@ -255,7 +260,10 @@ function DroppableDateCell({
           />
         ))}
         {incompleteTodos.length > APP_LIMITS.CALENDAR.MAX_INCOMPLETE_TODOS && (
-          <div className="text-xs text-gray-500">
+          <div 
+            className="text-xs"
+            style={{ color: colors.textTertiary }}
+          >
             +{incompleteTodos.length - APP_LIMITS.CALENDAR.MAX_INCOMPLETE_TODOS}件
           </div>
         )}
@@ -274,7 +282,10 @@ function DroppableDateCell({
               />
             ))}
             {completedTodos.length > (incompleteTodos.length === 0 ? 4 : 1) && (
-              <div className="text-xs text-gray-500">
+              <div 
+                className="text-xs"
+                style={{ color: colors.textTertiary }}
+              >
                 +{completedTodos.length - (incompleteTodos.length === 0 ? 4 : 1)}件
               </div>
             )}
