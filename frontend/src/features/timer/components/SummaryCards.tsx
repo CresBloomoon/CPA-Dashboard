@@ -13,6 +13,7 @@ import { startOfWeek, endOfWeek, eachDayOfInterval, format, parseISO } from 'dat
 import type { StudyProgress, Subject } from '../../../api/types';
 import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
 import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
+import CompactStreakCalendar from '../../calendar/components/CompactStreakCalendar';
 
 ChartJS.register(
   CategoryScale,

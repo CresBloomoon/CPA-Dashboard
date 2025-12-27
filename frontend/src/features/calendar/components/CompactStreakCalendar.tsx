@@ -1,0 +1,475 @@
+import { useMemo, useState, useEffect } from 'react';
+import type { MouseEvent } from 'react';
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  getDay, 
+  addMonths, 
+  subMonths, 
+  startOfWeek, 
+  endOfWeek, 
+  parseISO, 
+  isToday, 
+  isFuture,
+  isSameMonth
+} from 'date-fns';
+import { ja } from 'date-fns/locale';
+import { motion, AnimatePresence } from 'framer-motion';
+import type { StudyProgress } from '../../../api/types';
+import { useTheme } from '../../../contexts/ThemeContext';
+import { getThemeColors } from '../../../styles/theme';
+
+interface CompactStreakCalendarProps {
+  progressList: StudyProgress[];
+  compact?: boolean; // コンパクトモード（日付非表示、最小サイズ）
+}
+
+/**
+ * 日付の達成状態を判定する関数
+ */
+function getAchievedDates(progressList: StudyProgress[]): Set<string> {
+  const achievedSet = new Set<string>();
+  progressList.forEach(progress => {
+    const date = parseISO(progress.created_at);
+    const dateKey = format(date, 'yyyy-MM-dd');
+    if (progress.study_hours > 0) {
+      achievedSet.add(dateKey);
+    }
+  });
+  return achievedSet;
+}
+
+/**
+ * 連続ストリークのグループを計算する
+ */
+function calculateStreakGroups(achievedDates: Set<string>, allDays: Date[]): Array<{ start: Date; end: Date; days: Date[] }> {
+  const groups: Array<{ start: Date; end: Date; days: Date[] }> = [];
+  let currentGroup: Date[] | null = null;
+
+  allDays.forEach(day => {
+    const dateKey = format(day, 'yyyy-MM-dd');
+    const isAchieved = achievedDates.has(dateKey);
+
+    if (isAchieved) {
+      if (currentGroup === null) {
+        currentGroup = [day];
+      } else {
+        const prevDay = currentGroup[currentGroup.length - 1];
+        const dayDiff = (day.getTime() - prevDay.getTime()) / (1000 * 60 * 60 * 24);
+        if (dayDiff === 1) {
+          currentGroup.push(day);
+        } else {
+          groups.push({
+            start: currentGroup[0],
+            end: currentGroup[currentGroup.length - 1],
+            days: [...currentGroup],
+          });
+          currentGroup = [day];
+        }
+      }
+    } else {
+      if (currentGroup !== null && currentGroup.length > 0) {
+        groups.push({
+          start: currentGroup[0],
+          end: currentGroup[currentGroup.length - 1],
+          days: [...currentGroup],
+        });
+        currentGroup = null;
+      }
+    }
+  });
+
+  if (currentGroup !== null && currentGroup.length > 0) {
+    groups.push({
+      start: currentGroup[0],
+      end: currentGroup[currentGroup.length - 1],
+      days: [...currentGroup],
+    });
+  }
+
+  return groups;
+}
+
+/**
+ * 日付が連続ストリークの一部かどうかを判定
+ */
+function getStreakConnections(
+  date: Date,
+  dateKey: string,
+  achievedDates: Set<string>,
+  streakGroups: Array<{ start: Date; end: Date; days: Date[] }>
+): { left: boolean; right: boolean; top: boolean; bottom: boolean } {
+  const connections = { left: false, right: false, top: false, bottom: false };
+  
+  if (!achievedDates.has(dateKey)) return connections;
+  
+  const currentGroup = streakGroups.find(group => 
+    group.days.some(d => format(d, 'yyyy-MM-dd') === dateKey)
+  );
+  
+  if (!currentGroup) return connections;
+  
+  // 前日（左）
+  const prevDay = new Date(date);
+  prevDay.setDate(prevDay.getDate() - 1);
+  const prevKey = format(prevDay, 'yyyy-MM-dd');
+  if (achievedDates.has(prevKey) && currentGroup.days.some(d => format(d, 'yyyy-MM-dd') === prevKey)) {
+    connections.left = true;
+  }
+  
+  // 翌日（右）
+  const nextDay = new Date(date);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextKey = format(nextDay, 'yyyy-MM-dd');
+  if (achievedDates.has(nextKey) && currentGroup.days.some(d => format(d, 'yyyy-MM-dd') === nextKey)) {
+    connections.right = true;
+  }
+  
+  // 上（前週の同じ曜日）
+  const prevWeek = new Date(date);
+  prevWeek.setDate(prevWeek.getDate() - 7);
+  const prevWeekKey = format(prevWeek, 'yyyy-MM-dd');
+  if (achievedDates.has(prevWeekKey) && currentGroup.days.some(d => format(d, 'yyyy-MM-dd') === prevWeekKey)) {
+    connections.top = true;
+  }
+  
+  // 下（次週の同じ曜日）
+  const nextWeek = new Date(date);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+  const nextWeekKey = format(nextWeek, 'yyyy-MM-dd');
+  if (achievedDates.has(nextWeekKey) && currentGroup.days.some(d => format(d, 'yyyy-MM-dd') === nextWeekKey)) {
+    connections.bottom = true;
+  }
+  
+  return connections;
+}
+
+export default function CompactStreakCalendar({ progressList, compact = true }: CompactStreakCalendarProps) {
+  const { theme } = useTheme();
+  const colors = getThemeColors(theme);
+  const [tooltip, setTooltip] = useState<{ visible: boolean; text: string; x: number; y: number } | null>(null);
+  const [hoveredDate, setHoveredDate] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  const achievedDates = useMemo(() => getAchievedDates(progressList), [progressList]);
+
+  const monthStart = startOfMonth(currentDate);
+  const monthEnd = endOfMonth(currentDate);
+  const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+
+  const calendarDays = useMemo(() => 
+    eachDayOfInterval({ start: calendarStart, end: calendarEnd }), 
+    [calendarStart, calendarEnd]
+  );
+
+  const streakGroups = useMemo(() => 
+    calculateStreakGroups(achievedDates, calendarDays), 
+    [achievedDates, calendarDays]
+  );
+
+  const weeks = useMemo(() => {
+    const weekList: Date[][] = [];
+    for (let i = 0; i < calendarDays.length; i += 7) {
+      weekList.push(calendarDays.slice(i, i + 7));
+    }
+    return weekList;
+  }, [calendarDays]);
+
+  const getDateStatus = (date: Date): 'achieved' | 'today-unachieved' | 'future' | 'unachieved' => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    if (isFuture(date)) return 'future';
+    if (isToday(date)) {
+      return achievedDates.has(dateKey) ? 'achieved' : 'today-unachieved';
+    }
+    return achievedDates.has(dateKey) ? 'achieved' : 'unachieved';
+  };
+
+  const getTooltipText = (date: Date): string => {
+    const month = format(date, 'M', { locale: ja });
+    const day = format(date, 'd', { locale: ja });
+    const weekdayShort = format(date, 'EEE', { locale: ja });
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const isAchieved = achievedDates.has(dateKey);
+    
+    if (isAchieved) {
+      const hours = progressList
+        .filter(p => format(parseISO(p.created_at), 'yyyy-MM-dd') === dateKey)
+        .reduce((sum, p) => sum + p.study_hours, 0);
+      return `${month}月${day}日(${weekdayShort}) ${hours.toFixed(1)}時間`;
+    } else if (isToday(date)) {
+      return `${month}月${day}日(${weekdayShort}) まだ学習していません`;
+    } else if (isFuture(date)) {
+      return `${month}月${day}日(${weekdayShort}) 未来`;
+    } else {
+      return `${month}月${day}日(${weekdayShort}) 学習なし`;
+    }
+  };
+
+  const handleCellMouseEnter = (e: MouseEvent<HTMLDivElement>, day: Date) => {
+    const dateKey = format(day, 'yyyy-MM-dd');
+    setHoveredDate(dateKey);
+    const tooltipText = getTooltipText(day);
+    setTooltip({
+      visible: true,
+      text: tooltipText,
+      x: e.clientX,
+      y: e.clientY,
+    });
+  };
+
+  const handleCellMouseMove = (e: MouseEvent<HTMLDivElement>) => {
+    if (tooltip?.visible) {
+      setTooltip({
+        ...tooltip,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    }
+  };
+
+  const handleCellMouseLeave = () => {
+    setHoveredDate(null);
+    setTooltip(null);
+  };
+
+  const handlePrevMonth = () => {
+    setCurrentDate(subMonths(currentDate, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentDate(addMonths(currentDate, 1));
+  };
+
+  const handleToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  const weekDays = ['日', '月', '火', '水', '木', '金', '土'];
+
+  // コンパクトモード用のセルサイズ
+  const cellSize = compact ? 'w-3 h-3' : 'w-8 h-8';
+  const textSize = compact ? 'text-[6px]' : 'text-sm';
+
+  return (
+    <div 
+      className="rounded-lg shadow-lg p-4 w-full"
+      style={{
+        backgroundColor: theme === 'modern' ? 'rgba(30, 41, 59, 0.5)' : colors.card,
+        backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+        border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+      }}
+    >
+      {/* ヘッダー（コンパクト） */}
+      <div className="flex items-center justify-between mb-3">
+        <h3 
+          className="text-sm font-semibold"
+          style={{ color: colors.textPrimary }}
+        >
+          学習ストリーク
+        </h3>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handlePrevMonth}
+            className="p-1 rounded transition-colors"
+            style={{ color: colors.textSecondary }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = colors.cardHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span 
+            className="text-xs font-medium min-w-[80px] text-center"
+            style={{ color: colors.textPrimary }}
+          >
+            {format(currentDate, 'yyyy年M月', { locale: ja })}
+          </span>
+          <button
+            onClick={handleNextMonth}
+            className="p-1 rounded transition-colors"
+            style={{ color: colors.textSecondary }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = colors.cardHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* カレンダーグリッド（コンパクト） */}
+      <div className="w-full">
+        {/* 曜日ヘッダー（コンパクト） */}
+        {!compact && (
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {weekDays.map((day, index) => (
+              <div
+                key={index}
+                className="text-center text-[10px] font-medium py-1"
+                style={{ 
+                  color: index === 0 ? colors.textError : index === 6 ? colors.accent : colors.textTertiary 
+                }}
+              >
+                {day}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 日付グリッド（コンパクト） */}
+        <div className={`grid grid-cols-7 ${compact ? 'gap-0.5' : 'gap-1'}`}>
+          {weeks.map((week, weekIndex) =>
+            week.map((day, dayIndex) => {
+              const dateKey = format(day, 'yyyy-MM-dd');
+              const status = getDateStatus(day);
+              const isHovered = hoveredDate === dateKey;
+              const isCurrentMonth = isSameMonth(day, currentDate);
+              const isTodayDate = isToday(day);
+              
+              const isAchieved = status === 'achieved';
+              const isTodayUnachieved = status === 'today-unachieved';
+              const isFutureDate = status === 'future';
+              
+              const connections = getStreakConnections(day, dateKey, achievedDates, streakGroups);
+              
+              const borderRadius = (() => {
+                if (!isAchieved) return '50%';
+                const leftRadius = connections.left ? '0' : '50%';
+                const rightRadius = connections.right ? '0' : '50%';
+                return `${leftRadius} ${rightRadius} ${rightRadius} ${leftRadius}`;
+              })();
+              
+              let cellStyle: React.CSSProperties = {
+                borderRadius,
+              };
+              let cellClassName = `${cellSize} flex items-center justify-center ${textSize} font-medium transition-all duration-200 cursor-pointer relative`;
+              
+              if (isAchieved) {
+                cellStyle = {
+                  ...cellStyle,
+                  backgroundColor: '#FF4500',
+                  color: compact ? 'transparent' : '#ffffff', // コンパクトモードでは数字を非表示
+                  boxShadow: isHovered 
+                    ? '0 0 8px rgba(255, 69, 0, 0.8), 0 0 16px rgba(255, 69, 0, 0.4)'
+                    : '0 0 4px rgba(255, 69, 0, 0.5), 0 0 8px rgba(255, 69, 0, 0.3)',
+                };
+              } else if (isTodayUnachieved) {
+                cellStyle = {
+                  ...cellStyle,
+                  backgroundColor: 'transparent',
+                  color: '#FF4500',
+                  border: '1px dashed #FF4500',
+                  opacity: 0.6,
+                };
+                if (!compact) cellClassName += ' animate-pulse';
+              } else if (isFutureDate || !isCurrentMonth) {
+                cellStyle = {
+                  ...cellStyle,
+                  backgroundColor: theme === 'modern' ? 'rgba(148, 163, 184, 0.05)' : colors.backgroundSecondary,
+                  color: colors.textTertiary,
+                  opacity: 0.2,
+                };
+              } else {
+                cellStyle = {
+                  ...cellStyle,
+                  backgroundColor: theme === 'modern' ? 'rgba(148, 163, 184, 0.03)' : colors.backgroundSecondary,
+                  color: colors.textTertiary,
+                  opacity: 0.15,
+                };
+              }
+              
+              if (isTodayDate && !isAchieved) {
+                cellStyle = {
+                  ...cellStyle,
+                  border: '1px solid #ffffff',
+                  boxShadow: '0 0 4px rgba(255, 255, 255, 0.5)',
+                };
+              } else if (isTodayDate && isAchieved) {
+                cellStyle = {
+                  ...cellStyle,
+                  border: '1px solid #ffffff',
+                  boxShadow: isHovered 
+                    ? '0 0 8px rgba(255, 69, 0, 0.8), 0 0 16px rgba(255, 69, 0, 0.4), 0 0 4px rgba(255, 255, 255, 0.5)'
+                    : '0 0 4px rgba(255, 69, 0, 0.5), 0 0 8px rgba(255, 69, 0, 0.3), 0 0 3px rgba(255, 255, 255, 0.4)',
+                };
+              }
+              
+              return (
+                <motion.div
+                  key={dateKey}
+                  className={cellClassName}
+                  style={cellStyle}
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ 
+                    scale: isVisible ? 1 : 0,
+                    opacity: isVisible ? 1 : 0,
+                  }}
+                  transition={{
+                    duration: 0.15,
+                    delay: (weekIndex * 7 + dayIndex) * 0.005,
+                    ease: 'easeOut',
+                  }}
+                  whileHover={{ scale: 1.2 }}
+                  onMouseEnter={(e) => handleCellMouseEnter(e, day)}
+                  onMouseMove={handleCellMouseMove}
+                  onMouseLeave={handleCellMouseLeave}
+                >
+                  {!compact && format(day, 'd')}
+                </motion.div>
+              );
+            })
+          )}
+        </div>
+      </div>
+
+      {/* ツールチップ */}
+      <AnimatePresence>
+        {tooltip?.visible && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed z-50 px-2 py-1 rounded text-xs shadow-lg pointer-events-none whitespace-nowrap"
+            style={{
+              left: `${tooltip.x + 10}px`,
+              top: `${tooltip.y + 10}px`,
+              backgroundColor: theme === 'modern' ? 'rgba(15, 23, 42, 0.95)' : colors.card,
+              color: colors.textPrimary,
+              border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
+              backdropFilter: theme === 'modern' ? 'blur(12px)' : 'none',
+            }}
+          >
+            {tooltip.text}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 統計情報（コンパクト） */}
+      <div className="mt-3 flex items-center justify-between text-xs" style={{ color: colors.textTertiary }}>
+        <span>{achievedDates.size}日学習</span>
+        <span>最長: {streakGroups.length > 0 
+          ? Math.max(...streakGroups.map(g => g.days.length))
+          : 0}日</span>
+      </div>
+    </div>
+  );
+}
+

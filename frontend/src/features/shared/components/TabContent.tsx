@@ -66,7 +66,6 @@ export default function TabContent({
             onTotalTodosClick={() => onTodoFilterClick('all')}
             onCompletedTodosClick={() => onTodoFilterClick('completed')}
           />
-          <StreakCalendar progressList={progressList} />
         </div>
       )}
 
