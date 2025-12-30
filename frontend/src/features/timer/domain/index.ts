@@ -4,5 +4,6 @@ export * from './manual';
 export * from './pomodoro';
 export * from './state';
 export * from './persistence';
+export * from './syncState';
 
 

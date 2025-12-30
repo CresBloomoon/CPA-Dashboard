@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 import logging
 
 from .database import engine, get_db, Base
@@ -33,7 +33,19 @@ app = FastAPI(
 # CORS設定
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://frontend:5173"],
+    # - 本番: homepi / homepi.local からのアクセスを許可（Tailscale/MagicDNS と LAN 両対応）
+    # - 開発: localhost:5173 を許可
+    # - Docker内: frontend サービスからのアクセスも許可（既存挙動維持）
+    allow_origins=[
+        "http://homepi:5173",
+        "http://homepi.local:5173",
+        "http://localhost:5173",
+        # ポート無しアクセス（httpのデフォルト80）を許可したい場合
+        "http://homepi",
+        "http://homepi.local",
+        # docker compose 内部
+        "http://frontend:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -46,6 +58,46 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+# ----------------------------
+# Study time sync (timer)
+# ----------------------------
+
+@app.post("/api/study-time/sync", response_model=schemas.StudyTimeSyncResponse)
+async def sync_study_time(payload: schemas.StudyTimeSyncRequest, db: Session = Depends(get_db)):
+    """
+    タイマーの学習時間をサーバへ同期する（冪等）
+
+    - クライアントは「累計(total_ms)」を送る
+    - サーバは last_total_ms との差分だけ加算する
+    """
+    if not payload.subject:
+        raise HTTPException(status_code=400, detail="subject is required")
+    if not payload.client_session_id:
+        raise HTTPException(status_code=400, detail="client_session_id is required")
+
+    applied_delta_ms = crud.apply_study_time_total_ms(
+        db,
+        user_id=payload.user_id or "default",
+        date_key=payload.date_key,
+        subject=payload.subject,
+        client_session_id=payload.client_session_id,
+        total_ms=payload.total_ms,
+    )
+    today_ms, week_ms = crud.get_study_time_summary_ms(db, user_id=payload.user_id or "default", date_key=payload.date_key)
+    return schemas.StudyTimeSyncResponse(applied_delta_ms=applied_delta_ms, server_today_total_ms=today_ms, server_week_total_ms=week_ms)
+
+@app.get("/api/study-time/summary", response_model=schemas.StudyTimeSummaryResponse)
+async def get_study_time_summary(
+    date_key: str,
+    user_id: str = "default",
+    db: Session = Depends(get_db),
+):
+    """
+    今日/今週の学習合計(ms)を返す（サーバ正）
+    """
+    today_ms, week_ms = crud.get_study_time_summary_ms(db, user_id=user_id, date_key=date_key)
+    return schemas.StudyTimeSummaryResponse(date_key=date_key, today_total_ms=today_ms, week_total_ms=week_ms)
 
 # 勉強進捗のCRUDエンドポイント
 @app.get("/api/progress", response_model=List[schemas.StudyProgressResponse])

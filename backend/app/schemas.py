@@ -121,3 +121,24 @@ class SubjectUpdateRequest(BaseModel):
 class SubjectUpdateResponse(BaseModel):
     updated_count: int = Field(..., description="更新されたレコード数")
 
+# ----------------------------
+# Study time sync (timer)
+# ----------------------------
+
+class StudyTimeSyncRequest(BaseModel):
+    user_id: str = Field("default", description="ユーザーID（当面は default 等でも可）")
+    date_key: str = Field(..., description="クライアントのローカル日付キー（yyyy-MM-dd）")
+    subject: str = Field(..., description="科目名")
+    client_session_id: str = Field(..., description="クライアント側セッションID（冪等化用）")
+    total_ms: int = Field(..., ge=0, description="当該セッションの累計学習時間(ms)")
+
+class StudyTimeSyncResponse(BaseModel):
+    applied_delta_ms: int = Field(..., ge=0, description="今回サーバに加算された差分(ms)")
+    server_today_total_ms: int = Field(..., ge=0, description="サーバ上の今日の合計(ms)")
+    server_week_total_ms: int = Field(..., ge=0, description="サーバ上の今週の合計(ms)")
+
+class StudyTimeSummaryResponse(BaseModel):
+    date_key: str = Field(..., description="基準日（yyyy-MM-dd）")
+    today_total_ms: int = Field(..., ge=0, description="今日の学習合計(ms)")
+    week_total_ms: int = Field(..., ge=0, description="今週の学習合計(ms)")
+

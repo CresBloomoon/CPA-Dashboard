@@ -96,3 +96,27 @@ export interface ProjectCreate {
   due_date?: string;
   description?: string;
 }
+
+// ----------------------------
+// Study time sync (timer)
+// ----------------------------
+
+export interface StudyTimeSyncRequest {
+  user_id: string; // 現状は"default"等
+  date_key: string; // yyyy-MM-dd
+  subject: string;
+  client_session_id: string;
+  total_ms: number;
+}
+
+export interface StudyTimeSyncResponse {
+  applied_delta_ms: number;
+  server_today_total_ms: number;
+  server_week_total_ms: number;
+}
+
+export interface StudyTimeSummaryResponse {
+  date_key: string;
+  today_total_ms: number;
+  week_total_ms: number;
+}

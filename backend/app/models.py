@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, Boolean, ForeignKey, BigInteger, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from .database import Base
@@ -52,6 +52,32 @@ class Settings(Base):
     id = Column(Integer, primary_key=True, index=True)
     key = Column(String(100), unique=True, nullable=False, index=True)  # 設定キー
     value = Column(Text, nullable=False)  # 設定値（JSON文字列）
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+class StudyTimeSyncSession(Base):
+    """
+    タイマー同期用のセッション（冪等化用）
+
+    - client_session_id + date_key + subject ごとに、クライアントが送ってきた「累計(total_ms)」の最大値を保持する
+    - サーバは new_total_ms - last_total_ms の差分だけを加算することで二重計上を防ぐ
+
+    NOTE:
+    - user_id は将来のユーザー対応のために保持（当面は "default" 等でもOK）
+    - date_key はクライアントのローカル日付（yyyy-MM-dd）を前提
+    """
+
+    __tablename__ = "study_time_sync_sessions"
+    __table_args__ = (
+        UniqueConstraint("user_id", "date_key", "subject", "client_session_id", name="uq_study_time_sync"),
+    )
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(String(100), nullable=False, index=True)
+    date_key = Column(String(10), nullable=False, index=True)  # yyyy-MM-dd
+    subject = Column(String(100), nullable=False, index=True)
+    client_session_id = Column(String(100), nullable=False, index=True)
+    last_total_ms = Column(BigInteger, nullable=False, default=0)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

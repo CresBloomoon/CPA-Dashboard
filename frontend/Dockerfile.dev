@@ -3,11 +3,19 @@ FROM node:20-slim
 WORKDIR /app
 
 # Vite の環境変数（devでも利用）
-ARG VITE_API_URL
-ENV VITE_API_URL=${VITE_API_URL}
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
 COPY package*.json ./
-RUN npm install --no-fund --no-audit
+RUN npm install --no-fund --no-audit \
+ && node -p "process.platform + '/' + process.arch" \
+ && ( \
+   if [ "$(node -p 'process.arch')" = "arm64" ]; then \
+     npm install -D @rollup/rollup-linux-arm64-gnu --no-fund --no-audit; \
+   else \
+     npm install -D @rollup/rollup-linux-x64-gnu --no-fund --no-audit; \
+   fi \
+ )
 
 COPY . .
 

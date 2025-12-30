@@ -5,13 +5,24 @@ FROM node:20-slim AS build
 
 WORKDIR /app
 
+# Vite build-time env（import.meta.env）
+ARG VITE_API_BASE_URL
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+
 # 依存関係だけ先に入れてレイヤーキャッシュを効かせる
 COPY package*.json ./
 
 # npmのoptionalDependencies地雷対策：
-# arm64環境で rollup のネイティブ依存が入らないことがあるので明示インストールする
+# 環境に応じて rollup のネイティブ依存を明示インストールする
 RUN npm install --no-fund --no-audit \
- && npm install -D @rollup/rollup-linux-arm64-gnu --no-fund --no-audit
+ && node -p "process.platform + '/' + process.arch" \
+ && ( \
+   if [ "$(node -p 'process.arch')" = "arm64" ]; then \
+     npm install -D @rollup/rollup-linux-arm64-gnu --no-fund --no-audit; \
+   else \
+     npm install -D @rollup/rollup-linux-x64-gnu --no-fund --no-audit; \
+   fi \
+ )
 
 # アプリ本体コピー
 COPY . .

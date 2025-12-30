@@ -1,10 +1,32 @@
 import axios from 'axios';
-import type { StudyProgress, StudyProgressCreate, SubjectSummary, Todo, TodoCreate, Settings, SettingsCreate, Project, ProjectCreate } from './types';
+import type {
+  StudyProgress,
+  StudyProgressCreate,
+  SubjectSummary,
+  Todo,
+  TodoCreate,
+  Settings,
+  SettingsCreate,
+  Project,
+  ProjectCreate,
+  StudyTimeSyncRequest,
+  StudyTimeSyncResponse,
+  StudyTimeSummaryResponse,
+} from './types';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// NOTE:
+// - 本番: VITE_API_BASE_URL を使う（例: http://homepi:8000）
+// - 互換: 旧変数 VITE_API_URL も許可
+// - 未設定: 開発用に http://localhost:8000 をフォールバック
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  import.meta.env.VITE_API_URL ||
+  'http://localhost:8000';
+
+const normalizeBaseUrl = (url: string) => url.replace(/\/+$/, '');
 
 const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: `${normalizeBaseUrl(API_BASE_URL)}/api`,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -194,6 +216,24 @@ export const projectApi = {
   // プロジェクトを完了（紐づく未完了ToDoも一括で完了）
   complete: async (id: number): Promise<{ project: Project; updated_todos: number }> => {
     const response = await api.post<{ project: Project; updated_todos: number }>(`/projects/${id}/complete`);
+    return response.data;
+  },
+};
+
+// ----------------------------
+// Study time sync (timer)
+// ----------------------------
+
+export const studyTimeApi = {
+  sync: async (payload: StudyTimeSyncRequest): Promise<StudyTimeSyncResponse> => {
+    const response = await api.post<StudyTimeSyncResponse>('/study-time/sync', payload);
+    return response.data;
+  },
+
+  summary: async (dateKey: string, userId = 'default'): Promise<StudyTimeSummaryResponse> => {
+    const response = await api.get<StudyTimeSummaryResponse>('/study-time/summary', {
+      params: { date_key: dateKey, user_id: userId },
+    });
     return response.data;
   },
 };

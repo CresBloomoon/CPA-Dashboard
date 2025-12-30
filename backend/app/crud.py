@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 import logging
 from . import models, schemas
+from datetime import datetime, timedelta
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,136 @@ def get_subjects_summary(db: Session):
         }
         for result in results
     ]
+
+# ----------------------------
+# Study time sync (timer)
+# ----------------------------
+
+def _date_key_to_range(date_key: str):
+    """
+    yyyy-MM-dd の日付キーから、その日の [00:00, 24:00) の範囲を返す（ローカルタイム前提）
+    """
+    day = datetime.strptime(date_key, "%Y-%m-%d")
+    start = datetime(day.year, day.month, day.day, 0, 0, 0)
+    end = start + timedelta(days=1)
+    return start, end
+
+def _get_week_range(date_key: str):
+    """
+    週開始を月曜(ISO)として、基準日の週 [Mon 00:00, next Mon 00:00) を返す
+    """
+    day = datetime.strptime(date_key, "%Y-%m-%d")
+    # Monday=0 ... Sunday=6
+    start = datetime(day.year, day.month, day.day, 0, 0, 0) - timedelta(days=day.weekday())
+    end = start + timedelta(days=7)
+    return start, end
+
+def _get_or_create_daily_study_progress(db: Session, subject: str, date_key: str):
+    """
+    topic='学習時間' の日次レコードを、created_at の日付範囲で探してなければ作成する。
+    """
+    start, end = _date_key_to_range(date_key)
+    progress = (
+        db.query(models.StudyProgress)
+        .filter(models.StudyProgress.subject == subject)
+        .filter(models.StudyProgress.topic == "学習時間")
+        .filter(models.StudyProgress.created_at >= start)
+        .filter(models.StudyProgress.created_at < end)
+        .order_by(models.StudyProgress.created_at.desc())
+        .first()
+    )
+    if progress:
+        return progress
+
+    db_progress = models.StudyProgress(
+        subject=subject,
+        topic="学習時間",
+        progress_percent=0.0,
+        study_hours=0.0,
+        notes="(auto) timer sync",
+    )
+    db.add(db_progress)
+    db.commit()
+    db.refresh(db_progress)
+    return db_progress
+
+def apply_study_time_total_ms(
+    db: Session,
+    user_id: str,
+    date_key: str,
+    subject: str,
+    client_session_id: str,
+    total_ms: int,
+):
+    """
+    クライアントから送られる累計(total_ms)を基に、差分だけをStudyProgressへ加算する。
+
+    冪等性:
+      同一 (user_id, date_key, subject, client_session_id) で last_total_ms を保持し、
+      delta_ms = max(total_ms - last_total_ms, 0) のみを加算する。
+    """
+    sess = (
+        db.query(models.StudyTimeSyncSession)
+        .filter(models.StudyTimeSyncSession.user_id == user_id)
+        .filter(models.StudyTimeSyncSession.date_key == date_key)
+        .filter(models.StudyTimeSyncSession.subject == subject)
+        .filter(models.StudyTimeSyncSession.client_session_id == client_session_id)
+        .first()
+    )
+    if sess is None:
+        sess = models.StudyTimeSyncSession(
+            user_id=user_id,
+            date_key=date_key,
+            subject=subject,
+            client_session_id=client_session_id,
+            last_total_ms=0,
+        )
+        db.add(sess)
+        db.commit()
+        db.refresh(sess)
+
+    last_ms = int(sess.last_total_ms or 0)
+    delta_ms = max(int(total_ms) - last_ms, 0)
+
+    # 進捗へ加算（差分があるときだけ）
+    if delta_ms > 0:
+        progress = _get_or_create_daily_study_progress(db, subject=subject, date_key=date_key)
+        progress.study_hours = float(progress.study_hours or 0.0) + (delta_ms / 3_600_000.0)
+        sess.last_total_ms = int(total_ms)
+        db.commit()
+        db.refresh(progress)
+        db.refresh(sess)
+    else:
+        # 差分なしでも last_total_ms は最大値で維持
+        if int(total_ms) > last_ms:
+            sess.last_total_ms = int(total_ms)
+            db.commit()
+            db.refresh(sess)
+
+    return int(delta_ms)
+
+def get_study_time_summary_ms(db: Session, user_id: str, date_key: str):
+    """
+    server(DB)を正として、topic='学習時間' のStudyProgressから今日/今週の合計(ms)を返す。
+    """
+    day_start, day_end = _date_key_to_range(date_key)
+    week_start, week_end = _get_week_range(date_key)
+
+    def _sum_hours(start: datetime, end: datetime) -> float:
+        from sqlalchemy import func
+        hours = (
+            db.query(func.sum(models.StudyProgress.study_hours))
+            .filter(models.StudyProgress.topic == "学習時間")
+            .filter(models.StudyProgress.created_at >= start)
+            .filter(models.StudyProgress.created_at < end)
+            .scalar()
+        )
+        return float(hours or 0.0)
+
+    today_hours = _sum_hours(day_start, day_end)
+    week_hours = _sum_hours(week_start, week_end)
+
+    return int(round(today_hours * 3_600_000.0)), int(round(week_hours * 3_600_000.0))
 
 # ToDo CRUD操作
 def get_todo(db: Session, todo_id: int):

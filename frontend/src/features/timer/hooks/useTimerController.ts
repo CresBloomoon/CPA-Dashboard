@@ -16,7 +16,13 @@ import {
   startTimer as startDomainTimer,
   stopTimer as stopDomainTimer,
   tick as tickDomain,
+  loadSyncState,
+  saveSyncState,
+  getOrCreateSession,
+  type StudyTimeSyncState,
 } from '../domain';
+
+import { toLocalDateKey } from '../../../utils/dateKey';
 
 const STORAGE_KEY = 'studyTimerState';
 
@@ -127,6 +133,30 @@ export interface UseTimerControllerResult {
    * - UI層からは「副作用の入口」として呼ぶだけ
    */
   saveRecord: (onRecorded: () => void) => Promise<{ success: boolean; message: string }>;
+
+  /**
+   * サーバ正の集計（今日/今週）
+   * - 端末を跨いでも一致させるための参照値
+   */
+  studyTimeServerSummary?: { dateKey: string; todayTotalMs: number; weekTotalMs: number };
+
+  /**
+   * ローカル(studyTimerState)に溜まっていてサーバ未反映の分（ms）
+   * - 表示上は今日/今週に加算して良い
+   */
+  unsyncedTodayMs: number;
+}
+
+function getElapsedSecondsForSync(state: TimerState): number {
+  if (state.mode === 'stopwatch') return Math.max(0, Math.floor(state.elapsedTime));
+  if (state.mode === 'pomodoro') {
+    const focusSeconds = Math.max(0, Math.floor(state.pomodoroFocusMinutes * 60));
+    const elapsedSeconds =
+      state.pomodoroPhase === 'break' ? focusSeconds : Math.max(focusSeconds - Math.floor(state.pomodoroRemainingSeconds), 0);
+    return Math.max(0, elapsedSeconds);
+  }
+  // manualは同期対象外（記録ボタンでStudyProgressへ反映される）
+  return 0;
 }
 
 export function useTimerController(): UseTimerControllerResult {
@@ -135,6 +165,23 @@ export function useTimerController(): UseTimerControllerResult {
 
   const [timerState, setTimerState] = useState<TimerState>(() => loadFromStorage(defaults, ranges));
   const intervalRef = useRef<number | null>(null);
+  const syncIntervalRef = useRef<number | null>(null);
+  const prevIsRunningRef = useRef<boolean>(false);
+
+  const [syncState, setSyncState] = useState<StudyTimeSyncState>(() => loadSyncState(new Date()));
+  const [studyTimeServerSummary, setStudyTimeServerSummary] = useState<
+    { dateKey: string; todayTotalMs: number; weekTotalMs: number } | undefined
+  >(undefined);
+
+  // 最新状態をイベント/intervalから参照する（依存配列で毎秒張り替えない）
+  const latestTimerStateRef = useRef<TimerState>(timerState);
+  const latestSyncStateRef = useRef<StudyTimeSyncState>(syncState);
+  useEffect(() => {
+    latestTimerStateRef.current = timerState;
+  }, [timerState]);
+  useEffect(() => {
+    latestSyncStateRef.current = syncState;
+  }, [syncState]);
 
   // tick（副作用）はhook側で管理し、状態遷移はdomainに委譲
   useEffect(() => {
@@ -163,6 +210,152 @@ export function useTimerController(): UseTimerControllerResult {
   useEffect(() => {
     saveToStorage(timerState);
   }, [timerState]);
+
+  // 同期状態（studyTimerStateとは別キーで保存。studyTimerStateの構造は一切変更しない）
+  useEffect(() => {
+    saveSyncState(syncState);
+  }, [syncState]);
+
+  const computeUnsyncedTodayMs = (state: TimerState, sync: StudyTimeSyncState): number => {
+    const subject = state.selectedSubject;
+    if (!subject) return 0;
+    const totalMs = getElapsedSecondsForSync(state) * 1000;
+    const session = sync.sessions?.[subject];
+    const lastSynced = session?.lastSyncedTotalMs ?? 0;
+    return Math.max(0, totalMs - lastSynced);
+  };
+
+  const unsyncedTodayMs = useMemo(() => computeUnsyncedTodayMs(timerState, syncState), [timerState, syncState]);
+
+  const syncToServer = async (reason: string, state: TimerState, sync: StudyTimeSyncState) => {
+    const subject = state.selectedSubject;
+    if (!subject) return;
+    if (state.mode === 'manual') return;
+
+    const dateKey = toLocalDateKey(new Date());
+    const totalMs = getElapsedSecondsForSync(state) * 1000;
+    if (totalMs <= 0) return;
+
+    // 日付が変わっていたら同期状態だけリセット（studyTimerStateは維持）
+    let nextState = sync;
+    if (sync.dateKey !== dateKey) {
+      nextState = { dateKey, sessions: {} };
+    }
+
+    const nowMs = Date.now();
+    const { next, session } = getOrCreateSession(nextState, subject, nowMs);
+    nextState = next;
+
+    // クライアント側の冪等ガード（サーバ側でも冪等だが、無駄撃ちを減らす）
+    if (totalMs <= (session.lastSyncedTotalMs ?? 0)) {
+      if (nextState !== sync) setSyncState(nextState);
+      return;
+    }
+
+    try {
+      const { studyTimeApi } = await import('../../../api/api');
+      const resp = await studyTimeApi.sync({
+        user_id: 'default',
+        date_key: dateKey,
+        subject,
+        client_session_id: session.clientSessionId,
+        total_ms: totalMs,
+      });
+
+      // 同期状態更新
+      const updatedSession = {
+        ...session,
+        lastSyncedTotalMs: Math.max(session.lastSyncedTotalMs ?? 0, totalMs),
+        lastSyncAtMs: nowMs,
+      };
+      const updatedState: StudyTimeSyncState = {
+        ...nextState,
+        dateKey,
+        sessions: { ...nextState.sessions, [subject]: updatedSession },
+      };
+      setSyncState(updatedState);
+
+      // サーバ集計を反映（SummaryCardsの「progressListがまだ空」の時に使う）
+      setStudyTimeServerSummary({
+        dateKey,
+        todayTotalMs: resp.server_today_total_ms,
+        weekTotalMs: resp.server_week_total_ms,
+      });
+    } catch (e) {
+      console.warn('[StudyTimeSync] sync failed', reason, e);
+      // 失敗してもstudyTimerStateは維持されるので、次回同期で追いつく
+    }
+  };
+
+  const syncToServerLatest = (reason: string) => syncToServer(reason, latestTimerStateRef.current, latestSyncStateRef.current);
+
+  // 起動時にサーバ正の集計を取得（progressListが空の間に0表示にならないため）
+  useEffect(() => {
+    const dateKey = toLocalDateKey(new Date());
+    (async () => {
+      try {
+        const { studyTimeApi } = await import('../../../api/api');
+        const summary = await studyTimeApi.summary(dateKey, 'default');
+        setStudyTimeServerSummary({ dateKey, todayTotalMs: summary.today_total_ms, weekTotalMs: summary.week_total_ms });
+      } catch (e) {
+        // noop
+      }
+    })();
+  }, []);
+
+  // 一定間隔（60秒）で同期（毎秒は禁止）
+  useEffect(() => {
+    if (!timerState.isRunning) {
+      if (syncIntervalRef.current) {
+        window.clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+      return;
+    }
+    if (!timerState.selectedSubject) return;
+    if (timerState.mode !== 'stopwatch' && timerState.mode !== 'pomodoro') return;
+
+    if (syncIntervalRef.current) window.clearInterval(syncIntervalRef.current);
+    syncIntervalRef.current = window.setInterval(() => {
+      syncToServerLatest('interval');
+    }, 60_000);
+
+    return () => {
+      if (syncIntervalRef.current) {
+        window.clearInterval(syncIntervalRef.current);
+        syncIntervalRef.current = null;
+      }
+    };
+  }, [timerState.isRunning, timerState.mode, timerState.selectedSubject]);
+
+  // 停止時に同期（タブ移動・リロードでも継続する仕様は維持）
+  useEffect(() => {
+    const wasRunning = prevIsRunningRef.current;
+    const isRunning = timerState.isRunning;
+    prevIsRunningRef.current = isRunning;
+    if (wasRunning && !isRunning) {
+      syncToServerLatest('stop');
+    }
+  }, [timerState.isRunning]);
+
+  // ページ離脱前/非表示前に同期
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        syncToServerLatest('visibilitychange');
+      }
+    };
+    const onBeforeUnload = () => {
+      // 非同期完了は保証されないが、可能な限り投げる
+      syncToServerLatest('beforeunload');
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, []);
 
   const startTimer = () => {
     if (!timerState.selectedSubject) return;
@@ -293,6 +486,8 @@ export function useTimerController(): UseTimerControllerResult {
     setPomodoroBreakMinutes,
     setPomodoroSets,
     saveRecord,
+    studyTimeServerSummary,
+    unsyncedTodayMs,
   };
 }
 

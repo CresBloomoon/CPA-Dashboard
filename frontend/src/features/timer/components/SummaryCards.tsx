@@ -18,6 +18,7 @@ import CompactStreakCalendar from '../../calendar/components/CompactStreakCalend
 import { useTheme } from '../../../contexts/ThemeContext';
 import { getThemeColors } from '../../../styles/theme';
 import { useAccentMode } from '../../../contexts/AccentModeContext';
+import { useTimer } from '../hooks/TimerContext';
 
 ChartJS.register(
   CategoryScale,
@@ -65,6 +66,7 @@ export default function SummaryCards({
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const { setAccentMode } = useAccentMode();
+  const { unsyncedTodayMs, studyTimeServerSummary } = useTimer();
 
   // 科目名から色を取得する関数
   const getSubjectColor = (subjectName: string): string => {
@@ -142,12 +144,17 @@ export default function SummaryCards({
   const todayHours = useMemo(() => {
     const today = now;
     const todayKey = toLocalDateKey(today);
-    return progressList
+    const fromProgress = progressList
       .filter(p => {
         const progressDateKey = toLocalDateKeyFromApi(p.created_at);
         return progressDateKey === todayKey;
       })
       .reduce((sum, p) => sum + p.study_hours, 0);
+    const fromServerFallback =
+      fromProgress === 0 && studyTimeServerSummary?.dateKey === todayKey
+        ? studyTimeServerSummary.todayTotalMs / 3_600_000
+        : fromProgress;
+    return fromServerFallback + (unsyncedTodayMs / 3_600_000);
   }, [progressList, now]);
 
   const thisWeekHours = useMemo(() => {
@@ -155,12 +162,18 @@ export default function SummaryCards({
     const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // 月曜日から
     const weekStartKey = toLocalDateKey(weekStart);
     const todayKey = toLocalDateKey(today);
-    return progressList
+    const fromProgress = progressList
       .filter(p => {
         const progressDateKey = toLocalDateKeyFromApi(p.created_at);
         return progressDateKey >= weekStartKey && progressDateKey <= todayKey;
       })
       .reduce((sum, p) => sum + p.study_hours, 0);
+    const fromServerFallback =
+      fromProgress === 0 && studyTimeServerSummary?.dateKey === todayKey
+        ? studyTimeServerSummary.weekTotalMs / 3_600_000
+        : fromProgress;
+    // 未同期分は今日の分として週にも加算
+    return fromServerFallback + (unsyncedTodayMs / 3_600_000);
   }, [progressList, now]);
 
   const options = {
