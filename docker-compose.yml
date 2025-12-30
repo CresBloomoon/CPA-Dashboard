@@ -20,7 +20,6 @@ services:
     working_dir: /app
     command: >
       sh -c "
-        mkdir -p /app/data &&
         uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
       "
     healthcheck:
@@ -49,11 +48,6 @@ services:
     working_dir: /app
     command: >
       sh -c "
-        # 配布/運用での安定性を優先し、起動時に常に依存関係を同期する
-        # - node_modules は名前付きボリュームで保持されるため、差分は高速に解決される
-        # - package.json/package-lock.json の更新があっても 'docker-compose up -d' だけで復旧できる
-        echo 'Syncing dependencies...' &&
-        npm install --no-fund --no-audit &&
         npm run dev -- --host 0.0.0.0 --port 5173
       "
     depends_on:

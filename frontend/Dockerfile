@@ -1,9 +1,11 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
 # wgetをインストール（healthcheck用）
-RUN apk add --no-cache wget
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends wget ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 # パッケージファイルをコピーして依存関係をインストール
 COPY package*.json ./
