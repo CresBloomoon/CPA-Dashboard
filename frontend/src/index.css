@@ -1,0 +1,405 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ページ全体のスクロールバー有無でレイアウトが左右にズレないようにする */
+html {
+  overflow-y: scroll;
+}
+
+/* フォールバック（ブラウザ差異対策） */
+body {
+  overflow-y: scroll;
+}
+
+
+/* 画面遷移アニメーション - 統一されたフェードインのみ */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.slide-in-right,
+.slide-in-left {
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* モーダルアニメーション - 統一されたフェードイン/アウト */
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes modalFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.modal-overlay {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-overlay.closing {
+  animation: modalFadeOut 0.2s ease-out;
+}
+
+.modal-content {
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.modal-content.closing {
+  animation: modalFadeOut 0.2s ease-out;
+}
+
+/* プロジェクトカードのスクロールバー - ホバー時のみ表示 */
+.project-column-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.project-column-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.project-column-scroll::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.project-column:hover .project-column-scroll::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.5);
+}
+
+.project-column:hover .project-column-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.8);
+}
+
+/* Firefox用 */
+.project-column-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.project-column:hover .project-column-scroll {
+  scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* トースト通知アニメーション */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+
+/* react-datepicker カスタマイズ */
+.react-datepicker {
+  font-family: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 1rem;
+  background: rgba(30, 41, 59, 0.8); /* slate-800/80 */
+  color: rgba(226, 232, 240, 0.92);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  font-size: 1rem;
+}
+
+.react-datepicker-glass {
+  background: rgba(30, 41, 59, 0.8);
+}
+
+.datepicker-glass-popper {
+  z-index: 9999 !important;
+}
+
+.react-datepicker__triangle {
+  display: none;
+}
+
+.react-datepicker__month-container {
+  width: 100%;
+  min-width: 360px;
+}
+
+.react-datepicker__day {
+  width: 3rem;
+  height: 3rem;
+  line-height: 3rem;
+  margin: 0.25rem;
+  font-size: 1rem;
+}
+
+.react-datepicker__day-name {
+  width: 3rem;
+  height: 2rem;
+  line-height: 2rem;
+  margin: 0.25rem;
+  font-size: 0.875rem;
+}
+
+.react-datepicker__header {
+  background: rgba(2, 132, 199, 0.22);
+  border-bottom: none;
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  padding-top: 0.75rem;
+}
+
+.react-datepicker__header,
+.react-datepicker__month {
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.react-datepicker__current-month {
+  color: rgba(226, 232, 240, 0.95);
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.react-datepicker__day-name {
+  color: rgba(226, 232, 240, 0.78);
+  font-weight: 500;
+}
+
+.react-datepicker__day,
+.react-datepicker__time-name,
+.react-datepicker__month-text,
+.react-datepicker__quarter-text,
+.react-datepicker__year-text {
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.react-datepicker__day--outside-month {
+  color: rgba(226, 232, 240, 0.35);
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: rgba(56, 189, 248, 0.35);
+  border-radius: 0.75rem;
+  outline: 1px solid rgba(186, 230, 253, 0.22);
+}
+
+.react-datepicker__day:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 0.75rem;
+}
+
+.react-datepicker__day--today {
+  font-weight: 600;
+  color: rgba(56, 189, 248, 0.95);
+}
+
+.react-datepicker__navigation {
+  top: 1rem;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: rgba(226, 232, 240, 0.9);
+}
+
+.react-datepicker__input-container input {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+}
+
+.react-datepicker__input-container input:focus {
+  outline: none;
+  ring: 2px;
+  ring-color: #3b82f6;
+  border-color: transparent;
+}
+
+/* Uiverse Checkbox Animation */
+.ui-checkbox-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.ui-checkbox,
+.ui-checkbox *,
+.ui-checkbox *::before,
+.ui-checkbox *::after {
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+.ui-checkbox {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  width: var(--checkbox-diameter, 10px);
+  height: var(--checkbox-diameter, 10px);
+  border-radius: var(--checkbox-border-radius, 50%);
+  background: var(--secondary-color, #fff);
+  border: var(--checkbox-border-width, 1px) var(--checkbox-border-style, solid) var(--checkbox-border-color, #d9d9d9);
+  box-shadow: 0 0 0 1px var(--checkbox-border-color, #d9d9d9);
+  -webkit-transition: all 0.3s;
+  -o-transition: all 0.3s;
+  transition: all 0.3s;
+  cursor: pointer;
+  position: relative;
+  margin: 0;
+  padding: 0;
+}
+
+.ui-checkbox::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  -webkit-box-shadow: 0 0 0 calc(var(--checkbox-diameter, 24px) / 2.5) var(--primary-color, #1677ff);
+  box-shadow: 0 0 0 calc(var(--checkbox-diameter, 24px) / 2.5) var(--primary-color, #1677ff);
+  border-radius: inherit;
+  opacity: 0;
+  -webkit-transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+  -o-transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+  transition: all 0.5s cubic-bezier(0.12, 0.4, 0.29, 1.46);
+  pointer-events: none;
+}
+
+.ui-checkbox::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  right: 2px;
+  bottom: 2px;
+  border-radius: 50%;
+  background: var(--primary-color, #1677ff);
+  opacity: 0;
+  transform: scale(0.7);
+  transform-origin: center;
+  -webkit-transition: opacity 0.3s ease, transform 0.2s ease;
+  -o-transition: opacity 0.3s ease, transform 0.2s ease;
+  transition: opacity 0.3s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.ui-checkbox:hover {
+  border-color: var(--primary-hover-color, #1677ff);
+  box-shadow: 0 0 0 1px var(--primary-hover-color, #1677ff);
+}
+
+.ui-checkbox:checked {
+  border-color: var(--primary-color, #1677ff);
+  box-shadow: 0 0 0 1px var(--primary-color, #1677ff);
+}
+
+.ui-checkbox:checked::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ui-checkbox:active:not(:checked)::after {
+  -webkit-transition: none;
+  -o-transition: none;
+  -webkit-box-shadow: none;
+  box-shadow: none;
+  transition: none;
+  opacity: 1;
+}
+
+/* iOS風完了アニメーション */
+@keyframes completeSlideOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    max-height: 200px;
+    margin-bottom: 0.5rem;
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+  }
+  30% {
+    opacity: 0.8;
+    transform: translateY(2px) scale(0.99);
+  }
+  60% {
+    opacity: 0.4;
+    transform: translateY(8px) scale(0.97);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(20px) scale(0.92);
+    max-height: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.animate-complete-slide-out {
+  animation: completeSlideOut 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards !important;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* サイドバーインジケーターのフェードインアニメーション */
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* 科目選択ドロップダウンのスクロールバー */
+.subject-dropdown-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.subject-dropdown-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.subject-dropdown-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+.subject-dropdown-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* Firefox用 */
+.subject-dropdown-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+

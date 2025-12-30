@@ -1,0 +1,74 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cpa_backend
+    environment:
+      # データベース設定（ボリュームマウントのパスを使用）
+      DATABASE_URL: ${DATABASE_URL:-sqlite:////app/data/cpa_dashboard.db}
+      # Google Calendar設定（オプション）
+      GOOGLE_CALENDAR_TOKEN_PATH: ${GOOGLE_CALENDAR_TOKEN_PATH:-token.json}
+      GOOGLE_CALENDAR_CREDENTIALS_PATH: ${GOOGLE_CALENDAR_CREDENTIALS_PATH:-credentials.json}
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    volumes:
+      # ソースコードのマウント（ホットリロード用）
+      - ./backend:/app
+      # データベースファイルの永続化
+      - backend_db:/app/data
+    working_dir: /app
+    command: >
+      sh -c "
+        mkdir -p /app/data &&
+        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+      "
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cpa_frontend
+    environment:
+      # API URL設定
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      # ソースコードのマウント（ホットリロード用）
+      - ./frontend:/app
+      # node_modulesをボリュームで保持（ホストのnode_modulesと競合しないように）
+      - frontend_node_modules:/app/node_modules
+    working_dir: /app
+    command: >
+      sh -c "
+        # 配布/運用での安定性を優先し、起動時に常に依存関係を同期する
+        # - node_modules は名前付きボリュームで保持されるため、差分は高速に解決される
+        # - package.json/package-lock.json の更新があっても 'docker-compose up -d' だけで復旧できる
+        echo 'Syncing dependencies...' &&
+        npm install --no-fund --no-audit &&
+        npm run dev -- --host 0.0.0.0 --port 5173
+      "
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5173"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+volumes:
+  # フロントエンドのnode_modulesを永続化
+  frontend_node_modules:
+  # バックエンドのデータベースファイルを永続化
+  backend_db:
