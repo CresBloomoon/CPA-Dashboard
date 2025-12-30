@@ -4,7 +4,6 @@ dist
 .env.local
 .env.production.local
 .env.development.local
-package-lock.json
 .git
 .gitignore
 npm-debug.log*

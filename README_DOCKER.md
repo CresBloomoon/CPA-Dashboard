@@ -32,7 +32,7 @@
 
 ---
 
-## クイックスタート
+## クイックスタート（実行環境 / Raspberry Pi 推奨）
 
 ### Step 1: リポジトリのクローン
 
@@ -41,20 +41,18 @@ git clone <repository-url>
 cd CPA-Dashboard
 ```
 
-### Step 2: Docker Composeで起動
+### Step 2: Docker Composeで起動（Watchtowerで自動更新）
 
 ```bash
-docker compose up --build
+docker compose up -d
 ```
 
 このコマンドで以下が自動的に実行されます：
 
-1. Dockerイメージのビルド
-2. 依存関係のインストール（初回のみ）
-3. データベースの初期化
-4. アプリケーションの起動
+1. 事前にPush済みのDockerイメージをPullして起動
+2. Watchtowerが新しいイメージを定期的に検知し、自動で差し替え
 
-初回起動時は、依存関係のインストールとイメージのビルドに**数分程度**かかります。
+初回起動時は、イメージのPullに**数分程度**かかることがあります。
 
 ### Step 3: 起動確認
 
@@ -69,7 +67,7 @@ cpa_frontend | VITE v5.x.x  ready in xxx ms
 
 ブラウザで以下のURLにアクセスしてください：
 
-- **Frontend（メインアプリ）**: http://localhost:5173
+- **Frontend（メインアプリ）**: http://localhost:5173 （Nginx配信）
 - **Backend API**: http://localhost:8000
 - **API ドキュメント（Swagger UI）**: http://localhost:8000/docs
 
@@ -90,9 +88,17 @@ cpa_frontend | VITE v5.x.x  ready in xxx ms
 BACKEND_PORT=8000
 DATABASE_URL=sqlite:////app/data/cpa_dashboard.db
 
-# Frontend Settings
+# Frontend Settings（※Viteはビルド時に埋め込み）
 FRONTEND_PORT=5173
 VITE_API_URL=http://localhost:8000
+
+# Image Settings（GitHub ActionsがPushする場所に合わせる）
+IMAGE_REGISTRY=ghcr.io
+IMAGE_NAMESPACE=<GitHubユーザー or Organization>
+IMAGE_TAG=latest
+
+# Watchtower
+WATCHTOWER_INTERVAL=60
 
 # Google Calendar Settings (Optional)
 # GOOGLE_CALENDAR_TOKEN_PATH=token.json
@@ -197,24 +203,9 @@ docker compose build --no-cache
 docker compose up
 ```
 
-### package.json を更新したのに起動できない（依存関係が足りない）
+### 依存関係のインストールに失敗する / ビルドが重い
 
-**症状**: フロントエンドで `Failed to resolve import` など、依存関係不足のエラーが出る
-
-**解決方法**:
-
-このプロジェクトは **frontend 起動時に `npm install` を実行して依存関係を同期**します。通常は `docker compose up -d` だけで復旧します。
-
-それでも解消しない場合は、以下を実行してください：
-
-```bash
-# フロントエンドのみ依存関係を再同期
-docker compose exec frontend npm install
-
-# それでもダメなら、イメージ/ボリュームを作り直す（最終手段）
-docker compose down -v
-docker compose up --build
-```
+実行環境（ラズパイ）ではローカルビルドを行わず、GitHub Actionsでビルド済みのARM64イメージをPullして起動します。
 
 ### フロントエンドの変更が反映されない
 
@@ -242,14 +233,15 @@ docker compose restart frontend
 
 ---
 
-## 開発時の注意事項
+## 開発時の注意事項（Windows等）
 
 ### ホットリロード
 
-BackendとFrontendの両方でホットリロードが有効になっています。
+開発環境では `docker-compose.dev.yml` を使ってホットリロードを有効にします。
 
-- **Backend**: `./backend`ディレクトリ内のコードを変更すると、自動的に再起動されます
-- **Frontend**: `./frontend`ディレクトリ内のコードを変更すると、ブラウザが自動的に更新されます
+- 起動: `docker compose -f docker-compose.dev.yml up --build`
+- **Backend**: `./backend` 変更で自動再起動
+- **Frontend**: Vite dev server（http://localhost:5173）
 
 ### データベースの永続化
 
@@ -290,7 +282,14 @@ docker compose down -v
 
 ---
 
-## 本番環境へのデプロイ
+## 本番環境へのデプロイ（自動）
+
+メインブランチへのpushで、GitHub Actionsが `linux/arm64` のDockerイメージをGHCRにPushします：
+
+- `${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/cpa-dashboard-frontend:latest`
+- `${IMAGE_REGISTRY}/${IMAGE_NAMESPACE}/cpa-dashboard-backend:latest`
+
+ラズパイ側は `docker compose up -d` で一度起動すれば、以降はWatchtowerが自動更新します。
 
 この設定は**開発環境向け**です。本番環境では以下の点を考慮してください：
 

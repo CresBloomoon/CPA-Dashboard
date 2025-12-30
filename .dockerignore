@@ -12,8 +12,7 @@
 **/coverage
 **/.nyc_output
 
-# Lockfiles (avoid host/OS-specific optional deps leaking into build context)
-**/package-lock.json
+# Lockfiles (keep for reproducible builds; node_modules is what must never leak)
 **/pnpm-lock.yaml
 **/yarn.lock
 

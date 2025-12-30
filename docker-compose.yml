@@ -1,8 +1,6 @@
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-metro}/cpa-dashboard-backend:${IMAGE_TAG:-latest}
     container_name: cpa_backend
     environment:
       # データベース設定（ボリュームマウントのパスを使用）
@@ -13,15 +11,10 @@ services:
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
-      # ソースコードのマウント（ホットリロード用）
-      - ./backend:/app
       # データベースファイルの永続化
       - backend_db:/app/data
-    working_dir: /app
-    command: >
-      sh -c "
-        uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-      "
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
       interval: 10s
@@ -31,38 +24,31 @@ services:
     restart: unless-stopped
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_NAMESPACE:-metro}/cpa-dashboard-frontend:${IMAGE_TAG:-latest}
     container_name: cpa_frontend
-    environment:
-      # API URL設定
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:8000}
     ports:
-      - "${FRONTEND_PORT:-5173}:5173"
-    volumes:
-      # ソースコードのマウント（ホットリロード用）
-      - ./frontend:/app
-      # node_modulesをボリュームで保持（ホストのnode_modulesと競合しないように）
-      - frontend_node_modules:/app/node_modules
-    working_dir: /app
-    command: >
-      sh -c "
-        npm run dev -- --host 0.0.0.0 --port 5173
-      "
+      - "${FRONTEND_PORT:-5173}:80"
     depends_on:
       backend:
         condition: service_healthy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5173"]
+      test: ["CMD", "sh", "-c", "wget --quiet --tries=1 --spider http://localhost || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
     restart: unless-stopped
 
+  watchtower:
+    image: containrrr/watchtower:1.7.1
+    container_name: cpa_watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --label-enable --cleanup --interval ${WATCHTOWER_INTERVAL:-60}
+    restart: unless-stopped
+
 volumes:
-  # フロントエンドのnode_modulesを永続化
-  frontend_node_modules:
   # バックエンドのデータベースファイルを永続化
   backend_db:

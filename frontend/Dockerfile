@@ -1,21 +1,22 @@
-FROM node:20-slim
+FROM node:20-slim AS build
 
 WORKDIR /app
 
-# wgetをインストール（healthcheck用）
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends wget ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
+# Vite の環境変数はビルド時に埋め込まれる（import.meta.env）
+ARG VITE_API_URL
+ENV VITE_API_URL=${VITE_API_URL}
 
-# パッケージファイルをコピーして依存関係をインストール
+# 依存関係を先にインストールしてキャッシュを効かせる
 COPY package*.json ./
-RUN npm install --no-fund --no-audit
+RUN npm ci --no-fund --no-audit
 
-# アプリケーションコードをコピー
+# ソースコードをコピーして本番ビルド
 COPY . .
+RUN npm run build
 
-# ポートの公開
-EXPOSE 5173
+FROM nginx:stable-alpine AS production
 
-# デフォルトコマンド（docker-composeで上書きされる）
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
