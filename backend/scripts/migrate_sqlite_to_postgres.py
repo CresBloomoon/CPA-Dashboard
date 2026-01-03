@@ -12,6 +12,42 @@ from sqlalchemy import text
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("migrate_sqlite_to_postgres")
 
+BOOL_COLUMNS: dict[str, list[str]] = {
+    # SQLiteでは 0/1 になりがちだが、Postgresは boolean
+    "projects": ["completed"],
+    "todos": ["completed"],
+}
+
+
+def _normalize_bool(v: Any) -> Any:
+    """
+    SQLite由来の 0/1 や "0"/"1" を Postgres boolean に合わせて正規化する。
+    - None は None のまま維持（安全）
+    - 0/"0" → False, 1/"1" → True
+    - bool はそのまま
+    """
+    if v is None:
+        return None
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, int):
+        return bool(v)
+    if isinstance(v, str):
+        s = v.strip().lower()
+        if s in ("0", "false", "f", "no", "n"):
+            return False
+        if s in ("1", "true", "t", "yes", "y"):
+            return True
+        # 数値文字列なら解釈
+        try:
+            return bool(int(s))
+        except Exception as e:
+            raise ValueError(f"cannot normalize bool from string: {v!r}") from e
+    # float等も拾う（0.0/1.0）
+    if isinstance(v, (float,)):
+        return bool(int(v))
+    raise ValueError(f"cannot normalize bool from value: {v!r} ({type(v)})")
+
 
 def _require_env(name: str) -> str:
     v = os.getenv(name)
@@ -136,6 +172,19 @@ def main() -> int:
                     chunk_size = 1000
                     for i in range(0, len(src_rows), chunk_size):
                         chunk = src_rows[i : i + chunk_size]
+
+                        # boolean列の正規化（SQLite int → Postgres boolean）
+                        bool_cols = BOOL_COLUMNS.get(table)
+                        if bool_cols:
+                            normalized_chunk: list[dict[str, Any]] = []
+                            for row in chunk:
+                                r = dict(row)
+                                for c in bool_cols:
+                                    if c in r:
+                                        r[c] = _normalize_bool(r[c])
+                                normalized_chunk.append(r)
+                            chunk = normalized_chunk
+
                         pg_conn.execute(insert_sql, chunk)
 
                 # Adjust sequences
