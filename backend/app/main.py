@@ -274,12 +274,19 @@ async def complete_project(project_id: int, db: Session = Depends(get_db)):
 @app.get("/api/review-set-lists", response_model=List[schemas.ReviewSetListResponse])
 async def get_review_set_lists(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     """復習セットリスト一覧を取得（空の場合は旧review_timingから自動生成して返す）"""
-    return crud.get_all_review_set_lists(db, skip=skip, limit=limit)
+    try:
+        return crud.get_all_review_set_lists(db, skip=skip, limit=limit)
+    except RuntimeError as e:
+        # マイグレーション未適用等は 503 として返し、フロント側が必要なら旧へフォールバックできるようにする
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.get("/api/review-set-lists/{set_list_id}", response_model=schemas.ReviewSetListResponse)
 async def get_review_set_list(set_list_id: int, db: Session = Depends(get_db)):
-    rs = crud.get_review_set_list(db, set_list_id)
+    try:
+        rs = crud.get_review_set_list(db, set_list_id)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     if rs is None:
         raise HTTPException(status_code=404, detail="セットリストが見つかりません")
     return rs
@@ -287,7 +294,10 @@ async def get_review_set_list(set_list_id: int, db: Session = Depends(get_db)):
 
 @app.post("/api/review-set-lists", response_model=schemas.ReviewSetListResponse, status_code=201)
 async def create_review_set_list(payload: schemas.ReviewSetListCreate, db: Session = Depends(get_db)):
-    return crud.create_review_set_list(db, payload)
+    try:
+        return crud.create_review_set_list(db, payload)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
 
 
 @app.put("/api/review-set-lists/{set_list_id}", response_model=schemas.ReviewSetListResponse)
@@ -308,7 +318,10 @@ async def delete_review_set_list(set_list_id: int, db: Session = Depends(get_db)
 
 @app.post("/api/review-set-lists/{set_list_id}/items", response_model=schemas.ReviewSetItemResponse, status_code=201)
 async def create_review_set_item(set_list_id: int, payload: schemas.ReviewSetItemCreate, db: Session = Depends(get_db)):
-    item = crud.create_review_set_item(db, set_list_id, payload)
+    try:
+        item = crud.create_review_set_item(db, set_list_id, payload)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     if item is None:
         raise HTTPException(status_code=404, detail="セットリストが見つかりません")
     return item
@@ -316,7 +329,10 @@ async def create_review_set_item(set_list_id: int, payload: schemas.ReviewSetIte
 
 @app.put("/api/review-set-items/{item_id}", response_model=schemas.ReviewSetItemResponse)
 async def update_review_set_item(item_id: int, payload: schemas.ReviewSetItemCreate, db: Session = Depends(get_db)):
-    item = crud.update_review_set_item(db, item_id, payload.offset_days)
+    try:
+        item = crud.update_review_set_item(db, item_id, payload.offset_days)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     if item is None:
         raise HTTPException(status_code=404, detail="セットアイテムが見つかりません")
     return item
@@ -324,7 +340,10 @@ async def update_review_set_item(item_id: int, payload: schemas.ReviewSetItemCre
 
 @app.delete("/api/review-set-items/{item_id}", status_code=204)
 async def delete_review_set_item(item_id: int, db: Session = Depends(get_db)):
-    item = crud.delete_review_set_item(db, item_id)
+    try:
+        item = crud.delete_review_set_item(db, item_id)
+    except RuntimeError as e:
+        raise HTTPException(status_code=503, detail=str(e))
     if item is None:
         raise HTTPException(status_code=404, detail="セットアイテムが見つかりません")
     return None

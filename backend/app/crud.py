@@ -521,8 +521,8 @@ def _seed_review_set_lists_from_legacy_settings(db: Session) -> int:
 
 def get_all_review_set_lists(db: Session, skip: int = 0, limit: int = 100):
     if not _review_set_tables_ready(db):
-        logger.info("[ReviewSet] review_set_listsテーブルが存在しないため、旧ロジックへフォールバックしてください")
-        return []
+        # 0件＝空は正常だが、テーブル未作成は「API取得失敗」として扱い、フロント側が必要に応じて旧へフォールバックできるようにする
+        raise RuntimeError("review_set_lists tables are not ready (migration not applied)")
 
     # 後方互換（移行期のみ）:
     # - 旧 settings.review_timing を使うかどうかは settings.use_legacy_review_sets で制御する
@@ -546,13 +546,13 @@ def get_all_review_set_lists(db: Session, skip: int = 0, limit: int = 100):
 
 def get_review_set_list(db: Session, set_list_id: int):
     if not _review_set_tables_ready(db):
-        return None
+        raise RuntimeError("review_set_lists tables are not ready (migration not applied)")
     return db.query(models.ReviewSetList).filter(models.ReviewSetList.id == set_list_id).first()
 
 
 def create_review_set_list(db: Session, payload: schemas.ReviewSetListCreate):
     if not _review_set_tables_ready(db):
-        raise RuntimeError("review_set_listsテーブルが存在しません（マイグレーション未適用）")
+        raise RuntimeError("review_set_lists tables are not ready (migration not applied)")
 
     rs = models.ReviewSetList(name=payload.name)
     db.add(rs)
@@ -610,7 +610,7 @@ def create_review_set_item(db: Session, set_list_id: int, payload: schemas.Revie
 
 def update_review_set_item(db: Session, item_id: int, offset_days: int):
     if not _review_set_tables_ready(db):
-        return None
+        raise RuntimeError("review_set_lists tables are not ready (migration not applied)")
     item = db.query(models.ReviewSetItem).filter(models.ReviewSetItem.id == item_id).first()
     if item is None:
         return None
@@ -622,7 +622,7 @@ def update_review_set_item(db: Session, item_id: int, offset_days: int):
 
 def delete_review_set_item(db: Session, item_id: int):
     if not _review_set_tables_ready(db):
-        return None
+        raise RuntimeError("review_set_lists tables are not ready (migration not applied)")
     item = db.query(models.ReviewSetItem).filter(models.ReviewSetItem.id == item_id).first()
     if item is None:
         return None

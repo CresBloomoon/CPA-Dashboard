@@ -169,7 +169,10 @@ export default function TodoCreateModal({
   // 復習タイミング設定を読み込む
   useEffect(() => {
     if (isOpen) {
-      loadReviewTimings();
+      // 旧データの読み込みは use_legacy_review_sets=true のときだけ
+      void loadUseLegacyReviewSets().then((useLegacy) => {
+        if (useLegacy) loadReviewTimings();
+      });
       loadReviewSetLists();
     }
   }, [isOpen, subjectsWithColors]);
