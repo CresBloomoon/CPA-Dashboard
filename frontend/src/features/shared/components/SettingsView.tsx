@@ -217,6 +217,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   const [expandedSubjects, setExpandedSubjects] = useState<Set<number>>(new Set());
   const [reviewSetLists, setReviewSetLists] = useState<ReviewSetList[]>([]);
   const [reviewSetError, setReviewSetError] = useState<string | null>(null);
+  const [useLegacyReviewSets, setUseLegacyReviewSets] = useState<boolean>(true);
   const [newSetListName, setNewSetListName] = useState('');
   const [newSetListOffsets, setNewSetListOffsets] = useState('1,3,7');
 
@@ -228,7 +229,10 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   // 科目が読み込まれたら復習タイミングも読み込む
   useEffect(() => {
     if (subjects.length > 0) {
-      loadReviewTimings();
+      // 旧データの読み込みは、use_legacy_review_sets が true のときだけ
+      void loadUseLegacyReviewSets().then((useLegacy) => {
+        if (useLegacy) loadReviewTimings();
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subjects]);
@@ -437,17 +441,37 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     }
   };
 
+  const loadUseLegacyReviewSets = async (): Promise<boolean> => {
+    try {
+      const s = await settingsApi.getByKey('use_legacy_review_sets');
+      const raw = (s?.value ?? '').trim().toLowerCase();
+      const next = raw === '' ? true : (raw === 'true' || raw === '1' || raw === 'yes');
+      setUseLegacyReviewSets(next);
+      return next;
+    } catch {
+      // 既存ユーザ保護: 未設定/取得失敗は true 扱い
+      setUseLegacyReviewSets(true);
+      return true;
+    }
+  };
+
   // 新: 復習セットリスト（名前付き）を読み込む
   const loadReviewSetLists = async () => {
     try {
       setReviewSetError(null);
+      const allowLegacy = await loadUseLegacyReviewSets();
       const lists = await reviewSetApi.getAll();
       setReviewSetLists(lists);
     } catch (error: any) {
       console.error('[SettingsView] Error loading review set lists:', error);
-      // 後方互換: 新API/テーブルが無い期間は旧設定で動かす
-      setReviewSetError(error.userMessage || '復習セットリストの読み込みに失敗しました（旧設定へフォールバックします）');
-      await loadReviewTimings();
+      // 後方互換: 旧データへのフォールバックは use_legacy_review_sets=true のときだけ
+      const allowLegacy = await loadUseLegacyReviewSets();
+      if (allowLegacy) {
+        setReviewSetError(error.userMessage || '復習セットリストの読み込みに失敗しました（旧設定へフォールバックします）');
+        await loadReviewTimings();
+      } else {
+        setReviewSetError(error.userMessage || '復習セットリストの読み込みに失敗しました');
+      }
     }
   };
 
@@ -918,6 +942,16 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                             name: newSetListName.trim(),
                             items: offsets.map((o) => ({ offset_days: o })),
                           });
+                          // 新運用に移行したら、旧セットへのフォールバックは禁止
+                          try {
+                            await settingsApi.createOrUpdate({
+                              key: 'use_legacy_review_sets',
+                              value: 'false',
+                            });
+                            setUseLegacyReviewSets(false);
+                          } catch {
+                            // backend側でも同等の制御をしているため無視してOK
+                          }
                           setNewSetListName('');
                           setNewSetListOffsets('1,3,7');
                           await loadReviewSetLists();
@@ -982,6 +1016,18 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                               setIsSaving(true);
                               await reviewSetApi.delete(list.id);
                               await loadReviewSetLists();
+                              // 全削除後は、旧セットへのフォールバックも無効化（復活防止）
+                              if (reviewSetLists.length <= 1) {
+                                try {
+                                  await settingsApi.createOrUpdate({
+                                    key: 'use_legacy_review_sets',
+                                    value: 'false',
+                                  });
+                                  setUseLegacyReviewSets(false);
+                                } catch {
+                                  // backend側でも同等の制御をしているため無視してOK
+                                }
+                              }
                             } catch (err: any) {
                               alert(err.userMessage || '削除に失敗しました');
                             } finally {

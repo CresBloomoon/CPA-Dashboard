@@ -45,6 +45,21 @@ export default function TodoCreateModal({
   const [reviewSetLists, setReviewSetLists] = useState<ReviewSetList[]>([]);
   const [selectedReviewSetListId, setSelectedReviewSetListId] = useState<number | null>(null);
   const [reviewSetLoadError, setReviewSetLoadError] = useState(false);
+  const [useLegacyReviewSets, setUseLegacyReviewSets] = useState(true);
+
+  const loadUseLegacyReviewSets = async (): Promise<boolean> => {
+    try {
+      const s = await settingsApi.getByKey('use_legacy_review_sets');
+      const raw = (s?.value ?? '').trim().toLowerCase();
+      const next = raw === '' ? true : (raw === 'true' || raw === '1' || raw === 'yes');
+      setUseLegacyReviewSets(next);
+      return next;
+    } catch {
+      // 既存ユーザ保護: 未設定/取得失敗は true 扱い
+      setUseLegacyReviewSets(true);
+      return true;
+    }
+  };
 
   const TITLE_RANGE_REGEX_GLOBAL = /\{(\d+)-(\d+)\}/g;
   const MAX_BULK_CREATE_COUNT = 50;
@@ -182,12 +197,14 @@ export default function TodoCreateModal({
   const loadReviewSetLists = async () => {
     try {
       setReviewSetLoadError(false);
+      const allowLegacy = await loadUseLegacyReviewSets();
       const lists = await reviewSetApi.getAll();
       setReviewSetLists(lists);
     } catch (error) {
       console.error('Error loading review set lists:', error);
-      // 後方互換: 新APIが使えない場合は旧ロジックへフォールバック
-      setReviewSetLoadError(true);
+      // 後方互換: 旧へフォールバックするかは use_legacy_review_sets で制御
+      const allowLegacy = await loadUseLegacyReviewSets();
+      setReviewSetLoadError(allowLegacy);
       setReviewSetLists([]);
     }
   };
@@ -306,8 +323,8 @@ export default function TodoCreateModal({
         return;
       }
 
-      // 旧フォールバック（科目別review_timing）
-      if (selectedSetListTiming !== null) {
+      // 旧フォールバック（use_legacy_review_sets=true かつ API失敗時のみ）
+      if (useLegacyReviewSets && selectedSetListTiming !== null) {
         const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
         if (!timing) return;
         await handleCreateReviewSet(timing, title);

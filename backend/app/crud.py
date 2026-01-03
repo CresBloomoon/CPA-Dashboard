@@ -8,6 +8,32 @@ from sqlalchemy.exc import ProgrammingError
 
 logger = logging.getLogger(__name__)
 
+def _get_bool_setting(db: Session, key: str, default: bool) -> bool:
+    """
+    settings(key-value) に保存された boolean フラグを読む。
+    - 未設定なら default
+    - "true"/"false" 文字列、JSON(true/false)、"1"/"0" も許容
+    """
+    s = get_setting(db, key)
+    if not s:
+        return default
+    raw = (s.value or "").strip()
+    if raw == "":
+        return default
+    # JSONのtrue/falseが入っているケース
+    try:
+        parsed = json.loads(raw)
+        if isinstance(parsed, bool):
+            return parsed
+    except Exception:
+        pass
+    low = raw.lower()
+    if low in ("true", "1", "yes", "y", "t"):
+        return True
+    if low in ("false", "0", "no", "n", "f"):
+        return False
+    return default
+
 def get_study_progress(db: Session, progress_id: int):
     """IDで進捗を取得"""
     return db.query(models.StudyProgress).filter(models.StudyProgress.id == progress_id).first()
@@ -498,20 +524,14 @@ def get_all_review_set_lists(db: Session, skip: int = 0, limit: int = 100):
         logger.info("[ReviewSet] review_set_listsテーブルが存在しないため、旧ロジックへフォールバックしてください")
         return []
 
-    # 後方互換（初回のみ）:
-    # - review_set_lists が空でも、旧 settings.review_timing からの自動seedは「初回だけ」にする
-    # - 一度seed（またはseed試行）したら settings.review_set_lists_seeded=true を保存し、
-    #   ユーザーが全削除しても復活しないようにする
+    # 後方互換（移行期のみ）:
+    # - 旧 settings.review_timing を使うかどうかは settings.use_legacy_review_sets で制御する
+    # - use_legacy_review_sets=false の場合、review_set_lists が 0 件でも旧データから復活させない
     try:
         if db.query(models.ReviewSetList).count() == 0:
-            seeded_setting = get_setting(db, "review_set_lists_seeded")
-            already_seeded = bool(seeded_setting and str(seeded_setting.value).strip().lower() == "true")
-            if not already_seeded:
-                legacy_exists = get_setting(db, "review_timing") is not None
+            use_legacy = _get_bool_setting(db, "use_legacy_review_sets", True)
+            if use_legacy:
                 _seed_review_set_lists_from_legacy_settings(db)
-                # legacyがある場合は「初回移行は完了扱い」にして再seedを防止
-                if legacy_exists:
-                    create_or_update_setting(db, "review_set_lists_seeded", "true")
     except ProgrammingError:
         return []
 
@@ -543,9 +563,9 @@ def create_review_set_list(db: Session, payload: schemas.ReviewSetListCreate):
 
     db.commit()
     db.refresh(rs)
-    # 新運用へ移行したので、旧からの自動seedは今後しない（全削除しても復活させない）
+    # 新運用へ移行したので、旧セットへのフォールバックは以後禁止
     try:
-        create_or_update_setting(db, "review_set_lists_seeded", "true")
+        create_or_update_setting(db, "use_legacy_review_sets", "false")
     except Exception:
         pass
     return rs
@@ -569,6 +589,12 @@ def delete_review_set_list(db: Session, set_list_id: int):
         return None
     db.delete(rs)
     db.commit()
+    # 全削除されたら、旧セットへのフォールバックも無効化（復活防止）
+    try:
+        if db.query(models.ReviewSetList).count() == 0:
+            create_or_update_setting(db, "use_legacy_review_sets", "false")
+    except Exception:
+        pass
     return rs
 
 
