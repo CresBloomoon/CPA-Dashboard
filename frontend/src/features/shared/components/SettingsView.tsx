@@ -1067,18 +1067,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                       const st = reviewSetEdits[list.id];
                       const name = (st?.name ?? list.name) || '';
                       const isOpen = openReviewSetListId === list.id;
-                      const dirty = _isDirty(list.id);
                       const saving = Boolean(st?.saving);
-                      const itemsCount = (st?.items?.length ?? list.items.length) || 0;
-                      const offsetsForSummary = (() => {
-                        const norm = st ? _normalizeOffsets(st.items) : { ok: true, offsets: list.items.map((i) => i.offset_days) };
-                        const offs = norm.ok ? norm.offsets : list.items.map((i) => i.offset_days);
-                        const max = offs.length ? Math.max(...offs) : null;
-                        return { max };
-                      })();
-
-                      const badge = saving ? '保存中…' : dirty ? '未保存' : '保存済';
-                      const badgeColor = saving ? 'rgba(56,189,248,0.85)' : dirty ? 'rgba(251,191,36,0.95)' : 'rgba(34,197,94,0.9)';
 
                       return (
                         <div
@@ -1103,23 +1092,8 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                                   {name || '（名称未設定）'}
                                 </div>
                               </div>
-                              <div className="text-xs mt-0.5" style={{ color: colors.textSecondary }}>
-                                回数: {itemsCount}
-                                {offsetsForSummary.max != null && (
-                                  <>
-                                    {' / '}
-                                    最終: {offsetsForSummary.max === 0 ? '当日' : `${offsetsForSummary.max}日後`}
-                                  </>
-                                )}
-                              </div>
                             </div>
                             <div className="flex items-center gap-2 flex-shrink-0">
-                              <span
-                                className="px-2 py-1 rounded-lg text-[11px] font-extrabold border"
-                                style={{ color: badgeColor, borderColor: `${badgeColor}55`, backgroundColor: `${badgeColor}14` }}
-                              >
-                                {badge}
-                              </span>
                               <span
                                 className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
                                 style={{ color: colors.textSecondary }}
