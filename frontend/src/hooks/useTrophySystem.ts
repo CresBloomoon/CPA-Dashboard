@@ -30,6 +30,16 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+export type AppToastVariant = 'achievement' | 'success' | 'error';
+
+export type AppToastEvent = {
+  id: string;
+  kind: 'toast';
+  variant: AppToastVariant;
+  message: string;
+  createdAtMs: number;
+};
+
 type Options = {
   /** マスター定義（condition含む） */
   trophies: Trophy[];
@@ -59,7 +69,10 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
   });
 
   // UI演出用キュー（獲得トースト）
-  const [fxQueue, setFxQueue] = useState<Array<{ id: string; kind: 'unlock' }>>([]);
+  const [fxQueue, setFxQueue] = useState<Array<{ id: string; kind: 'unlock'; createdAtMs: number }>>([]);
+
+  // 汎用トースト（成功/失敗など）: 既存のトロフィートーストと同じ描画/アニメーション機構を再利用する
+  const [toastQueue, setToastQueue] = useState<AppToastEvent[]>([]);
 
   // コンボ管理用の状態（トロフィーIDごとに最後のイベント時刻とカウントを保持）
   const comboStateRef = useRef<Record<string, { lastEventMs: number | null; count: number }>>({});
@@ -107,7 +120,7 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
           metadata: nextMeta,
         },
       }));
-      setFxQueue((prev) => [...prev, { id, kind: 'unlock' as const }]);
+      setFxQueue((prev) => [...prev, { id, kind: 'unlock' as const, createdAtMs: Date.now() }]);
     },
     [allowRepeatUnlock, persistedById, trophies]
   );
@@ -115,6 +128,25 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
   const dequeueFx = useCallback((count: number) => {
     if (count <= 0) return;
     setFxQueue((prev) => prev.slice(count));
+  }, []);
+
+  const pushToast = useCallback((payload: { variant: AppToastVariant; message: string }) => {
+    const instanceId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    setToastQueue((prev) => [
+      ...prev,
+      {
+        id: instanceId,
+        kind: 'toast' as const,
+        variant: payload.variant,
+        message: payload.message,
+        createdAtMs: Date.now(),
+      },
+    ]);
+  }, []);
+
+  const dequeueToast = useCallback((count: number) => {
+    if (count <= 0) return;
+    setToastQueue((prev) => prev.slice(count));
   }, []);
 
   /**
@@ -211,6 +243,9 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
     /** 演出用キュー（UI側で利用可能） */
     fxQueue,
     dequeueFx,
+    toastQueue,
+    pushToast,
+    dequeueToast,
     unlockTrophy,
     checkTrophies,
     handleTrophyEvent,

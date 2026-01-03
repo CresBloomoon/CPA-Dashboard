@@ -15,6 +15,7 @@ import { APP_LIMITS } from '../../../config/appConfig';
 import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../../../config/subjects';
 import { SUBJECT_SETTINGS_TIP } from '../../../constants/tips';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 import { getThemeColors } from '../../../styles/theme';
 
 interface SettingsViewProps {
@@ -203,6 +204,7 @@ function SortableSubjectItem({
 export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsChange, onDataUpdate, onSettingsUpdate }: SettingsViewProps) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
+  const { pushToast } = useTrophySystemContext();
   const [activeMenu, setActiveMenu] = useState<SettingsMenu>('subjects');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -220,6 +222,50 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   const [useLegacyReviewSets, setUseLegacyReviewSets] = useState<boolean>(true);
   const [newSetListName, setNewSetListName] = useState('');
   const [newSetListOffsets, setNewSetListOffsets] = useState('1,3,7');
+  const [openReviewSetListId, setOpenReviewSetListId] = useState<number | null>(null);
+
+  type EditItem = { key: string; id?: number; offsetRaw: string };
+  type ReviewSetEditState = {
+    name: string;
+    items: EditItem[];
+    original: { name: string; offsets: number[]; itemIds: number[] };
+    saving: boolean;
+    error: string | null;
+  };
+  const [reviewSetEdits, setReviewSetEdits] = useState<Record<number, ReviewSetEditState>>({});
+
+  const _normalizeOffsets = (items: EditItem[]): { ok: boolean; offsets: number[]; error?: string } => {
+    const parsed: number[] = [];
+    for (const it of items) {
+      const raw = it.offsetRaw.trim();
+      if (raw === '') return { ok: false, offsets: [], error: '日数が未入力です' };
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return { ok: false, offsets: [], error: '日数は数値で入力してください' };
+      const i = Math.floor(n);
+      if (i < 0) return { ok: false, offsets: [], error: '日数は0以上の整数です' };
+      parsed.push(i);
+    }
+    const sorted = [...parsed].sort((a, b) => a - b);
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i] === sorted[i - 1]) return { ok: false, offsets: [], error: '日数が重複しています' };
+    }
+    return { ok: true, offsets: sorted };
+  };
+
+  const _isDirty = (id: number): boolean => {
+    const st = reviewSetEdits[id];
+    if (!st) return false;
+    const name = st.name.trim();
+    const origName = st.original.name.trim();
+    if (name !== origName) return true;
+    const norm = _normalizeOffsets(st.items);
+    if (!norm.ok) return true; // 不正値は未保存扱い
+    const a = norm.offsets;
+    const b = [...st.original.offsets].sort((x, y) => x - y);
+    if (a.length !== b.length) return true;
+    for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return true;
+    return false;
+  };
 
   // 設定を読み込む
   useEffect(() => {
@@ -462,6 +508,42 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
       const allowLegacy = await loadUseLegacyReviewSets();
       const lists = await reviewSetApi.getAll();
       setReviewSetLists(lists);
+      // 編集stateを初期化（既にdirtyのものは上書きしない）
+      setReviewSetEdits((prev) => {
+        const next = { ...prev };
+        const isDirtyState = (st: ReviewSetEditState): boolean => {
+          const name = st.name.trim();
+          const origName = st.original.name.trim();
+          if (name !== origName) return true;
+          const norm = _normalizeOffsets(st.items);
+          if (!norm.ok) return true;
+          const a = norm.offsets;
+          const b = [...st.original.offsets].sort((x, y) => x - y);
+          if (a.length !== b.length) return true;
+          for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return true;
+          return false;
+        };
+        for (const l of lists) {
+          const existing = next[l.id];
+          const itemsSorted = [...(l.items || [])].sort((a, b) => a.offset_days - b.offset_days);
+          const orig = {
+            name: l.name ?? '',
+            offsets: itemsSorted.map((i) => i.offset_days),
+            itemIds: itemsSorted.map((i) => i.id),
+          };
+          const shouldInit = !existing || (!existing.saving && !isDirtyState(existing));
+          if (shouldInit) {
+            next[l.id] = {
+              name: l.name ?? '',
+              items: itemsSorted.map((i) => ({ key: `id-${i.id}`, id: i.id, offsetRaw: String(i.offset_days) })),
+              original: orig,
+              saving: false,
+              error: null,
+            };
+          }
+        }
+        return next;
+      });
     } catch (error: any) {
       console.error('[SettingsView] Error loading review set lists:', error);
       // 後方互換: 旧データへのフォールバックは use_legacy_review_sets=true のときだけ
@@ -955,8 +1037,9 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                           setNewSetListName('');
                           setNewSetListOffsets('1,3,7');
                           await loadReviewSetLists();
+                          pushToast({ variant: 'success', message: '保存しました' });
                         } catch (e: any) {
-                          alert(e.userMessage || 'セットリストの作成に失敗しました');
+                          pushToast({ variant: 'error', message: e.userMessage || '保存に失敗しました' });
                         } finally {
                           setIsSaving(false);
                         }
@@ -973,188 +1056,348 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                   </div>
                 </div>
 
-                {/* 一覧 */}
+                {/* 一覧（アコーディオン） */}
                 {reviewSetLists.length === 0 ? (
                   <div className="text-sm" style={{ color: colors.textSecondary }}>
                     セットリストがありません
                   </div>
                 ) : (
-                  reviewSetLists.map((list) => (
-                    <div
-                      key={list.id}
-                      className="p-4 rounded-lg border"
-                      style={{
-                        backgroundColor: colors.backgroundSecondary,
-                        borderColor: colors.border,
-                      }}
-                    >
-                      <div className="flex items-center gap-2 mb-3">
-                        <input
-                          defaultValue={list.name}
-                          className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
-                          style={{
-                            borderColor: colors.border,
-                            backgroundColor: colors.card,
-                            color: colors.textPrimary,
-                          }}
-                          disabled={isSaving}
-                          onBlur={async (e) => {
-                            const next = e.target.value.trim();
-                            if (!next || next === list.name) return;
-                            try {
-                              await reviewSetApi.update(list.id, { name: next });
-                              await loadReviewSetLists();
-                            } catch (err: any) {
-                              alert(err.userMessage || '名称の更新に失敗しました');
-                            }
-                          }}
-                        />
-                        <button
-                          onClick={async () => {
-                            if (!confirm('このセットリストを削除しますか？')) return;
-                            try {
-                              setIsSaving(true);
-                              await reviewSetApi.delete(list.id);
-                              await loadReviewSetLists();
-                              // 全削除後は、旧セットへのフォールバックも無効化（復活防止）
-                              if (reviewSetLists.length <= 1) {
-                                try {
-                                  await settingsApi.createOrUpdate({
-                                    key: 'use_legacy_review_sets',
-                                    value: 'false',
-                                  });
-                                  setUseLegacyReviewSets(false);
-                                } catch {
-                                  // backend側でも同等の制御をしているため無視してOK
-                                }
-                              }
-                            } catch (err: any) {
-                              alert(err.userMessage || '削除に失敗しました');
-                            } finally {
-                              setIsSaving(false);
-                            }
-                          }}
-                          disabled={isSaving}
-                          className="px-4 py-2 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                          style={{
-                            color: colors.error,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isSaving) {
-                              e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                        >
-                          削除
-                        </button>
-                      </div>
+                  <div className="space-y-3">
+                    {reviewSetLists.map((list) => {
+                      const st = reviewSetEdits[list.id];
+                      const name = (st?.name ?? list.name) || '';
+                      const isOpen = openReviewSetListId === list.id;
+                      const dirty = _isDirty(list.id);
+                      const saving = Boolean(st?.saving);
+                      const itemsCount = (st?.items?.length ?? list.items.length) || 0;
+                      const offsetsForSummary = (() => {
+                        const norm = st ? _normalizeOffsets(st.items) : { ok: true, offsets: list.items.map((i) => i.offset_days) };
+                        const offs = norm.ok ? norm.offsets : list.items.map((i) => i.offset_days);
+                        const max = offs.length ? Math.max(...offs) : null;
+                        return { max };
+                      })();
 
-                      <div className="space-y-2">
-                        {list.items.map((it, idx) => (
-                          <div key={it.id} className="flex items-center gap-2">
-                            <label className="text-sm font-medium w-20" style={{ color: colors.textSecondary }}>
-                              {idx + 1}回目
-                            </label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="3650"
-                              defaultValue={it.offset_days}
-                              className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
-                              style={{
-                                borderColor: colors.border,
-                                backgroundColor: colors.card,
-                                color: colors.textPrimary,
-                              }}
-                              disabled={isSaving}
-                              onBlur={async (e) => {
-                                const next = Math.floor(Number(e.target.value));
-                                if (!Number.isFinite(next) || next < 0 || next === it.offset_days) return;
-                                try {
-                                  await reviewSetApi.updateItem(it.id, next);
-                                  await loadReviewSetLists();
-                                } catch (err: any) {
-                                  alert(err.userMessage || '更新に失敗しました');
-                                }
-                              }}
-                            />
-                            <span className="text-sm w-12" style={{ color: colors.textSecondary }}>
-                              日後
-                            </span>
-                            {idx > 0 && (
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    setIsSaving(true);
-                                    await reviewSetApi.deleteItem(it.id);
-                                    await loadReviewSetLists();
-                                  } catch (err: any) {
-                                    alert(err.userMessage || '削除に失敗しました');
-                                  } finally {
-                                    setIsSaving(false);
-                                  }
-                                }}
-                                disabled={isSaving || list.items.length <= 1}
-                                className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                style={{
-                                  color: colors.error,
-                                }}
-                                onMouseEnter={(e) => {
-                                  if (!isSaving) {
-                                    e.currentTarget.style.backgroundColor = `${colors.error}1A`;
-                                  }
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.backgroundColor = 'transparent';
-                                }}
-                                title="削除"
+                      const badge = saving ? '保存中…' : dirty ? '未保存' : '保存済';
+                      const badgeColor = saving ? 'rgba(56,189,248,0.85)' : dirty ? 'rgba(251,191,36,0.95)' : 'rgba(34,197,94,0.9)';
+
+                      return (
+                        <div
+                          key={list.id}
+                          className="rounded-xl border overflow-hidden"
+                          style={{ borderColor: colors.border, backgroundColor: colors.backgroundSecondary }}
+                        >
+                          <button
+                            type="button"
+                            className="w-full px-4 py-3 flex items-center justify-between gap-3"
+                            onClick={() => setOpenReviewSetListId((prev) => (prev === list.id ? null : list.id))}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.backgroundColor = colors.cardHover;
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            <div className="min-w-0 text-left">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <div className="font-semibold truncate" style={{ color: colors.textPrimary }}>
+                                  {name || '（名称未設定）'}
+                                </div>
+                              </div>
+                              <div className="text-xs mt-0.5" style={{ color: colors.textSecondary }}>
+                                回数: {itemsCount}
+                                {offsetsForSummary.max != null && (
+                                  <>
+                                    {' / '}
+                                    最終: {offsetsForSummary.max === 0 ? '当日' : `${offsetsForSummary.max}日後`}
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span
+                                className="px-2 py-1 rounded-lg text-[11px] font-extrabold border"
+                                style={{ color: badgeColor, borderColor: `${badgeColor}55`, backgroundColor: `${badgeColor}14` }}
                               >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                </svg>
-                              </button>
-                            )}
-                          </div>
-                        ))}
+                                {badge}
+                              </span>
+                              <span
+                                className={`transition-transform ${isOpen ? 'rotate-180' : ''}`}
+                                style={{ color: colors.textSecondary }}
+                              >
+                                ▼
+                              </span>
+                            </div>
+                          </button>
 
-                        <button
-                          onClick={async () => {
-                            try {
-                              setIsSaving(true);
-                              const last = list.items[list.items.length - 1]?.offset_days ?? 1;
-                              await reviewSetApi.createItem(list.id, Math.max(0, Number(last) + 1));
-                              await loadReviewSetLists();
-                            } catch (err: any) {
-                              alert(err.userMessage || '追加に失敗しました');
-                            } finally {
-                              setIsSaving(false);
-                            }
-                          }}
-                          disabled={isSaving}
-                          className="mt-2 px-4 py-2 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                          style={{
-                            color: colors.accent,
-                          }}
-                          onMouseEnter={(e) => {
-                            if (!isSaving) {
-                              e.currentTarget.style.backgroundColor = colors.accentLight;
-                            }
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                          </svg>
-                          追加
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                          {isOpen && (
+                            <div className="px-4 pb-4">
+                              {/* name */}
+                              <div className="mt-3">
+                                <label className="block text-xs font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                                  セットリスト名
+                                </label>
+                                <input
+                                  value={st?.name ?? list.name}
+                                  onChange={(e) => {
+                                    const v = e.target.value;
+                                    setReviewSetEdits((prev) => ({
+                                      ...prev,
+                                      [list.id]: {
+                                        ...(prev[list.id] ?? {
+                                          name: list.name,
+                                          items: (list.items || []).map((i) => ({ key: `id-${i.id}`, id: i.id, offsetRaw: String(i.offset_days) })),
+                                          original: { name: list.name, offsets: list.items.map((i) => i.offset_days), itemIds: list.items.map((i) => i.id) },
+                                          saving: false,
+                                          error: null,
+                                        }),
+                                        name: v,
+                                      },
+                                    }));
+                                  }}
+                                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                                  style={{ borderColor: colors.border, backgroundColor: colors.card, color: colors.textPrimary }}
+                                  disabled={saving}
+                                />
+                              </div>
+
+                              {/* items */}
+                              <div className="mt-4">
+                                <label className="block text-xs font-semibold mb-2" style={{ color: colors.textSecondary }}>
+                                  オフセット日数
+                                </label>
+                                <div className="max-h-64 overflow-y-auto pr-1 space-y-2">
+                                  {(st?.items ?? []).map((it, idx) => (
+                                    <div
+                                      key={it.key}
+                                      className="grid grid-cols-[72px_88px_44px_1fr] items-center gap-2"
+                                    >
+                                      <div className="text-sm font-medium" style={{ color: colors.textSecondary }}>
+                                        {idx + 1}回目
+                                      </div>
+                                      <input
+                                        value={it.offsetRaw}
+                                        onChange={(e) => {
+                                          const v = e.target.value;
+                                          setReviewSetEdits((prev) => ({
+                                            ...prev,
+                                            [list.id]: {
+                                              ...prev[list.id],
+                                              items: prev[list.id].items.map((x) => (x.key === it.key ? { ...x, offsetRaw: v } : x)),
+                                            },
+                                          }));
+                                        }}
+                                        inputMode="numeric"
+                                        className="px-3 py-2 border rounded-lg text-right tabular-nums focus:ring-2 focus:outline-none"
+                                        style={{ borderColor: colors.border, backgroundColor: colors.card, color: colors.textPrimary }}
+                                        disabled={saving}
+                                      />
+                                      <div className="text-sm" style={{ color: colors.textSecondary }}>
+                                        {Number(it.offsetRaw) === 0 ? '当日' : '日後'}
+                                      </div>
+                                      <div className="flex justify-end">
+                                        <button
+                                          type="button"
+                                          className="p-2 rounded-lg transition-colors"
+                                          style={{ color: 'rgba(239,68,68,0.85)' }}
+                                          disabled={saving || (st?.items?.length ?? 0) <= 1}
+                                          title={(st?.items?.length ?? 0) <= 1 ? '最低1つは必要です' : '削除'}
+                                          onClick={() => {
+                                            setReviewSetEdits((prev) => ({
+                                              ...prev,
+                                              [list.id]: {
+                                                ...prev[list.id],
+                                                items: prev[list.id].items.filter((x) => x.key !== it.key),
+                                              },
+                                            }));
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            if (!saving) e.currentTarget.style.backgroundColor = 'rgba(239,68,68,0.12)';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                          }}
+                                        >
+                                          ×
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {st?.error && (
+                                  <div className="mt-3 rounded-lg border px-3 py-2 text-sm"
+                                    style={{ borderColor: 'rgba(239,68,68,0.35)', backgroundColor: 'rgba(239,68,68,0.10)', color: 'rgba(254,202,202,0.95)' }}
+                                  >
+                                    {st.error}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* footer actions */}
+                              <div className="mt-4 pt-3 border-t flex items-center justify-between gap-3"
+                                style={{ borderColor: colors.border }}
+                              >
+                                <button
+                                  type="button"
+                                  className="px-3 py-2 rounded-lg font-semibold flex items-center gap-2"
+                                  style={{ color: colors.accent }}
+                                  disabled={saving}
+                                  onClick={() => {
+                                    setReviewSetEdits((prev) => {
+                                      const cur = prev[list.id];
+                                      const key = `new-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+                                      const last = cur.items[cur.items.length - 1]?.offsetRaw ?? '1';
+                                      const nextDefault = String(Math.max(0, Math.floor(Number(last) + 1 || 1)));
+                                      return {
+                                        ...prev,
+                                        [list.id]: { ...cur, items: [...cur.items, { key, offsetRaw: nextDefault }] },
+                                      };
+                                    });
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (!saving) e.currentTarget.style.backgroundColor = colors.accentLight;
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.backgroundColor = 'transparent';
+                                  }}
+                                >
+                                  ＋追加
+                                </button>
+
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    className="px-3 py-2 rounded-lg font-semibold"
+                                    style={{ color: colors.textSecondary }}
+                                    disabled={saving || !dirty}
+                                    onClick={() => {
+                                      setReviewSetEdits((prev) => {
+                                        const cur = prev[list.id];
+                                        return {
+                                          ...prev,
+                                          [list.id]: {
+                                            ...cur,
+                                            name: cur.original.name,
+                                            items: cur.original.offsets.map((o, idx) => ({
+                                              key: `id-${cur.original.itemIds[idx]}`,
+                                              id: cur.original.itemIds[idx],
+                                              offsetRaw: String(o),
+                                            })),
+                                            error: null,
+                                          },
+                                        };
+                                      });
+                                    }}
+                                  >
+                                    リセット
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="px-4 py-2 rounded-lg font-semibold"
+                                    style={{ backgroundColor: colors.accent, color: '#fff', opacity: saving ? 0.6 : 1 }}
+                                    disabled={saving || !dirty}
+                                    onClick={async () => {
+                                      setReviewSetEdits((prev) => ({
+                                        ...prev,
+                                        [list.id]: { ...prev[list.id], saving: true, error: null },
+                                      }));
+                                      try {
+                                        const cur = reviewSetEdits[list.id];
+                                        const nameTrim = cur.name.trim();
+                                        if (!nameTrim) throw new Error('名称を入力してください');
+                                        const norm = _normalizeOffsets(cur.items);
+                                        if (!norm.ok) throw new Error(norm.error || '入力内容が不正です');
+
+                                        // 1) name
+                                        if (nameTrim !== cur.original.name.trim()) {
+                                          await reviewSetApi.update(list.id, { name: nameTrim });
+                                        }
+
+                                        // 2) items diff
+                                        // - 昇順で保存（UIも揃う）
+                                        const sortedItems = [...cur.items]
+                                          .map((it) => ({ ...it, offset: Math.floor(Number(it.offsetRaw)) }))
+                                          .sort((a, b) => a.offset - b.offset);
+
+                                        const existing = sortedItems.filter((i) => typeof i.id === 'number') as Array<EditItem & { id: number; offset: number }>;
+                                        const toDelete = cur.original.itemIds.filter((id) => !existing.some((e) => e.id === id));
+                                        for (const id of toDelete) await reviewSetApi.deleteItem(id);
+
+                                        for (const it of existing) {
+                                          // originalのoffsetを引いて更新判定
+                                          const origIdx = cur.original.itemIds.indexOf(it.id);
+                                          const origOffset = origIdx >= 0 ? cur.original.offsets[origIdx] : null;
+                                          if (origOffset == null || origOffset !== it.offset) {
+                                            await reviewSetApi.updateItem(it.id, it.offset);
+                                          }
+                                        }
+
+                                        const newOnes = sortedItems.filter((i) => typeof i.id !== 'number') as Array<EditItem & { offset: number }>;
+                                        for (const it of newOnes) {
+                                          await reviewSetApi.createItem(list.id, it.offset);
+                                        }
+
+                                        await settingsApi.createOrUpdate({ key: 'use_legacy_review_sets', value: 'false' });
+                                        setUseLegacyReviewSets(false);
+
+                                        await loadReviewSetLists();
+                                        pushToast({ variant: 'success', message: '保存しました' });
+                                      } catch (e: any) {
+                                        const msg = e?.userMessage || e?.message || '保存に失敗しました';
+                                        setReviewSetEdits((prev) => ({
+                                          ...prev,
+                                          [list.id]: { ...prev[list.id], error: msg },
+                                        }));
+                                        pushToast({ variant: 'error', message: msg });
+                                      } finally {
+                                        setReviewSetEdits((prev) => ({
+                                          ...prev,
+                                          [list.id]: { ...prev[list.id], saving: false },
+                                        }));
+                                      }
+                                    }}
+                                  >
+                                    保存
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="px-3 py-2 rounded-lg font-semibold"
+                                    style={{ color: colors.error }}
+                                    disabled={saving}
+                                    onClick={async () => {
+                                      if (!confirm('このセットリストを削除しますか？')) return;
+                                      try {
+                                        setReviewSetEdits((prev) => ({
+                                          ...prev,
+                                          [list.id]: { ...prev[list.id], saving: true, error: null },
+                                        }));
+                                        await reviewSetApi.delete(list.id);
+                                        await loadReviewSetLists();
+                                        // 全削除後は旧フォールバックを無効化（復活防止）
+                                        if (reviewSetLists.length <= 1) {
+                                          await settingsApi.createOrUpdate({ key: 'use_legacy_review_sets', value: 'false' });
+                                          setUseLegacyReviewSets(false);
+                                        }
+                                      } catch (err: any) {
+                                        pushToast({ variant: 'error', message: err.userMessage || '削除に失敗しました' });
+                                      } finally {
+                                        setReviewSetEdits((prev) => ({
+                                          ...prev,
+                                          [list.id]: { ...prev[list.id], saving: false },
+                                        }));
+                                      }
+                                    }}
+                                  >
+                                    削除
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             )}

@@ -2,11 +2,15 @@ import { createContext, useContext, type ReactNode } from 'react';
 import { TROPHIES } from '../constants/trophies';
 import { useTrophySystem } from '../hooks/useTrophySystem';
 import type { Trophy, TrophyTrigger } from '../types/trophy';
+import type { AppToastEvent, AppToastVariant } from '../hooks/useTrophySystem';
 
 type TrophySystemContextValue = {
   trophies: Trophy[];
-  fxQueue: Array<{ id: string; kind: 'unlock' }>;
+  fxQueue: Array<{ id: string; kind: 'unlock'; createdAtMs: number }>;
   dequeueFx: (count: number) => void;
+  toastQueue: AppToastEvent[];
+  dequeueToast: (count: number) => void;
+  pushToast: (payload: { variant: AppToastVariant; message: string }) => void;
   unlockTrophy: (id: string, patch?: { metadata?: Record<string, any>; unlockedAt?: string }) => void;
   checkTrophies: (appState: any, opts?: { trigger?: TrophyTrigger }) => string[];
   handleTrophyEvent: (eventId: string, context?: any) => void;
@@ -21,6 +25,9 @@ export function TrophySystemProvider({ children }: { children: ReactNode }) {
     trophies: sys.trophies,
     fxQueue: sys.fxQueue,
     dequeueFx: sys.dequeueFx,
+    toastQueue: sys.toastQueue,
+    dequeueToast: sys.dequeueToast,
+    pushToast: sys.pushToast,
     unlockTrophy: sys.unlockTrophy,
     checkTrophies: sys.checkTrophies,
     handleTrophyEvent: sys.handleTrophyEvent,

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Trophy, Zap, Sparkle, ScrollText, Clock, Flame, Lock, Moon } from 'lucide-react';
+import { Trophy, Zap, Sparkle, ScrollText, Clock, Flame, Lock, Moon, CheckCircle2, XCircle } from 'lucide-react';
 import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 import { TROPHY_CONFIG } from '../config/trophyConfig';
 
@@ -41,41 +41,53 @@ const generateInstanceId = (trophyId: string): string => {
 };
 
 export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number }) {
-  const { trophies, fxQueue, dequeueFx } = useTrophySystemContext();
+  const { trophies, fxQueue, dequeueFx, toastQueue, dequeueToast } = useTrophySystemContext();
   const trophyById = useMemo(() => new Map(trophies.map((t) => [t.id, t])), [trophies]);
 
-  const [visibleItems, setVisibleItems] = useState<Array<{ instanceId: string; trophyId: string }>>([]);
+  const [visibleItems, setVisibleItems] = useState<
+    Array<
+      | { instanceId: string; kind: 'trophy'; trophyId: string }
+      | { instanceId: string; kind: 'toast'; variant: 'success' | 'error' | 'achievement'; message: string }
+    >
+  >([]);
   const timersRef = useRef<{ start?: number; interval?: number }>({});
 
   // fxQueue から一括で取り込み（ディレイなしで全員表示）
   // 各トロフィーIDに対してユニークなインスタンスIDを生成して追加
   useEffect(() => {
-    if (!fxQueue.length) return;
-    
-    // fxQueueから最大MAX_VISIBLE個まで取り込む
-    const incoming = fxQueue.slice(0, TROPHY_CONFIG.MAX_VISIBLE);
-    dequeueFx(incoming.length);
+    if (!fxQueue.length && !toastQueue.length) return;
 
-    // 関数型アップデートで、前の状態を保持しながら新しいインスタンスを追加
+    const incomingTrophies = fxQueue.slice(0, TROPHY_CONFIG.MAX_VISIBLE);
+    const incomingToasts = toastQueue.slice(0, TROPHY_CONFIG.MAX_VISIBLE);
+    if (incomingTrophies.length) dequeueFx(incomingTrophies.length);
+    if (incomingToasts.length) dequeueToast(incomingToasts.length);
+
+    const combined = [
+      ...incomingTrophies.map((t) => ({ kind: 'trophy' as const, createdAtMs: t.createdAtMs, trophyId: t.id })),
+      ...incomingToasts.map((t) => ({ kind: 'toast' as const, createdAtMs: t.createdAtMs, variant: t.variant, message: t.message })),
+    ].sort((a, b) => a.createdAtMs - b.createdAtMs);
+
     setVisibleItems((prev) => {
       const next = [...prev];
-      
-      // 現在の表示数と追加可能数を計算
-      const currentCount = next.length;
-      const availableSlots = TROPHY_CONFIG.MAX_VISIBLE - currentCount;
-      
+      const availableSlots = TROPHY_CONFIG.MAX_VISIBLE - next.length;
       if (availableSlots <= 0) return prev;
-      
-      // 追加可能な分だけ、各トロフィーIDに対してユニークなインスタンスIDを生成
-      const toAdd = incoming.slice(0, availableSlots);
+
+      const toAdd = combined.slice(0, availableSlots);
       for (const ev of toAdd) {
-        const instanceId = generateInstanceId(ev.id);
-        next.push({ instanceId, trophyId: ev.id });
+        if (ev.kind === 'trophy') {
+          next.push({ instanceId: generateInstanceId(ev.trophyId), kind: 'trophy', trophyId: ev.trophyId });
+        } else {
+          next.push({
+            instanceId: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            kind: 'toast',
+            variant: ev.variant,
+            message: ev.message,
+          });
+        }
       }
-      
       return next;
     });
-  }, [dequeueFx, fxQueue]);
+  }, [dequeueFx, dequeueToast, fxQueue, toastQueue]);
 
   // 表示後：一定待機→上から順に一定間隔で消滅
   useEffect(() => {
@@ -107,45 +119,90 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
     <div className="fixed right-4 z-[70] w-[280px] pointer-events-none" style={{ top: topOffsetPx }}>
       <div className="flex flex-col gap-3">
         <AnimatePresence>
-          {visibleItems.map(({ instanceId, trophyId }) => {
-            const t = trophyById.get(trophyId);
-            const title = t?.title ?? trophyId;
-            const Icon = getIconComponent(t?.icon ?? 'Trophy');
+          {visibleItems.map((item) => {
+            if (item.kind === 'trophy') {
+              const t = trophyById.get(item.trophyId);
+              const title = t?.title ?? item.trophyId;
+              const Icon = getIconComponent(t?.icon ?? 'Trophy');
+              return (
+                <motion.div
+                  key={item.instanceId}
+                  layout
+                  variants={itemVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="rounded-xl border border-white/10 border-l-4 border-l-[#FFB800] shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+                  style={{
+                    backgroundColor: 'rgba(8, 14, 28, 0.95)',
+                    backgroundImage:
+                      'radial-gradient(120px 60px at 18% 30%, rgba(255,184,0,0.14), rgba(255,184,0,0.00) 65%)',
+                  }}
+                >
+                  <div className="px-3 py-3 flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                      style={{
+                        borderColor: 'rgba(255,184,0,0.35)',
+                        backgroundColor: 'rgba(255,184,0,0.08)',
+                        color: '#FFB800',
+                      }}
+                      aria-hidden="true"
+                    >
+                      <Icon size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
+                          {title}
+                        </p>
+                      </div>
+                      <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
+                        実績獲得！
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            }
+
+            const isSuccess = item.variant === 'success';
+            const accent = isSuccess ? '#22c55e' : '#ef4444';
+            const Icon = isSuccess ? CheckCircle2 : XCircle;
+            const sub = isSuccess ? '保存しました' : '保存に失敗しました';
             return (
               <motion.div
-                key={instanceId}
+                key={item.instanceId}
                 layout
                 variants={itemVariants}
                 initial="initial"
                 animate="animate"
                 exit="exit"
-                className="rounded-xl border border-white/10 border-l-4 border-l-[#FFB800] shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+                className="rounded-xl border border-white/10 border-l-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
                 style={{
+                  borderLeftColor: accent,
                   backgroundColor: 'rgba(8, 14, 28, 0.95)',
-                  backgroundImage:
-                    'radial-gradient(120px 60px at 18% 30%, rgba(255,184,0,0.14), rgba(255,184,0,0.00) 65%)',
+                  backgroundImage: `radial-gradient(120px 60px at 18% 30%, ${accent}26, rgba(0,0,0,0.00) 65%)`,
                 }}
               >
                 <div className="px-3 py-3 flex items-center gap-3">
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center border"
                     style={{
-                      borderColor: 'rgba(255,184,0,0.35)',
-                      backgroundColor: 'rgba(255,184,0,0.08)',
-                      color: '#FFB800',
+                      borderColor: `${accent}59`,
+                      backgroundColor: `${accent}1A`,
+                      color: accent,
                     }}
                     aria-hidden="true"
                   >
                     <Icon size={18} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
-                        {title}
-                      </p>
-                    </div>
-                    <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
-                      実績獲得！
+                    <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
+                      {item.message}
+                    </p>
+                    <p className="text-[11px] font-extrabold mt-0.5" style={{ color: `${accent}E6` }}>
+                      {sub}
                     </p>
                   </div>
                 </div>
