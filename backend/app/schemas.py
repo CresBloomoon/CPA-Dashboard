@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 class StudyProgressBase(BaseModel):
@@ -141,4 +141,50 @@ class StudyTimeSummaryResponse(BaseModel):
     date_key: str = Field(..., description="基準日（yyyy-MM-dd）")
     today_total_ms: int = Field(..., ge=0, description="今日の学習合計(ms)")
     week_total_ms: int = Field(..., ge=0, description="今週の学習合計(ms)")
+
+# ----------------------------
+# Review set list (復習セットリスト)
+# ----------------------------
+
+class ReviewSetItemBase(BaseModel):
+    offset_days: int = Field(..., ge=0, description="開始日からのオフセット日数")
+
+class ReviewSetItemCreate(ReviewSetItemBase):
+    pass
+
+class ReviewSetItemResponse(ReviewSetItemBase):
+    id: int
+    set_list_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class ReviewSetListBase(BaseModel):
+    name: str = Field(..., description="セットリスト名（ユーザー命名）")
+
+class ReviewSetListCreate(ReviewSetListBase):
+    items: List[ReviewSetItemCreate] = Field(default_factory=list, description="オフセット日数の配列")
+
+class ReviewSetListUpdate(BaseModel):
+    name: Optional[str] = None
+
+class ReviewSetListResponse(ReviewSetListBase):
+    id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    items: List[ReviewSetItemResponse] = Field(default_factory=list)
+
+    class Config:
+        from_attributes = True
+
+class ReviewSetGenerateRequest(BaseModel):
+    set_list_id: int = Field(..., description="セットリストID")
+    subject: str = Field(..., description="生成するリマインダに紐づける科目名")
+    base_title: Optional[str] = Field(None, description="タイトルのベース（省略可）")
+    start_date: Optional[datetime] = Field(None, description="開始日（省略時は今日）")
+    project_id: Optional[int] = Field(None, description="プロジェクトID（任意）")
+
+class ReviewSetGenerateResponse(BaseModel):
+    todos: List[TodoResponse] = Field(default_factory=list)
 

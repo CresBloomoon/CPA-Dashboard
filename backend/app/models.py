@@ -81,3 +81,35 @@ class StudyTimeSyncSession(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
+
+class ReviewSetList(Base):
+    """
+    復習セットリスト（科目に依存しない汎用セット）
+    """
+    __tablename__ = "review_set_lists"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    items = relationship(
+        "ReviewSetItem",
+        back_populates="set_list",
+        cascade="all, delete-orphan",
+        order_by="ReviewSetItem.id",
+    )
+
+
+class ReviewSetItem(Base):
+    """
+    復習セットのアイテム（オフセット日数）
+    """
+    __tablename__ = "review_set_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    set_list_id = Column(Integer, ForeignKey("review_set_lists.id"), nullable=False, index=True)
+    offset_days = Column(Integer, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    set_list = relationship("ReviewSetList", back_populates="items")

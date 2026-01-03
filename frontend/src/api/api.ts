@@ -12,6 +12,12 @@ import type {
   StudyTimeSyncRequest,
   StudyTimeSyncResponse,
   StudyTimeSummaryResponse,
+  ReviewSetList,
+  ReviewSetListCreate,
+  ReviewSetListUpdate,
+  ReviewSetItem,
+  ReviewSetGenerateRequest,
+  ReviewSetGenerateResponse,
 } from './types';
 
 // NOTE:
@@ -234,6 +240,59 @@ export const studyTimeApi = {
     const response = await api.get<StudyTimeSummaryResponse>('/study-time/summary', {
       params: { date_key: dateKey, user_id: userId },
     });
+    return response.data;
+  },
+};
+
+// ----------------------------
+// Review set list (復習セットリスト)
+// ----------------------------
+
+export const reviewSetApi = {
+  getAll: async (): Promise<ReviewSetList[]> => {
+    const response = await api.get<ReviewSetList[]>('/review-set-lists');
+    return response.data;
+  },
+
+  getById: async (id: number): Promise<ReviewSetList> => {
+    const response = await api.get<ReviewSetList>(`/review-set-lists/${id}`);
+    return response.data;
+  },
+
+  create: async (data: ReviewSetListCreate): Promise<ReviewSetList> => {
+    const response = await api.post<ReviewSetList>('/review-set-lists', data);
+    return response.data;
+  },
+
+  update: async (id: number, data: ReviewSetListUpdate): Promise<ReviewSetList> => {
+    const response = await api.put<ReviewSetList>(`/review-set-lists/${id}`, data);
+    return response.data;
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await api.delete(`/review-set-lists/${id}`);
+  },
+
+  createItem: async (setListId: number, offsetDays: number): Promise<ReviewSetItem> => {
+    const response = await api.post<ReviewSetItem>(`/review-set-lists/${setListId}/items`, {
+      offset_days: offsetDays,
+    });
+    return response.data;
+  },
+
+  updateItem: async (itemId: number, offsetDays: number): Promise<ReviewSetItem> => {
+    const response = await api.put<ReviewSetItem>(`/review-set-items/${itemId}`, {
+      offset_days: offsetDays,
+    });
+    return response.data;
+  },
+
+  deleteItem: async (itemId: number): Promise<void> => {
+    await api.delete(`/review-set-items/${itemId}`);
+  },
+
+  generate: async (payload: ReviewSetGenerateRequest): Promise<ReviewSetGenerateResponse> => {
+    const response = await api.post<ReviewSetGenerateResponse>('/review-set-lists/generate', payload);
     return response.data;
   },
 };

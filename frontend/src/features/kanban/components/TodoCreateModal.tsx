@@ -8,8 +8,8 @@ import DatePicker, { registerLocale } from 'react-datepicker';
 import { ja } from 'date-fns/locale';
 import { addDays, format } from 'date-fns';
 import 'react-datepicker/dist/react-datepicker.css';
-import { todoApi, settingsApi } from '../../../api/api';
-import type { TodoCreate, Subject, ReviewTiming } from '../../../api/types';
+import { todoApi, settingsApi, reviewSetApi } from '../../../api/api';
+import type { TodoCreate, Subject, ReviewTiming, ReviewSetList } from '../../../api/types';
 import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
 import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 import { InfoTip } from '../../../components/ui/InfoTip';
@@ -42,6 +42,9 @@ export default function TodoCreateModal({
   const [isUsingSetList, setIsUsingSetList] = useState(false);
   const [selectedSetListTiming, setSelectedSetListTiming] = useState<number | null>(null);
   const [isSetListDropdownOpen, setIsSetListDropdownOpen] = useState(false);
+  const [reviewSetLists, setReviewSetLists] = useState<ReviewSetList[]>([]);
+  const [selectedReviewSetListId, setSelectedReviewSetListId] = useState<number | null>(null);
+  const [reviewSetLoadError, setReviewSetLoadError] = useState(false);
 
   const TITLE_RANGE_REGEX_GLOBAL = /\{(\d+)-(\d+)\}/g;
   const MAX_BULK_CREATE_COUNT = 50;
@@ -152,6 +155,7 @@ export default function TodoCreateModal({
   useEffect(() => {
     if (isOpen) {
       loadReviewTimings();
+      loadReviewSetLists();
     }
   }, [isOpen, subjectsWithColors]);
 
@@ -172,6 +176,19 @@ export default function TodoCreateModal({
       }
     } catch (error) {
       console.error('Error loading review timings:', error);
+    }
+  };
+
+  const loadReviewSetLists = async () => {
+    try {
+      setReviewSetLoadError(false);
+      const lists = await reviewSetApi.getAll();
+      setReviewSetLists(lists);
+    } catch (error) {
+      console.error('Error loading review set lists:', error);
+      // 後方互換: 新APIが使えない場合は旧ロジックへフォールバック
+      setReviewSetLoadError(true);
+      setReviewSetLists([]);
     }
   };
 
@@ -234,6 +251,7 @@ export default function TodoCreateModal({
     setNewTodoDueDate(new Date());
     setIsUsingSetList(false);
     setSelectedSetListTiming(null);
+    setSelectedReviewSetListId(null);
     onClose();
   };
 
@@ -255,17 +273,47 @@ export default function TodoCreateModal({
     e.preventDefault();
     
     // セットリストから生成する場合
-    if (isUsingSetList && selectedSetListTiming !== null) {
-      const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
-      if (!timing) return;
-      
+    if (isUsingSetList) {
       const title = newTodoTitle.trim();
-      if (!title) {
+      if (!title) return;
+
+      // 新API（推奨）
+      if (!reviewSetLoadError) {
+        if (selectedReviewSetListId === null) return;
+        if (!newTodoSubject.trim()) return;
+        try {
+          setIsAdding(true);
+          const startDate = new Date(newTodoDueDate);
+          startDate.setHours(0, 0, 0, 0);
+          const timezoneOffset = startDate.getTimezoneOffset();
+          const utcDate = new Date(startDate.getTime() - timezoneOffset * 60 * 1000);
+
+          await reviewSetApi.generate({
+            set_list_id: selectedReviewSetListId,
+            subject: newTodoSubject.trim(),
+            base_title: title,
+            start_date: utcDate.toISOString(),
+            project_id: initialProjectId !== undefined ? initialProjectId : undefined,
+          });
+
+          onSubmit();
+          closeModal();
+        } catch (error) {
+          console.error('Error generating review set todos:', error);
+        } finally {
+          setIsAdding(false);
+        }
         return;
       }
-      
-      await handleCreateReviewSet(timing, title);
-      closeModal();
+
+      // 旧フォールバック（科目別review_timing）
+      if (selectedSetListTiming !== null) {
+        const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
+        if (!timing) return;
+        await handleCreateReviewSet(timing, title);
+        closeModal();
+        return;
+      }
       return;
     }
     
@@ -367,6 +415,7 @@ export default function TodoCreateModal({
                       setIsUsingSetList(e.target.checked);
                       if (!e.target.checked) {
                         setSelectedSetListTiming(null);
+                        setSelectedReviewSetListId(null);
                         setNewTodoSubject('');
                       }
                     }}
@@ -381,138 +430,121 @@ export default function TodoCreateModal({
                 <>
                   <div>
                     <label className="block text-sm font-medium text-slate-200/90 mb-2">
-                      セットリスト
+                      セットリスト（必須）
                     </label>
                     <div className="relative">
                       <button
                         type="button"
-                        onClick={() => subjects.length > 0 && setIsSetListDropdownOpen(!isSetListDropdownOpen)}
+                        onClick={() => setIsSetListDropdownOpen(!isSetListDropdownOpen)}
                         className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl ring-1 ring-white/20 bg-white/5 backdrop-blur-md text-slate-200/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 ${
-                          isAdding || subjects.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'
+                          isAdding ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'
                         }`}
-                        disabled={isAdding || subjects.length === 0}
+                        disabled={isAdding}
                       >
-                        <span className="flex items-center gap-2">
-                          {selectedSetListTiming !== null && (() => {
-                            const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
-                            const currentSubject = timing ? subjectsWithColors.find(s => s.id === timing.subject_id) : null;
-                            const displaySubjectName = currentSubject ? currentSubject.name : (timing ? timing.subject_name : '');
-                            const color = displaySubjectName ? getSubjectColor(displaySubjectName) : undefined;
-                            return color ? (
-                              <span
-                                className="w-3 h-3 rounded-full"
-                                style={{ backgroundColor: color }}
-                              />
-                            ) : null;
-                          })()}
-                          <span className="flex-1">
-                            {subjects.length === 0 ? '科目が未登録です' : (selectedSetListTiming !== null ?
-                              (() => {
-                                const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
-                                if (!timing) return '選択してください';
-                                const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
-                                const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
-                                return `${displaySubjectName} (${timing.review_days.length}回: ${timing.review_days.map(d => `${d}日後`).join(', ')})`;
-                              })()
-                              : '選択してください')}
-                          </span>
+                        <span className="flex-1 text-left">
+                          {!reviewSetLoadError ? (
+                            selectedReviewSetListId !== null
+                              ? (() => {
+                                  const selected = reviewSetLists.find((s) => s.id === selectedReviewSetListId);
+                                  if (!selected) return '選択してください';
+                                  const offsets = (selected.items || []).map((i) => `${i.offset_days}日後`).join(', ');
+                                  return `${selected.name} (${selected.items.length}回: ${offsets})`;
+                                })()
+                              : '選択してください'
+                          ) : (
+                            selectedSetListTiming !== null
+                              ? (() => {
+                                  const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
+                                  if (!timing) return '選択してください';
+                                  const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
+                                  const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
+                                  return `${displaySubjectName}（旧） (${timing.review_days.length}回: ${timing.review_days.map(d => `${d}日後`).join(', ')})`;
+                                })()
+                              : '選択してください'
+                          )}
                         </span>
-                        {subjects.length > 0 && (
-                          <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${isSetListDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                          </svg>
-                        )}
+                        <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${isSetListDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
                       </button>
-                      
-                      {/* 科目0件時の誘導メッセージ */}
-                      {subjects.length === 0 && (
-                        <div className="mt-2 bg-amber-50 border border-amber-200 rounded-lg p-3">
-                          <div className="flex items-start gap-2">
-                            <svg className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                            </svg>
-                            <div className="flex-1">
-                              <p className="text-amber-800 font-medium text-xs mb-1">科目を登録してください</p>
-                              <p className="text-amber-700 text-xs mb-2">復習セットリストを使用するには、まず科目を登録する必要があります。</p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  closeModal();
-                                  const settingsButton = document.querySelector('[title="設定"]') as HTMLButtonElement;
-                                  if (settingsButton) settingsButton.click();
-                                }}
-                                className="px-3 py-1 bg-amber-600 text-white rounded text-xs font-medium hover:bg-amber-700 transition-colors"
-                              >
-                                設定画面へ →
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {isSetListDropdownOpen && !isAdding && subjects.length > 0 && (
+
+                      {isSetListDropdownOpen && !isAdding && (
                         <>
-                          <div
-                            className="fixed inset-0 z-10"
-                            onClick={() => setIsSetListDropdownOpen(false)}
-                          />
+                          <div className="fixed inset-0 z-10" onClick={() => setIsSetListDropdownOpen(false)} />
                           <div className="absolute z-30 w-full mt-2 bg-slate-900/60 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl max-h-80 overflow-y-auto ring-1 ring-sky-200/15">
                             <div
                               onClick={() => {
+                                setSelectedReviewSetListId(null);
                                 setSelectedSetListTiming(null);
-                                setNewTodoSubject('');
                                 setIsSetListDropdownOpen(false);
                               }}
                               className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-white/10 text-slate-200/90 ${
-                                selectedSetListTiming === null ? 'bg-white/10' : ''
+                                selectedReviewSetListId === null && selectedSetListTiming === null ? 'bg-white/10' : ''
                               }`}
                             >
                               <span className="w-3 h-3" />
                               <span>選択してください</span>
                             </div>
-                            {reviewTimings
-                              .filter((timing) => {
-                                // 現在存在する科目のみを表示
-                                return subjectsWithColors.some(s => s.id === timing.subject_id);
-                              })
-                              .map((timing) => {
-                                // subjectsWithColorsから最新の科目名を取得
-                                const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
-                                const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
-                                const color = getSubjectColor(displaySubjectName);
-                                return (
-                                  <div
-                                    key={timing.subject_id}
-                                    onClick={() => {
-                                      setSelectedSetListTiming(timing.subject_id);
-                                      setNewTodoSubject(displaySubjectName);
-                                      setIsSetListDropdownOpen(false);
-                                    }}
-                                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-white/10 text-slate-200/90 ${
-                                      selectedSetListTiming === timing.subject_id ? 'bg-white/10' : ''
-                                    }`}
-                                  >
-                                    {color ? (
-                                      <span
-                                        className="w-3 h-3 rounded-full"
-                                        style={{ backgroundColor: color }}
-                                      />
-                                    ) : (
-                                      <span className="w-3 h-3" />
-                                    )}
-                                    <span>{displaySubjectName} ({timing.review_days.length}回: {timing.review_days.map(d => `${d}日後`).join(', ')})</span>
-                                  </div>
-                                );
-                              })}
+
+                            {!reviewSetLoadError ? (
+                              reviewSetLists.map((s) => (
+                                <div
+                                  key={s.id}
+                                  onClick={() => {
+                                    setSelectedReviewSetListId(s.id);
+                                    setIsSetListDropdownOpen(false);
+                                  }}
+                                  className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-white/10 text-slate-200/90 ${
+                                    selectedReviewSetListId === s.id ? 'bg-white/10' : ''
+                                  }`}
+                                >
+                                  <span className="w-3 h-3 rounded-full bg-sky-400/60" />
+                                  <span>{s.name} ({s.items.length}回)</span>
+                                </div>
+                              ))
+                            ) : (
+                              reviewTimings
+                                .filter((timing) => subjectsWithColors.some(s => s.id === timing.subject_id))
+                                .map((timing) => {
+                                  const currentSubject = subjectsWithColors.find(s => s.id === timing.subject_id);
+                                  const displaySubjectName = currentSubject ? currentSubject.name : timing.subject_name;
+                                  const color = getSubjectColor(displaySubjectName);
+                                  return (
+                                    <div
+                                      key={timing.subject_id}
+                                      onClick={() => {
+                                        setSelectedSetListTiming(timing.subject_id);
+                                        setIsSetListDropdownOpen(false);
+                                      }}
+                                      className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-white/10 text-slate-200/90 ${
+                                        selectedSetListTiming === timing.subject_id ? 'bg-white/10' : ''
+                                      }`}
+                                    >
+                                      {color ? (
+                                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                                      ) : (
+                                        <span className="w-3 h-3" />
+                                      )}
+                                      <span>{displaySubjectName}（旧） ({timing.review_days.length}回)</span>
+                                    </div>
+                                  );
+                                })
+                            )}
                           </div>
                         </>
                       )}
                     </div>
                   </div>
 
-                  {selectedSetListTiming && (() => {
-                    const timing = reviewTimings.find(t => t.subject_id === selectedSetListTiming);
-                    if (!timing) return null;
+                  {((!reviewSetLoadError && selectedReviewSetListId !== null) || (reviewSetLoadError && selectedSetListTiming !== null)) && (() => {
+                    const timing = reviewSetLoadError
+                      ? reviewTimings.find(t => t.subject_id === selectedSetListTiming!)
+                      : null;
+                    const selectedList = !reviewSetLoadError
+                      ? reviewSetLists.find((s) => s.id === selectedReviewSetListId!)
+                      : null;
+                    if (reviewSetLoadError && !timing) return null;
+                    if (!reviewSetLoadError && !selectedList) return null;
                     return (
                       <>
                         <div>
@@ -562,8 +594,8 @@ export default function TodoCreateModal({
                           <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
                             <div className="text-sm font-medium text-blue-800 mb-2">生成されるタイトル:</div>
                             <div className="space-y-1">
-                              {timing.review_days.map((day, index) => {
-                                const dueDate = addDays(newTodoDueDate, day);
+                              {(!reviewSetLoadError ? selectedList!.items.map((i) => i.offset_days) : timing!.review_days).map((day, index) => {
+                                const dueDate = addDays(newTodoDueDate, day as number);
                                 return (
                                   <div key={index} className="text-sm text-blue-700">
                                     {newTodoTitle.trim()}_復習{index + 1}回目 ({dueDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })})
@@ -573,6 +605,80 @@ export default function TodoCreateModal({
                             </div>
                           </div>
                         )}
+
+                        {/* 科目（必須） */}
+                        <div>
+                          <label className="block text-sm font-medium text-slate-200/90 mb-2">
+                            科目（必須）
+                          </label>
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => subjects.length > 0 && setIsSubjectDropdownOpen(!isSubjectDropdownOpen)}
+                              className={`w-full rounded-2xl text-left flex items-center gap-2 ring-1 ring-white/20 bg-white/5 backdrop-blur-md text-slate-200/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50 ${
+                                newTodoSubject && getSubjectColor(newTodoSubject) ? 'pl-8 pr-4 py-3' : 'px-4 py-3'
+                              } ${isAdding || subjects.length === 0 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/10'}`}
+                              disabled={isAdding || subjects.length === 0}
+                            >
+                              {newTodoSubject && (
+                                <span
+                                  className="w-3 h-3 rounded-full flex-shrink-0"
+                                  style={{ backgroundColor: getSubjectColor(newTodoSubject) }}
+                                />
+                              )}
+                              <span className="flex-1">
+                                {subjects.length === 0 ? '科目が未登録です' : (newTodoSubject ? newTodoSubject : '選択してください')}
+                              </span>
+                              {subjects.length > 0 && (
+                                <svg className={`w-4 h-4 transition-transform flex-shrink-0 ${isSubjectDropdownOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                </svg>
+                              )}
+                            </button>
+
+                            {isSubjectDropdownOpen && !isAdding && subjects.length > 0 && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setIsSubjectDropdownOpen(false)} />
+                                <div className="absolute z-30 w-full mt-2 bg-slate-900/60 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl max-h-80 overflow-y-auto ring-1 ring-sky-200/15">
+                                  <div
+                                    onClick={() => {
+                                      setNewTodoSubject('');
+                                      setIsSubjectDropdownOpen(false);
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-white/10 text-slate-200/90 ${
+                                      newTodoSubject === '' ? 'bg-white/10' : ''
+                                    }`}
+                                  >
+                                    <span className="w-3 h-3" />
+                                    <span>選択してください</span>
+                                  </div>
+                                  {subjects.map((subjectName) => {
+                                    const color = getSubjectColor(subjectName);
+                                    return (
+                                      <div
+                                        key={subjectName}
+                                        onClick={() => {
+                                          setNewTodoSubject(subjectName);
+                                          setIsSubjectDropdownOpen(false);
+                                        }}
+                                        className={`flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-white/10 text-slate-200/90 ${
+                                          newTodoSubject === subjectName ? 'bg-white/10' : ''
+                                        }`}
+                                      >
+                                        {color ? (
+                                          <span className="w-3 h-3 rounded-full" style={{ backgroundColor: color }} />
+                                        ) : (
+                                          <span className="w-3 h-3" />
+                                        )}
+                                        <span>{subjectName}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
                       </>
                     );
                   })()}

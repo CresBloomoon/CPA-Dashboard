@@ -95,4 +95,40 @@ docker compose -f docker-compose.prod.yml up -d --build
 - `alembic upgrade head` が失敗した場合: backend は **起動しません**（ログを出して終了）
 - SQLite→Postgres移行が失敗した場合: **Postgres側はロールバック**します（途中まで入らない）
 
+---
+
+## 復習セットリスト（汎用）への移行と動作確認（本番/Raspberry Pi）
+
+本リポジトリは「科目ごとの復習セット（旧: `settings.review_timing`）」から、
+「名前付きの汎用セットリスト（新: `review_set_lists` / `review_set_items`）」へ移行しました。
+
+- **Alembic**: 新テーブル作成は `alembic upgrade head` で自動適用（backend 起動時に必ず実行）
+- **後方互換**: 新テーブルが無い/空の場合でも、旧 `review_timing` を読み取り、必要なら API 呼び出し時に自動生成して壊れないようにしています
+
+### 本番手順（git pull → build → up のみ）
+
+```bash
+git pull
+docker compose -f docker-compose.prod.yml build --no-cache backend
+docker compose -f docker-compose.prod.yml up -d
+```
+
+backend のログに `alembic upgrade head` が成功していることを確認してください（失敗時は起動しません）。
+
+### API動作確認（CLI）
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend \
+  python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/api/review-set-lists').read())"
+```
+
+### UI動作確認（手順）
+
+- **設定 → 復習セットリスト** で、名前付きセットリストを作成/編集/削除できること
+- **新規リマインダ → 復習セットリストから一括生成** で、
+  - セットリスト選択（必須）
+  - 科目選択（必須）
+  - 開始日（必須、期限はセットリストの offset_days から自動計算）
+  ができ、生成後にToDoが追加されること
+
 

@@ -1,7 +1,10 @@
 from sqlalchemy.orm import Session
 import logging
 from . import models, schemas
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import json
+import sqlalchemy as sa
+from sqlalchemy.exc import ProgrammingError
 
 logger = logging.getLogger(__name__)
 
@@ -412,4 +415,232 @@ def complete_project_and_todos(db: Session, project_id: int):
     db.commit()
     db.refresh(db_project)
     return db_project, int(updated_todos or 0)
+
+# ----------------------------
+# Review set list (復習セットリスト / 科目非依存)
+# ----------------------------
+
+def _review_set_tables_ready(db: Session) -> bool:
+    """
+    マイグレーション未適用期間の後方互換:
+    テーブルが存在しない場合は False を返し、呼び出し側が旧ロジックにフォールバックできるようにする。
+    """
+    try:
+        bind = db.get_bind()
+        insp = sa.inspect(bind)
+        return insp.has_table("review_set_lists") and insp.has_table("review_set_items")
+    except Exception:
+        return False
+
+
+def _seed_review_set_lists_from_legacy_settings(db: Session) -> int:
+    """
+    旧データ構造(settings.review_timing)から、review_set_lists/items を生成する（冪等に近い）。
+    - 新テーブルが空の場合のみ呼ぶ想定
+    - 生成名: "{subject}（旧）"
+    """
+    if not _review_set_tables_ready(db):
+        return 0
+
+    try:
+        existing_count = db.query(models.ReviewSetList).count()
+    except ProgrammingError:
+        return 0
+
+    if existing_count > 0:
+        return 0
+
+    setting = db.query(models.Settings).filter(models.Settings.key == "review_timing").first()
+    if not setting:
+        return 0
+
+    try:
+        parsed = json.loads(setting.value)
+    except Exception as e:
+        logger.warning(f"[ReviewSet] 旧review_timingのJSON解析に失敗しました: {e}")
+        return 0
+
+    if not isinstance(parsed, list):
+        return 0
+
+    created = 0
+    for timing in parsed:
+        if not isinstance(timing, dict):
+            continue
+        subject_name = str(timing.get("subject_name") or "").strip()
+        review_days = timing.get("review_days") or []
+        if not subject_name or not isinstance(review_days, list) or len(review_days) == 0:
+            continue
+
+        name = f"{subject_name}（旧）"
+
+        rs = models.ReviewSetList(name=name)
+        db.add(rs)
+        db.flush()  # id を確定
+
+        for day in review_days:
+            try:
+                offset = int(day)
+            except Exception:
+                continue
+            db.add(models.ReviewSetItem(set_list_id=rs.id, offset_days=offset))
+
+        created += 1
+
+    if created > 0:
+        db.commit()
+        logger.info(f"[ReviewSet] 旧review_timingから復習セットを{created}件生成しました（必要に応じて名称を変更してください）")
+    return created
+
+
+def get_all_review_set_lists(db: Session, skip: int = 0, limit: int = 100):
+    if not _review_set_tables_ready(db):
+        logger.info("[ReviewSet] review_set_listsテーブルが存在しないため、旧ロジックへフォールバックしてください")
+        return []
+
+    # 新テーブルが空なら旧設定から生成（後方互換）
+    try:
+        if db.query(models.ReviewSetList).count() == 0:
+            _seed_review_set_lists_from_legacy_settings(db)
+    except ProgrammingError:
+        return []
+
+    return (
+        db.query(models.ReviewSetList)
+        .order_by(models.ReviewSetList.created_at.desc().nullslast(), models.ReviewSetList.id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def get_review_set_list(db: Session, set_list_id: int):
+    if not _review_set_tables_ready(db):
+        return None
+    return db.query(models.ReviewSetList).filter(models.ReviewSetList.id == set_list_id).first()
+
+
+def create_review_set_list(db: Session, payload: schemas.ReviewSetListCreate):
+    if not _review_set_tables_ready(db):
+        raise RuntimeError("review_set_listsテーブルが存在しません（マイグレーション未適用）")
+
+    rs = models.ReviewSetList(name=payload.name)
+    db.add(rs)
+    db.flush()
+
+    for item in payload.items or []:
+        db.add(models.ReviewSetItem(set_list_id=rs.id, offset_days=int(item.offset_days)))
+
+    db.commit()
+    db.refresh(rs)
+    return rs
+
+
+def update_review_set_list(db: Session, set_list_id: int, payload: schemas.ReviewSetListUpdate):
+    rs = get_review_set_list(db, set_list_id)
+    if rs is None:
+        return None
+    data = payload.dict(exclude_unset=True)
+    for k, v in data.items():
+        setattr(rs, k, v)
+    db.commit()
+    db.refresh(rs)
+    return rs
+
+
+def delete_review_set_list(db: Session, set_list_id: int):
+    rs = get_review_set_list(db, set_list_id)
+    if rs is None:
+        return None
+    db.delete(rs)
+    db.commit()
+    return rs
+
+
+def create_review_set_item(db: Session, set_list_id: int, payload: schemas.ReviewSetItemCreate):
+    if get_review_set_list(db, set_list_id) is None:
+        return None
+    item = models.ReviewSetItem(set_list_id=set_list_id, offset_days=int(payload.offset_days))
+    db.add(item)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def update_review_set_item(db: Session, item_id: int, offset_days: int):
+    if not _review_set_tables_ready(db):
+        return None
+    item = db.query(models.ReviewSetItem).filter(models.ReviewSetItem.id == item_id).first()
+    if item is None:
+        return None
+    item.offset_days = int(offset_days)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_review_set_item(db: Session, item_id: int):
+    if not _review_set_tables_ready(db):
+        return None
+    item = db.query(models.ReviewSetItem).filter(models.ReviewSetItem.id == item_id).first()
+    if item is None:
+        return None
+    db.delete(item)
+    db.commit()
+    return item
+
+
+def generate_todos_from_review_set(
+    db: Session,
+    set_list_id: int,
+    subject: str,
+    base_title: str | None = None,
+    start_date: datetime | None = None,
+    project_id: int | None = None,
+):
+    """
+    セットリストからリマインダを一括生成する。
+    due_date = start_date + offset_days
+    """
+    if not subject or not subject.strip():
+        raise ValueError("subject is required")
+
+    rs = get_review_set_list(db, set_list_id)
+    if rs is None:
+        raise ValueError("set_list not found")
+
+    # start_date: 省略時は今日（UTC 00:00）
+    base = start_date or datetime.now(timezone.utc)
+    if base.tzinfo is None:
+        base = base.replace(tzinfo=timezone.utc)
+    base = base.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    title_base = (base_title or rs.name or "復習").strip() or "復習"
+
+    items = (
+        db.query(models.ReviewSetItem)
+        .filter(models.ReviewSetItem.set_list_id == rs.id)
+        .order_by(models.ReviewSetItem.id.asc())
+        .all()
+    )
+    if not items:
+        raise ValueError("set_list has no items")
+
+    created = []
+    for idx, item in enumerate(items):
+        due = base + timedelta(days=int(item.offset_days))
+        todo = models.Todo(
+            title=f"{title_base}_復習{idx + 1}回目",
+            subject=subject.strip(),
+            due_date=due,
+            project_id=project_id,
+            completed=False,
+        )
+        db.add(todo)
+        created.append(todo)
+
+    db.commit()
+    for t in created:
+        db.refresh(t)
+    return created
 

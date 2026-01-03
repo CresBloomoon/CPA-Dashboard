@@ -9,8 +9,8 @@ import {
   type DraggableStateSnapshot,
   type DropResult,
 } from '@hello-pangea/dnd';
-import { settingsApi } from '../../../api/api';
-import type { Subject, ReviewTiming } from '../../../api/types';
+import { settingsApi, reviewSetApi } from '../../../api/api';
+import type { Subject, ReviewTiming, ReviewSetList } from '../../../api/types';
 import { APP_LIMITS } from '../../../config/appConfig';
 import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../../../config/subjects';
 import { SUBJECT_SETTINGS_TIP } from '../../../constants/tips';
@@ -215,6 +215,10 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
   const subjectNameRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
   const [reviewTimings, setReviewTimings] = useState<ReviewTiming[]>([]);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<number>>(new Set());
+  const [reviewSetLists, setReviewSetLists] = useState<ReviewSetList[]>([]);
+  const [reviewSetError, setReviewSetError] = useState<string | null>(null);
+  const [newSetListName, setNewSetListName] = useState('');
+  const [newSetListOffsets, setNewSetListOffsets] = useState('1,3,7');
 
   // 設定を読み込む
   useEffect(() => {
@@ -433,6 +437,20 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     }
   };
 
+  // 新: 復習セットリスト（名前付き）を読み込む
+  const loadReviewSetLists = async () => {
+    try {
+      setReviewSetError(null);
+      const lists = await reviewSetApi.getAll();
+      setReviewSetLists(lists);
+    } catch (error: any) {
+      console.error('[SettingsView] Error loading review set lists:', error);
+      // 後方互換: 新API/テーブルが無い期間は旧設定で動かす
+      setReviewSetError(error.userMessage || '復習セットリストの読み込みに失敗しました（旧設定へフォールバックします）');
+      await loadReviewTimings();
+    }
+  };
+
   // 復習タイミング設定を保存
   const saveReviewTimings = async (timings: ReviewTiming[]) => {
     try {
@@ -566,7 +584,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
     
     // メニューに応じた追加処理
     if (menu === 'review-timing') {
-      loadReviewTimings();
+      loadReviewSetLists();
     }
   };
 
@@ -686,116 +704,361 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
               className="text-sm mb-6"
               style={{ color: colors.textSecondary }}
             >
-              科目ごとに復習日数を個別に設定できます
+              名前付きの汎用セットリストとして復習日数（オフセット日数）を管理できます
             </p>
-            
-            <div className="space-y-4">
-              {subjects.map((subject) => {
-                const timing = reviewTimings.find(t => t.subject_id === subject.id) || {
-                  subject_id: subject.id,
-                  subject_name: subject.name,
-                  review_days: [1],
-                };
-                
-                const isExpanded = expandedSubjects.has(subject.id);
-                
-                return (
-                  <div
-                    key={subject.id}
-                    className="p-4 rounded-lg border"
-                    style={{
-                      backgroundColor: colors.backgroundSecondary,
-                      borderColor: colors.border,
-                    }}
-                  >
+
+            {/* 後方互換: 新API/テーブルが使えない場合は旧UI（科目別）を表示 */}
+            {reviewSetError ? (
+              <div className="space-y-4">
+                <div className="rounded-xl bg-amber-500/10 border border-amber-400/20 px-4 py-3 text-sm text-amber-100/90">
+                  {reviewSetError}
+                </div>
+
+                <div className="space-y-4">
+                  {subjects.map((subject) => {
+                    const timing = reviewTimings.find(t => t.subject_id === subject.id) || {
+                      subject_id: subject.id,
+                      subject_name: subject.name,
+                      review_days: [1],
+                    };
+                    
+                    const isExpanded = expandedSubjects.has(subject.id);
+                    
+                    return (
+                      <div
+                        key={subject.id}
+                        className="p-4 rounded-lg border"
+                        style={{
+                          backgroundColor: colors.backgroundSecondary,
+                          borderColor: colors.border,
+                        }}
+                      >
+                        <button
+                          onClick={() => {
+                            setExpandedSubjects(prev => {
+                              const newSet = new Set(prev);
+                              if (newSet.has(subject.id)) {
+                                newSet.delete(subject.id);
+                              } else {
+                                newSet.add(subject.id);
+                              }
+                              return newSet;
+                            });
+                          }}
+                          className="w-full flex items-center gap-3 mb-4 rounded-lg p-2 -m-2 transition-colors"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.backgroundColor = colors.cardHover;
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          <span
+                            className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}
+                            style={{ color: colors.textSecondary }}
+                          >
+                            ▶
+                          </span>
+                          <span
+                            className="w-4 h-4 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: subject.color }}
+                          />
+                          <h4 
+                            className="font-semibold text-left"
+                            style={{ color: colors.textSecondary }}
+                          >
+                            {subject.name}
+                          </h4>
+                        </button>
+                        
+                        {isExpanded && (
+                          <div className="space-y-2">
+                            {timing.review_days.map((day, index) => (
+                              <div key={index} className="flex items-center gap-2">
+                                <label 
+                                  className="text-sm font-medium w-20"
+                                  style={{ color: colors.textSecondary }}
+                                >
+                                  {index + 1}回目
+                                </label>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  max="365"
+                                  value={day}
+                                  onChange={(e) => handleReviewDayChange(subject.id, index, parseInt(e.target.value) || 1)}
+                                  className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                                  style={{
+                                    borderColor: colors.border,
+                                    backgroundColor: colors.card,
+                                    color: colors.textPrimary,
+                                  }}
+                                  onFocus={(e) => {
+                                    e.currentTarget.style.borderColor = colors.accent;
+                                    e.currentTarget.style.boxShadow = `0 0 0 2px ${colors.accentLight}`;
+                                  }}
+                                  onBlur={(e) => {
+                                    e.currentTarget.style.borderColor = colors.border;
+                                    e.currentTarget.style.boxShadow = 'none';
+                                  }}
+                                  disabled={isSaving}
+                                  placeholder="日数"
+                                />
+                                <span 
+                                  className="text-sm w-12"
+                                  style={{ color: colors.textSecondary }}
+                                >
+                                  日後
+                                </span>
+                                {index > 0 && (
+                                  <button
+                                    onClick={() => handleRemoveReviewDay(subject.id, index)}
+                                    disabled={isSaving}
+                                    className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    style={{
+                                      color: colors.error,
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSaving) {
+                                        e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = 'transparent';
+                                    }}
+                                    title="削除"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                            
+                            <button
+                              onClick={() => handleAddReviewDay(subject.id)}
+                              disabled={isSaving}
+                              className="mt-2 px-4 py-2 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                              style={{
+                                color: colors.accent,
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isSaving) {
+                                  e.currentTarget.style.backgroundColor = colors.accentLight;
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }}
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                              </svg>
+                              追加
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* 新規作成 */}
+                <div
+                  className="p-4 rounded-lg border"
+                  style={{
+                    backgroundColor: colors.backgroundSecondary,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <div className="text-sm mb-3" style={{ color: colors.textSecondary }}>
+                    新しいセットリスト
+                  </div>
+                  <div className="flex flex-col gap-3">
+                    <input
+                      value={newSetListName}
+                      onChange={(e) => setNewSetListName(e.target.value)}
+                      placeholder="例: 短期復習セット"
+                      className="px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                      style={{
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                        color: colors.textPrimary,
+                      }}
+                      disabled={isSaving}
+                    />
+                    <input
+                      value={newSetListOffsets}
+                      onChange={(e) => setNewSetListOffsets(e.target.value)}
+                      placeholder="オフセット日数（例: 1,3,7,14）"
+                      className="px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                      style={{
+                        borderColor: colors.border,
+                        backgroundColor: colors.card,
+                        color: colors.textPrimary,
+                      }}
+                      disabled={isSaving}
+                    />
                     <button
-                      onClick={() => {
-                        setExpandedSubjects(prev => {
-                          const newSet = new Set(prev);
-                          if (newSet.has(subject.id)) {
-                            newSet.delete(subject.id);
-                          } else {
-                            newSet.add(subject.id);
-                          }
-                          return newSet;
-                        });
+                      onClick={async () => {
+                        try {
+                          setIsSaving(true);
+                          const offsets = newSetListOffsets
+                            .split(',')
+                            .map((s) => s.trim())
+                            .filter(Boolean)
+                            .map((s) => Number(s))
+                            .filter((n) => Number.isFinite(n) && n >= 0)
+                            .map((n) => Math.floor(n));
+
+                          await reviewSetApi.create({
+                            name: newSetListName.trim(),
+                            items: offsets.map((o) => ({ offset_days: o })),
+                          });
+                          setNewSetListName('');
+                          setNewSetListOffsets('1,3,7');
+                          await loadReviewSetLists();
+                        } catch (e: any) {
+                          alert(e.userMessage || 'セットリストの作成に失敗しました');
+                        } finally {
+                          setIsSaving(false);
+                        }
                       }}
-                      className="w-full flex items-center gap-3 mb-4 rounded-lg p-2 -m-2 transition-colors"
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = colors.cardHover;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'transparent';
+                      disabled={isSaving || !newSetListName.trim()}
+                      className="px-4 py-2 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                      style={{
+                        backgroundColor: colors.accent,
+                        color: '#fff',
                       }}
                     >
-                      <span
-                        className={`inline-block transition-transform ${isExpanded ? 'rotate-90' : ''}`}
-                        style={{ color: colors.textSecondary }}
-                      >
-                        ▶
-                      </span>
-                      <span
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: subject.color }}
-                      />
-                      <h4 
-                        className="font-semibold text-left"
-                        style={{ color: colors.textSecondary }}
-                      >
-                        {subject.name}
-                      </h4>
+                      作成
                     </button>
-                    
-                    {isExpanded && (
+                  </div>
+                </div>
+
+                {/* 一覧 */}
+                {reviewSetLists.length === 0 ? (
+                  <div className="text-sm" style={{ color: colors.textSecondary }}>
+                    セットリストがありません
+                  </div>
+                ) : (
+                  reviewSetLists.map((list) => (
+                    <div
+                      key={list.id}
+                      className="p-4 rounded-lg border"
+                      style={{
+                        backgroundColor: colors.backgroundSecondary,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-3">
+                        <input
+                          defaultValue={list.name}
+                          className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
+                          style={{
+                            borderColor: colors.border,
+                            backgroundColor: colors.card,
+                            color: colors.textPrimary,
+                          }}
+                          disabled={isSaving}
+                          onBlur={async (e) => {
+                            const next = e.target.value.trim();
+                            if (!next || next === list.name) return;
+                            try {
+                              await reviewSetApi.update(list.id, { name: next });
+                              await loadReviewSetLists();
+                            } catch (err: any) {
+                              alert(err.userMessage || '名称の更新に失敗しました');
+                            }
+                          }}
+                        />
+                        <button
+                          onClick={async () => {
+                            if (!confirm('このセットリストを削除しますか？')) return;
+                            try {
+                              setIsSaving(true);
+                              await reviewSetApi.delete(list.id);
+                              await loadReviewSetLists();
+                            } catch (err: any) {
+                              alert(err.userMessage || '削除に失敗しました');
+                            } finally {
+                              setIsSaving(false);
+                            }
+                          }}
+                          disabled={isSaving}
+                          className="px-4 py-2 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                          style={{
+                            color: colors.error,
+                          }}
+                          onMouseEnter={(e) => {
+                            if (!isSaving) {
+                              e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
+                            }
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          削除
+                        </button>
+                      </div>
+
                       <div className="space-y-2">
-                        {timing.review_days.map((day, index) => (
-                          <div key={index} className="flex items-center gap-2">
-                            <label 
-                              className="text-sm font-medium w-20"
-                              style={{ color: colors.textSecondary }}
-                            >
-                              {index + 1}回目
+                        {list.items.map((it, idx) => (
+                          <div key={it.id} className="flex items-center gap-2">
+                            <label className="text-sm font-medium w-20" style={{ color: colors.textSecondary }}>
+                              {idx + 1}回目
                             </label>
                             <input
                               type="number"
-                              min="1"
-                              max="365"
-                              value={day}
-                              onChange={(e) => handleReviewDayChange(subject.id, index, parseInt(e.target.value) || 1)}
+                              min="0"
+                              max="3650"
+                              defaultValue={it.offset_days}
                               className="flex-1 px-3 py-2 border rounded-lg focus:ring-2 focus:outline-none"
                               style={{
                                 borderColor: colors.border,
                                 backgroundColor: colors.card,
                                 color: colors.textPrimary,
                               }}
-                              onFocus={(e) => {
-                                e.currentTarget.style.borderColor = colors.accent;
-                                e.currentTarget.style.boxShadow = `0 0 0 2px ${colors.accentLight}`;
-                              }}
-                              onBlur={(e) => {
-                                e.currentTarget.style.borderColor = colors.border;
-                                e.currentTarget.style.boxShadow = 'none';
-                              }}
                               disabled={isSaving}
-                              placeholder="日数"
+                              onBlur={async (e) => {
+                                const next = Math.floor(Number(e.target.value));
+                                if (!Number.isFinite(next) || next < 0 || next === it.offset_days) return;
+                                try {
+                                  await reviewSetApi.updateItem(it.id, next);
+                                  await loadReviewSetLists();
+                                } catch (err: any) {
+                                  alert(err.userMessage || '更新に失敗しました');
+                                }
+                              }}
                             />
-                            <span 
-                              className="text-sm w-12"
-                              style={{ color: colors.textSecondary }}
-                            >
+                            <span className="text-sm w-12" style={{ color: colors.textSecondary }}>
                               日後
                             </span>
-                            {index > 0 && (
+                            {idx > 0 && (
                               <button
-                                onClick={() => handleRemoveReviewDay(subject.id, index)}
-                                disabled={isSaving}
+                                onClick={async () => {
+                                  try {
+                                    setIsSaving(true);
+                                    await reviewSetApi.deleteItem(it.id);
+                                    await loadReviewSetLists();
+                                  } catch (err: any) {
+                                    alert(err.userMessage || '削除に失敗しました');
+                                  } finally {
+                                    setIsSaving(false);
+                                  }
+                                }}
+                                disabled={isSaving || list.items.length <= 1}
                                 className="p-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 style={{
                                   color: colors.error,
                                 }}
                                 onMouseEnter={(e) => {
                                   if (!isSaving) {
-                                    e.currentTarget.style.backgroundColor = `${colors.error}1A`; // 10% opacity
+                                    e.currentTarget.style.backgroundColor = `${colors.error}1A`;
                                   }
                                 }}
                                 onMouseLeave={(e) => {
@@ -810,9 +1073,20 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                             )}
                           </div>
                         ))}
-                        
+
                         <button
-                          onClick={() => handleAddReviewDay(subject.id)}
+                          onClick={async () => {
+                            try {
+                              setIsSaving(true);
+                              const last = list.items[list.items.length - 1]?.offset_days ?? 1;
+                              await reviewSetApi.createItem(list.id, Math.max(0, Number(last) + 1));
+                              await loadReviewSetLists();
+                            } catch (err: any) {
+                              alert(err.userMessage || '追加に失敗しました');
+                            } finally {
+                              setIsSaving(false);
+                            }
+                          }}
                           disabled={isSaving}
                           className="mt-2 px-4 py-2 rounded-lg transition-colors font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                           style={{
@@ -833,11 +1107,11 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                           追加
                         </button>
                       </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
 
             {/* 財務報告設定（復習セットリストの下に配置） */}
             <div className="mt-10 pt-6 border-t" style={{ borderColor: colors.border }}>

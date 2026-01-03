@@ -81,6 +81,46 @@ export interface ReviewTiming {
   review_days: number[]; // 復習日数（開始日からの日数）例: [1, 3, 7, 14] → 1日後、3日後、7日後、14日後
 }
 
+// ----------------------------
+// Review set list (復習セットリスト / 科目非依存)
+// ----------------------------
+
+export interface ReviewSetItem {
+  id: number;
+  set_list_id: number;
+  offset_days: number;
+  created_at: string;
+}
+
+export interface ReviewSetList {
+  id: number;
+  name: string;
+  created_at: string;
+  updated_at?: string;
+  items: ReviewSetItem[];
+}
+
+export interface ReviewSetListCreate {
+  name: string;
+  items?: Array<{ offset_days: number }>;
+}
+
+export interface ReviewSetListUpdate {
+  name?: string;
+}
+
+export interface ReviewSetGenerateRequest {
+  set_list_id: number;
+  subject: string;
+  base_title?: string;
+  start_date?: string; // ISO
+  project_id?: number | null;
+}
+
+export interface ReviewSetGenerateResponse {
+  todos: Todo[];
+}
+
 export interface Project {
   id: number;
   name: string;
