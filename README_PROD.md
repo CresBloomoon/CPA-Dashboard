@@ -48,6 +48,21 @@ docker compose -f docker-compose.prod.yml run --rm \
 
 移行が成功すると `[MIGRATE] SUCCESS (committed)` が表示されます。
 
+---
+
+## Dockerfile反映・スクリプト実行確認（本番で手編集不要）
+
+以下の手順で **`/app/scripts/migrate_sqlite_to_postgres.py` がコンテナに含まれている**ことを確認できます。
+
+```bash
+docker compose -f docker-compose.prod.yml build --no-cache backend
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml run --rm backend \
+  python /app/scripts/migrate_sqlite_to_postgres.py
+```
+
+※ 実際の移行実行では `SQLITE_DB_PATH` と SQLite ファイルのマウントが必要です（上の「初回のみ」手順参照）。
+
 ### 3) 再起動
 
 ```bash

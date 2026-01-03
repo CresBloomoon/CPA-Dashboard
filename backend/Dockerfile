@@ -12,8 +12,17 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# アプリケーションコードのコピー
-COPY . .
+# ---
+# アプリ本体と運用スクリプトを明示的にコピー
+# - app/      -> /app/app
+# - scripts/  -> /app/scripts
+# - alembic   -> /app/alembic（起動時にalembic upgrade headを実行）
+# ---
+COPY alembic.ini ./alembic.ini
+COPY alembic ./alembic
+COPY app ./app
+COPY scripts ./scripts
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
 
 # entrypoint
 RUN chmod +x /app/docker-entrypoint.sh
