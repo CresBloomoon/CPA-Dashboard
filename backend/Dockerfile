@@ -15,11 +15,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # アプリケーションコードのコピー
 COPY . .
 
-# データベースディレクトリの作成
-RUN mkdir -p /app/data
+# entrypoint
+RUN chmod +x /app/docker-entrypoint.sh
+ENV PYTHONPATH=/app
 
 # ポートの公開
 EXPOSE 8000
 
-# デフォルトコマンド（docker-composeで上書きされる）
+# 起動時: alembic upgrade head → 起動（失敗時は起動しない）
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

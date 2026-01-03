@@ -4,25 +4,12 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 import logging
 
-from .database import engine, get_db, Base
+from .database import get_db
 from . import models, schemas, crud
 
 # ロギング設定
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# データベーステーブルの作成
-Base.metadata.create_all(bind=engine)
-
-# 初期データの投入（設定が存在しない場合のみ）
-def init_default_settings():
-    """デフォルトの設定を投入"""
-    # 科目リストは初期状態では空のままとする（ユーザーが設定画面で追加する）
-    # デフォルト科目の自動投入は削除しました
-    pass
-
-# アプリケーション起動時に初期データを投入
-init_default_settings()
 
 app = FastAPI(
     title="CPA Dashboard API",
