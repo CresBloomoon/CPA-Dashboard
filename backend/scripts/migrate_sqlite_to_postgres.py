@@ -90,61 +90,63 @@ def main() -> int:
         "todos",
     ]
 
-    with sqlite_engine.connect() as sqlite_conn, pg_engine.connect() as pg_conn:
-        # Ensure postgres schema exists (alembic should have run already)
-        pg_tables = set(sa.inspect(pg_conn).get_table_names())
-        missing = [t for t in tables_in_order if t not in pg_tables]
-        if missing:
-            raise RuntimeError(f"PostgreSQL schema is missing tables: {missing}. Run `alembic upgrade head` first.")
-
-        # Safety: stop if postgres already has data (unless forced)
-        force = os.getenv("MIGRATE_FORCE") == "1"
-        existing_counts = {t: _count(pg_conn, t) for t in tables_in_order if t in pg_tables}
-        non_empty = {t: c for t, c in existing_counts.items() if c > 0}
-        if non_empty and not force:
-            raise RuntimeError(
-                f"PostgreSQL already has data (non-empty tables: {non_empty}). "
-                "Abort to avoid duplicates. Set MIGRATE_FORCE=1 to override."
-            )
-
+    with sqlite_engine.connect() as sqlite_conn:
         sqlite_tables = set(sa.inspect(sqlite_conn).get_table_names())
         missing_sqlite = [t for t in tables_in_order if t not in sqlite_tables]
         if missing_sqlite:
             raise RuntimeError(f"SQLite schema is missing tables: {missing_sqlite}")
 
-        trans = pg_conn.begin()
+        # SQLAlchemy 2.0 autobegin 対策:
+        # - 明示的に Connection.begin() を呼ばず、Engine.begin() のコンテキストに統一する
+        # - 例外時は自動ロールバックされる
         try:
-            logger.info("[MIGRATE] starting transaction")
+            logger.info("[MIGRATE] starting transaction (pg_engine.begin())")
+            with pg_engine.begin() as pg_conn:
+                # Ensure postgres schema exists (alembic should have run already)
+                pg_tables = set(sa.inspect(pg_conn).get_table_names())
+                missing = [t for t in tables_in_order if t not in pg_tables]
+                if missing:
+                    raise RuntimeError(
+                        f"PostgreSQL schema is missing tables: {missing}. Run `alembic upgrade head` first."
+                    )
 
-            for table in tables_in_order:
-                src_rows = _fetch_all(sqlite_conn, table)
-                logger.info(f"[MIGRATE] {table}: rows={len(src_rows)}")
+                # Safety: stop if postgres already has data (unless forced)
+                force = os.getenv("MIGRATE_FORCE") == "1"
+                existing_counts = {t: _count(pg_conn, t) for t in tables_in_order if t in pg_tables}
+                non_empty = {t: c for t, c in existing_counts.items() if c > 0}
+                if non_empty and not force:
+                    raise RuntimeError(
+                        f"PostgreSQL already has data (non-empty tables: {non_empty}). "
+                        "Abort to avoid duplicates. Set MIGRATE_FORCE=1 to override."
+                    )
 
-                if not src_rows:
-                    continue
+                for table in tables_in_order:
+                    src_rows = _fetch_all(sqlite_conn, table)
+                    logger.info(f"[MIGRATE] {table}: rows={len(src_rows)}")
 
-                # Insert in chunks
-                cols = list(src_rows[0].keys())
-                col_list = ", ".join([f'"{c}"' for c in cols])
-                val_list = ", ".join([f":{c}" for c in cols])
-                insert_sql = text(f'INSERT INTO "{table}" ({col_list}) VALUES ({val_list})')
+                    if not src_rows:
+                        continue
 
-                chunk_size = 1000
-                for i in range(0, len(src_rows), chunk_size):
-                    chunk = src_rows[i : i + chunk_size]
-                    pg_conn.execute(insert_sql, chunk)
+                    # Insert in chunks
+                    cols = list(src_rows[0].keys())
+                    col_list = ", ".join([f'"{c}"' for c in cols])
+                    val_list = ", ".join([f":{c}" for c in cols])
+                    insert_sql = text(f'INSERT INTO "{table}" ({col_list}) VALUES ({val_list})')
 
-            # Adjust sequences
-            for table in ["projects", "study_progress", "settings", "study_time_sync_sessions", "todos"]:
-                logger.info(f"[MIGRATE] set sequence: {table}.id")
-                _set_sequence(pg_conn, table, "id")
+                    chunk_size = 1000
+                    for i in range(0, len(src_rows), chunk_size):
+                        chunk = src_rows[i : i + chunk_size]
+                        pg_conn.execute(insert_sql, chunk)
 
-            trans.commit()
+                # Adjust sequences
+                for table in ["projects", "study_progress", "settings", "study_time_sync_sessions", "todos"]:
+                    logger.info(f"[MIGRATE] set sequence: {table}.id")
+                    _set_sequence(pg_conn, table, "id")
+
             logger.info("[MIGRATE] SUCCESS (committed)")
             return 0
         except Exception as e:
             logger.exception(f"[MIGRATE] FAILED -> rollback: {e}")
-            trans.rollback()
             return 1
 
 
