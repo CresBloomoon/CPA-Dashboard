@@ -1243,7 +1243,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                                     type="button"
                                     className="px-3 py-2 rounded-lg font-semibold"
                                     style={{ color: colors.textSecondary }}
-                                    disabled={saving || !dirty}
+                                    disabled={saving}
                                     onClick={() => {
                                       setReviewSetEdits((prev) => {
                                         const cur = prev[list.id];
@@ -1269,7 +1269,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                                     type="button"
                                     className="px-4 py-2 rounded-lg font-semibold"
                                     style={{ backgroundColor: colors.accent, color: '#fff', opacity: saving ? 0.6 : 1 }}
-                                    disabled={saving || !dirty}
+                                    disabled={saving}
                                     onClick={async () => {
                                       setReviewSetEdits((prev) => ({
                                         ...prev,
