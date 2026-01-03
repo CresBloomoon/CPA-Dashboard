@@ -498,10 +498,20 @@ def get_all_review_set_lists(db: Session, skip: int = 0, limit: int = 100):
         logger.info("[ReviewSet] review_set_listsテーブルが存在しないため、旧ロジックへフォールバックしてください")
         return []
 
-    # 新テーブルが空なら旧設定から生成（後方互換）
+    # 後方互換（初回のみ）:
+    # - review_set_lists が空でも、旧 settings.review_timing からの自動seedは「初回だけ」にする
+    # - 一度seed（またはseed試行）したら settings.review_set_lists_seeded=true を保存し、
+    #   ユーザーが全削除しても復活しないようにする
     try:
         if db.query(models.ReviewSetList).count() == 0:
-            _seed_review_set_lists_from_legacy_settings(db)
+            seeded_setting = get_setting(db, "review_set_lists_seeded")
+            already_seeded = bool(seeded_setting and str(seeded_setting.value).strip().lower() == "true")
+            if not already_seeded:
+                legacy_exists = get_setting(db, "review_timing") is not None
+                _seed_review_set_lists_from_legacy_settings(db)
+                # legacyがある場合は「初回移行は完了扱い」にして再seedを防止
+                if legacy_exists:
+                    create_or_update_setting(db, "review_set_lists_seeded", "true")
     except ProgrammingError:
         return []
 
@@ -533,6 +543,11 @@ def create_review_set_list(db: Session, payload: schemas.ReviewSetListCreate):
 
     db.commit()
     db.refresh(rs)
+    # 新運用へ移行したので、旧からの自動seedは今後しない（全削除しても復活させない）
+    try:
+        create_or_update_setting(db, "review_set_lists_seeded", "true")
+    except Exception:
+        pass
     return rs
 
 

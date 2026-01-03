@@ -863,7 +863,13 @@ export default function TodoCreateModal({
                     isAdding ||
                     !newTodoTitle.trim() ||
                     !newTodoDueDate ||
-                    (isUsingSetList && !selectedSetListTiming) ||
+                    (isUsingSetList &&
+                      (
+                        // 新API: セットリスト + 科目 が必須
+                        (!reviewSetLoadError && (selectedReviewSetListId === null || !newTodoSubject.trim())) ||
+                        // 後方互換（API失敗時のみ）: 旧選択が必須（subjectは旧側から入る）
+                        (reviewSetLoadError && !selectedSetListTiming)
+                      )) ||
                     (!isUsingSetList && titleExpansionInfo.hasExpansion && !titleExpansionInfo.isValid)
                   }
                   className="w-full px-6 py-3 rounded-full font-semibold text-lg text-slate-200/90 bg-slate-800/50 hover:bg-slate-800/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed relative backdrop-blur-md ring-1 ring-sky-200/15 shadow-[0_16px_40px_rgba(0,0,0,0.50)]"
