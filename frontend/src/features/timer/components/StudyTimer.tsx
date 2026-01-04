@@ -327,10 +327,9 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     setPomodoroSets,
     saveRecord,
   } = useTimer();
-  const { handleTrophyEvent } = useTrophySystemContext();
+  const { handleTrophyEvent, pushToast } = useTrophySystemContext();
 
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const gradientSeed = useId();
   const idleTimerRef = useRef<number | null>(null);
@@ -391,12 +390,15 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     setIsRecording(true);
     const result = await saveRecord(onRecorded);
     setIsRecording(false);
-    
-    // トースト通知を表示
-    setToastMessage(result.message);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, TIMER_SETTINGS.FEEDBACK.TOAST_DURATION_MS);
+
+    // 共通トースト（トロフィーと同じUI/アニメ）を表示
+    // - 成功: 緑 / 文言は「記録完了！」のみ（2行目は空文字でレイアウトだけ維持）
+    // - 失敗: 赤 / 文言は「保存失敗」のみ（2行目は空文字）
+    if (result.success) {
+      pushToast({ variant: 'success', message: '記録完了！', subMessage: '' });
+    } else {
+      pushToast({ variant: 'error', message: '保存失敗', subMessage: '' });
+    }
   };
 
   // ドメインロジックを使用
@@ -1263,16 +1265,6 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
           </button>
         </motion.div>
 
-        {/* トースト通知 */}
-        {toastMessage && (
-          <div className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300 ${
-            toastMessage.includes('記録しました') 
-              ? 'bg-green-500 text-white' 
-              : 'bg-red-500 text-white'
-          }`}>
-            {toastMessage}
-          </div>
-        )}
       </div>
     </div>
   );

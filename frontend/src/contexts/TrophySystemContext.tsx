@@ -10,7 +10,7 @@ type TrophySystemContextValue = {
   dequeueFx: (count: number) => void;
   toastQueue: AppToastEvent[];
   dequeueToast: (count: number) => void;
-  pushToast: (payload: { variant: AppToastVariant; message: string }) => void;
+  pushToast: (payload: { variant: AppToastVariant; message: string; subMessage?: string }) => void;
   unlockTrophy: (id: string, patch?: { metadata?: Record<string, any>; unlockedAt?: string }) => void;
   checkTrophies: (appState: any, opts?: { trigger?: TrophyTrigger }) => string[];
   handleTrophyEvent: (eventId: string, context?: any) => void;

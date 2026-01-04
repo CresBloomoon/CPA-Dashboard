@@ -37,6 +37,12 @@ export type AppToastEvent = {
   kind: 'toast';
   variant: AppToastVariant;
   message: string;
+  /**
+   * 2行目（小さめの強調テキスト）。
+   * - 未指定なら UI 側で variant に応じた既定文言を表示（後方互換）
+   * - 空文字を指定すると「文言なし（ただしレイアウトは維持）」にできる
+   */
+  subMessage?: string;
   createdAtMs: number;
 };
 
@@ -130,7 +136,7 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
     setFxQueue((prev) => prev.slice(count));
   }, []);
 
-  const pushToast = useCallback((payload: { variant: AppToastVariant; message: string }) => {
+  const pushToast = useCallback((payload: { variant: AppToastVariant; message: string; subMessage?: string }) => {
     const instanceId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     setToastQueue((prev) => [
       ...prev,
@@ -139,6 +145,7 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
         kind: 'toast' as const,
         variant: payload.variant,
         message: payload.message,
+        subMessage: payload.subMessage,
         createdAtMs: Date.now(),
       },
     ]);

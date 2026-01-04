@@ -47,7 +47,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
   const [visibleItems, setVisibleItems] = useState<
     Array<
       | { instanceId: string; kind: 'trophy'; trophyId: string }
-      | { instanceId: string; kind: 'toast'; variant: 'success' | 'error' | 'achievement'; message: string }
+      | { instanceId: string; kind: 'toast'; variant: 'success' | 'error' | 'achievement'; message: string; subMessage?: string }
     >
   >([]);
   const timersRef = useRef<{ start?: number; interval?: number }>({});
@@ -64,7 +64,13 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
 
     const combined = [
       ...incomingTrophies.map((t) => ({ kind: 'trophy' as const, createdAtMs: t.createdAtMs, trophyId: t.id })),
-      ...incomingToasts.map((t) => ({ kind: 'toast' as const, createdAtMs: t.createdAtMs, variant: t.variant, message: t.message })),
+      ...incomingToasts.map((t) => ({
+        kind: 'toast' as const,
+        createdAtMs: t.createdAtMs,
+        variant: t.variant,
+        message: t.message,
+        subMessage: t.subMessage,
+      })),
     ].sort((a, b) => a.createdAtMs - b.createdAtMs);
 
     setVisibleItems((prev) => {
@@ -82,6 +88,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
             kind: 'toast',
             variant: ev.variant,
             message: ev.message,
+            subMessage: ev.subMessage,
           });
         }
       }
@@ -169,7 +176,8 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
             const isSuccess = item.variant === 'success';
             const accent = isSuccess ? '#22c55e' : '#ef4444';
             const Icon = isSuccess ? CheckCircle2 : XCircle;
-            const sub = isSuccess ? '保存しました' : '保存に失敗しました';
+            const defaultSub = isSuccess ? '保存しました' : '保存に失敗しました';
+            const sub = item.subMessage ?? defaultSub;
             return (
               <motion.div
                 key={item.instanceId}
