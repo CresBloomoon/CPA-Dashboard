@@ -104,12 +104,32 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
     });
   }, [persistedById, trophies]);
 
+  const pushToast = useCallback((payload: { variant: AppToastVariant; message: string; subMessage?: string }) => {
+    const instanceId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    setToastQueue((prev) => [
+      ...prev,
+      {
+        id: instanceId,
+        kind: 'toast' as const,
+        variant: payload.variant,
+        message: payload.message,
+        subMessage: payload.subMessage,
+        createdAtMs: Date.now(),
+      },
+    ]);
+  }, []);
+
   const unlockTrophy = useCallback(
     (id: string, patch?: { metadata?: Record<string, any>; unlockedAt?: string }) => {
       const master = trophies.find((t) => t.id === id);
-      if (!master) return;
+      // マスター未定義でも沈黙しない（フォールバックで必ず通知を出す）
+      const toastTitle = master?.title ?? '実績を獲得しました';
+      const toastSub = master ? '実績獲得！' : id;
 
-      const already = Boolean(persistedById[id]?.unlockedAt ?? master.unlockedAt);
+      const already = Boolean(persistedById[id]?.unlockedAt ?? master?.unlockedAt);
+      // 最重要：条件に関わらず、トロフィー取得イベントが来たら最低1回はトーストを生成する
+      // - 既に獲得済みでも沈黙させない（Dev/Prodでの診断性も担保）
+      pushToast({ variant: 'achievement', message: toastTitle, subMessage: toastSub });
       if (already && !allowRepeatUnlock) return;
 
       const unlockedAt = patch?.unlockedAt ?? nowIso();
@@ -126,29 +146,13 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
           metadata: nextMeta,
         },
       }));
-      setFxQueue((prev) => [...prev, { id, kind: 'unlock' as const, createdAtMs: Date.now() }]);
     },
-    [allowRepeatUnlock, persistedById, trophies]
+    [allowRepeatUnlock, persistedById, pushToast, trophies]
   );
 
   const dequeueFx = useCallback((count: number) => {
     if (count <= 0) return;
     setFxQueue((prev) => prev.slice(count));
-  }, []);
-
-  const pushToast = useCallback((payload: { variant: AppToastVariant; message: string; subMessage?: string }) => {
-    const instanceId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    setToastQueue((prev) => [
-      ...prev,
-      {
-        id: instanceId,
-        kind: 'toast' as const,
-        variant: payload.variant,
-        message: payload.message,
-        subMessage: payload.subMessage,
-        createdAtMs: Date.now(),
-      },
-    ]);
   }, []);
 
   const dequeueToast = useCallback((count: number) => {

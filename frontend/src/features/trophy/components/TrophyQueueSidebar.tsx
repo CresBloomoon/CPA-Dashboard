@@ -19,68 +19,46 @@ const getIconComponent = (iconName: string) => {
   return iconMap[iconName] || Trophy;
 };
 
-type VisibleItemBase = {
+type ToastVisibleItem = {
   instanceId: string;
   exiting: boolean;
-};
-
-type TrophyVisibleItem = VisibleItemBase & {
-  kind: 'trophy';
-  trophyId: string;
-};
-
-type ToastVisibleItem = VisibleItemBase & {
   kind: 'toast';
   variant: 'success' | 'error' | 'achievement';
   message: string;
   subMessage?: string;
 };
 
-type VisibleItem = TrophyVisibleItem | ToastVisibleItem;
+type VisibleItem = ToastVisibleItem;
 
 export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number }) {
-  const { trophies, fxQueue, toastQueue } = useTrophySystemContext();
-  const trophyById = useMemo(() => new Map(trophies.map((t) => [t.id, t])), [trophies]);
+  const { toastQueue } = useTrophySystemContext();
 
   const [visibleItems, setVisibleItems] = useState<VisibleItem[]>([]);
   const timersRef = useRef<{ start?: number; interval?: number }>({});
 
-  // dequeueFx/dequeueToast は使わない（取りこぼし防止のためイベントログ扱いにする）
+  // dequeueToast は使わない（取りこぼし防止のためイベントログ扱いにする）
   // StrictMode/連打でも「処理済み」をrefで追跡し、二重処理を防ぐ
-  const processedFxKeysRef = useRef<Set<string>>(new Set());
   const processedToastIdsRef = useRef<Set<string>>(new Set());
 
-  // fxQueue/toastQueue を走査し、未処理のみ visibleItems に追加する（dequeueしない）
+  // toastQueue を走査し、未処理のみ visibleItems に追加する（dequeueしない）
   useEffect(() => {
-    if (!fxQueue.length && !toastQueue.length) return;
+    if (!toastQueue.length) return;
 
     const availableSlots = Math.max(0, TROPHY_CONFIG.MAX_VISIBLE - visibleItems.length);
     if (availableSlots <= 0) return;
 
-    const combined: Array<
-      | { kind: 'trophy'; createdAtMs: number; trophyId: string; key: string }
-      | {
-          kind: 'toast';
-          createdAtMs: number;
-          toastId: string;
-          variant: 'success' | 'error' | 'achievement';
-          message: string;
-          subMessage?: string;
-        }
-    > = [];
-
-    for (const t of fxQueue) {
-      // fxQueue は { id: trophyId, createdAtMs } なので、(id, createdAtMs) をキーにする
-      const key = `${t.id}::${t.createdAtMs}`;
-      if (processedFxKeysRef.current.has(key)) continue;
-      combined.push({ kind: 'trophy', createdAtMs: t.createdAtMs, trophyId: t.id, key });
-    }
+    const combined: Array<{
+      createdAtMs: number;
+      toastId: string;
+      variant: 'success' | 'error' | 'achievement';
+      message: string;
+      subMessage?: string;
+    }> = [];
 
     for (const t of toastQueue) {
       // toastQueue は event.id がインスタンスID
       if (processedToastIdsRef.current.has(t.id)) continue;
       combined.push({
-        kind: 'toast',
         createdAtMs: t.createdAtMs,
         toastId: t.id,
         variant: t.variant,
@@ -98,8 +76,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
 
     // ここで processed を先に更新（StrictModeの二重effectでも重複追加しない）
     for (const ev of picked) {
-      if (ev.kind === 'trophy') processedFxKeysRef.current.add(ev.key);
-      else processedToastIdsRef.current.add(ev.toastId);
+      processedToastIdsRef.current.add(ev.toastId);
     }
 
     setVisibleItems((prev) => {
@@ -108,29 +85,19 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
       if (slots <= 0) return prev;
 
       for (const ev of picked.slice(0, slots)) {
-        if (ev.kind === 'trophy') {
-          // fxQueueは同一トロフィーが基本一度だけだが、createdAtMsを入れてユニーク性を確保
-          next.push({
-            instanceId: `trophy-${ev.trophyId}-${ev.createdAtMs}`,
-            kind: 'trophy',
-            trophyId: ev.trophyId,
-            exiting: false,
-          });
-        } else {
-          // toastQueueは event.id をそのまま instanceId として使う（処理済みキーとも一致）
-          next.push({
-            instanceId: ev.toastId,
-            kind: 'toast',
-            variant: ev.variant,
-            message: ev.message,
-            subMessage: ev.subMessage,
-            exiting: false,
-          });
-        }
+        // toastQueueは event.id をそのまま instanceId として使う（処理済みキーとも一致）
+        next.push({
+          instanceId: ev.toastId,
+          kind: 'toast',
+          variant: ev.variant,
+          message: ev.message,
+          subMessage: ev.subMessage,
+          exiting: false,
+        });
       }
       return next;
     });
-  }, [fxQueue, toastQueue, visibleItems.length]);
+  }, [toastQueue, visibleItems.length]);
 
   // 表示後：一定待機→上から順に一定間隔で消滅
   useEffect(() => {
@@ -165,12 +132,10 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
 
   const stackItems: ToastStackItem[] = useMemo(() => {
     return visibleItems.map((item) => {
-      if (item.kind === 'trophy') {
-        const t = trophyById.get(item.trophyId);
-        // 保険：マスター未定義でも沈黙しない（フォールバック表示）
-        const title = t?.title ?? '実績を獲得しました';
-        const subtitle = t ? '実績獲得！' : item.trophyId;
-        const Icon = getIconComponent(t?.icon ?? 'Trophy');
+      if (item.variant === 'achievement') {
+        const title = item.message || '実績を獲得しました';
+        const subtitle = item.subMessage || '';
+        const Icon = Trophy;
         return {
           id: item.instanceId,
           exiting: Boolean(item.exiting),
@@ -200,9 +165,11 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
                       {title}
                     </p>
                   </div>
-                  <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
-                    {subtitle}
-                  </p>
+                  {subtitle && (
+                    <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
+                      {subtitle}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -252,7 +219,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
         ),
       };
     });
-  }, [trophyById, visibleItems]);
+  }, [visibleItems]);
 
   return (
     <ToastStack
