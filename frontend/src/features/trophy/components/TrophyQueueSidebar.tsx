@@ -6,18 +6,20 @@ import { TROPHY_CONFIG } from '../config/trophyConfig';
 
 const itemVariants = {
   // 右端から「にゅっ」と入ってくる距離だけを調整（spring設定は維持）
-  initial: { opacity: 1, x: '56px' as const, scale: 0.98 },
+  initial: { opacity: 1, x: 56, scale: 0.98 },
   animate: {
     opacity: 1,
-    x: 0,
-    scale: 1,
-    transition: { type: 'spring', stiffness: 420, damping: 34 },
+    // 入場：少し出すぎて右に戻る（フェードなし）
+    x: [56, -6, 0],
+    scale: [0.98, 1, 1],
+    transition: { duration: 0.28, times: [0, 0.7, 1], ease: [0.16, 1, 0.3, 1] },
   },
   exit: {
+    // 退場：少し左に引いてから右へ「にゅっ」（フェードなし）
     opacity: 1,
-    x: '56px' as const,
-    scale: 0.98,
-    transition: { duration: TROPHY_CONFIG.EXIT_S, ease: [0.16, 1, 0.3, 1] },
+    x: [0, -6, 56],
+    scale: [1, 1, 0.98],
+    transition: { duration: 0.22, times: [0, 0.35, 1], ease: [0.16, 1, 0.3, 1] },
   },
 };
 
