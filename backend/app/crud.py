@@ -75,6 +75,38 @@ def _get_bool_setting(db: Session, key: str, default: bool) -> bool:
         return False
     return default
 
+
+def _get_visible_subject_names_from_settings(db: Session) -> list[str] | None:
+    """
+    settings(key='subjects') を解釈して「表示ONの科目名」を返す。
+    - 未設定 / 解析失敗: None（= フィルタせず全subject）
+    - 設定があり、結果が空配列: []（= 全非表示として扱う）
+    """
+    try:
+        s = get_setting(db, "subjects")
+    except Exception:
+        return None
+    if not s or not (s.value or "").strip():
+        return None
+    try:
+        parsed = json.loads(s.value)
+    except Exception:
+        return None
+    if not isinstance(parsed, list):
+        return None
+    names: list[str] = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        name = item.get("name")
+        if not isinstance(name, str):
+            continue
+        visible = item.get("visible", True)
+        if visible is False:
+            continue
+        names.append(name)
+    return names
+
 def get_study_progress(db: Session, progress_id: int):
     """IDで進捗を取得"""
     return db.query(models.StudyProgress).filter(models.StudyProgress.id == progress_id).first()
@@ -220,6 +252,44 @@ def get_dashboard_summary(
     today_hours = float(week_hours_by_date.get(base_key, 0.0))
     week_hours = float(sum(d["hours"] for d in week_daily))
 
+    # 1-b) 週の日別・科目別（積み上げ棒グラフ用）
+    visible_subjects = _get_visible_subject_names_from_settings(db)
+    week_subject_rows = (
+        db.query(
+            models.StudyTimeSyncSession.date_key.label("date_key"),
+            models.StudyTimeSyncSession.subject.label("subject"),
+            func.sum(models.StudyTimeSyncSession.last_total_ms).label("total_ms"),
+        )
+        .filter(models.StudyTimeSyncSession.user_id == user_id)
+        .filter(models.StudyTimeSyncSession.date_key >= week_start_key)
+        .filter(models.StudyTimeSyncSession.date_key < week_end_key)
+        .group_by(models.StudyTimeSyncSession.date_key, models.StudyTimeSyncSession.subject)
+        .all()
+    )
+    week_hours_by_date_subject: dict[str, dict[str, float]] = {}
+    subjects_in_week: set[str] = set()
+    for r in week_subject_rows:
+        dk = str(r.date_key)
+        sbj = str(r.subject)
+        if visible_subjects is not None and sbj not in visible_subjects:
+            continue
+        hours = float(r.total_ms or 0.0) / 3_600_000.0
+        week_hours_by_date_subject.setdefault(dk, {})[sbj] = float(week_hours_by_date_subject.get(dk, {}).get(sbj, 0.0) + hours)
+        subjects_in_week.add(sbj)
+
+    if visible_subjects is None:
+        subject_order = sorted(subjects_in_week)
+    else:
+        # settings順を優先（週に出ていない科目も0で出す）
+        subject_order = list(visible_subjects)
+
+    week_daily_by_subject: list[dict] = []
+    for i in range(7):
+        dk = (week_start + timedelta(days=i)).isoformat()
+        m = week_hours_by_date_subject.get(dk, {})
+        subjects_map = {name: float(m.get(name, 0.0)) for name in subject_order}
+        week_daily_by_subject.append({"date_key": dk, "subjects": subjects_map})
+
     # 2) ストリーク（直近N日）
     if streak_days < 1:
         streak_days = 1
@@ -275,6 +345,7 @@ def get_dashboard_summary(
         "today_hours": today_hours,
         "week_hours": week_hours,
         "week_daily": week_daily,
+        "week_daily_by_subject": week_daily_by_subject,
         "streak": {
             "current": int(current),
             "longest": int(longest),

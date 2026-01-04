@@ -158,6 +158,11 @@ class WeekDailyEntry(BaseModel):
     hours: float = Field(0.0, ge=0.0, description="当日の学習時間（時間）")
 
 
+class WeekDailyBySubjectEntry(BaseModel):
+    date_key: str = Field(..., description="yyyy-MM-dd")
+    subjects: Dict[str, float] = Field(default_factory=dict, description="科目名 -> hours の辞書")
+
+
 class StreakSummary(BaseModel):
     current: int = Field(0, ge=0, description="今日から遡った連続学習日数")
     longest: int = Field(0, ge=0, description="最長連続学習日数")
@@ -172,6 +177,7 @@ class DashboardSummaryResponse(BaseModel):
     today_hours: float = Field(0.0, ge=0.0, description="今日の学習時間（時間）")
     week_hours: float = Field(0.0, ge=0.0, description="今週の学習時間（時間）")
     week_daily: List[WeekDailyEntry] = Field(default_factory=list, description="今週の日別学習時間")
+    week_daily_by_subject: List[WeekDailyBySubjectEntry] = Field(default_factory=list, description="今週の日別・科目別学習時間")
     streak: StreakSummary = Field(default_factory=StreakSummary)
     subjects: List[SubjectSummaryResponse] = Field(default_factory=list, description="科目ごとの集計（既存互換）")
 

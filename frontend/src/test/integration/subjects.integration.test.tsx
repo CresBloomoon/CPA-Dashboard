@@ -92,6 +92,7 @@ function makeDashboardSummary(): DashboardSummaryResponse {
     today_hours: 0,
     week_hours: 0,
     week_daily: [],
+    week_daily_by_subject: [],
     streak: { current: 0, longest: 0, active_dates: [], active_hours_by_date: {} },
     subjects: [],
   };

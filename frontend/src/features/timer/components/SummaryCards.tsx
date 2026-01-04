@@ -9,7 +9,7 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { startOfWeek, endOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
+import { startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
 import type { DashboardSummaryResponse, Subject, Todo } from '../../../api/types';
 import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
 import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
@@ -85,30 +85,59 @@ export default function SummaryCards({
     // 英語の曜日略語マッピング（getDay()の0(日)〜6(土)に対応）
     const dayAbbreviations = ['Sun.', 'Mon.', 'Tue.', 'Wed.', 'Thu.', 'Fri.', 'Sat.'];
     
-    // /api/summary の week_daily（date_key基準）を使って日別合計の棒グラフを描画
-    const weekDailyMap = new Map<string, number>(
-      (dashboardSummary?.week_daily ?? []).map((d) => [d.date_key, Number(d.hours || 0)])
-    );
-
     const labels = days.map((day) => {
       const dayOfWeek = day.getDay();
       return dayAbbreviations[dayOfWeek];
     });
-    const values = days.map((day) => {
-      const key = toLocalDateKey(day);
-      return weekDailyMap.get(key) ?? 0;
-    });
 
-    const barColor = colors.accent;
-    const datasets = [
-      {
-        label: '学習時間',
-        data: values,
-        backgroundColor: barColor,
-        borderRadius: 4,
-        borderSkipped: false,
-      },
-    ];
+    const weekDailyBySubject = dashboardSummary?.week_daily_by_subject ?? [];
+    const hasBySubject =
+      weekDailyBySubject.length > 0 &&
+      weekDailyBySubject.some((d) => d.subjects && Object.keys(d.subjects).length > 0);
+
+    // 1) 新: 科目別積み上げ（settings順を優先）
+    if (hasBySubject) {
+      const byDate = new Map<string, Record<string, number>>(
+        weekDailyBySubject.map((d) => [d.date_key, d.subjects || {}])
+      );
+
+      const visibleSubjects = subjectsWithColors.filter((s) => s.visible !== false).map((s) => s.name);
+
+      // API側にしか存在しない科目（設定未登録/旧データ等）も最後に追加
+      const apiSubjects = new Set<string>();
+      for (const d of weekDailyBySubject) for (const k of Object.keys(d.subjects || {})) apiSubjects.add(k);
+      const extraSubjects = Array.from(apiSubjects).filter((s) => !visibleSubjects.includes(s)).sort();
+
+      const subjectOrder = [...visibleSubjects, ...extraSubjects];
+
+      const dayKeys = days.map((d) => toLocalDateKey(d));
+      const datasets = subjectOrder
+        .map((subject) => {
+          const data = dayKeys.map((k) => Number(byDate.get(k)?.[subject] ?? 0));
+          const anyNonZero = data.some((v) => v > 0);
+          return {
+            subject,
+            anyNonZero,
+            ds: {
+              label: subject,
+              data,
+              backgroundColor: getSubjectColor(subject),
+              borderRadius: 4,
+              borderSkipped: false,
+              stack: 'study',
+            },
+          };
+        })
+        .filter((x) => x.anyNonZero || subjectOrder.length === 0)
+        .map((x) => x.ds);
+
+      return { labels, datasets };
+    }
+
+    // 2) 旧/後方互換: 日別合計（単色）
+    const weekDailyMap = new Map<string, number>((dashboardSummary?.week_daily ?? []).map((d) => [d.date_key, Number(d.hours || 0)]));
+    const values = days.map((day) => weekDailyMap.get(toLocalDateKey(day)) ?? 0);
+    const datasets = [{ label: '学習時間', data: values, backgroundColor: colors.accent, borderRadius: 4, borderSkipped: false, stack: 'study' }];
 
     return {
       labels,
@@ -150,6 +179,10 @@ export default function SummaryCards({
         callbacks: {
           label: function(context: any) {
             return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}時間`;
+          },
+          footer: function(items: any[]) {
+            const total = items.reduce((sum, it) => sum + (Number(it.parsed?.y) || 0), 0);
+            return `合計: ${total.toFixed(1)}時間`;
           }
         }
       }

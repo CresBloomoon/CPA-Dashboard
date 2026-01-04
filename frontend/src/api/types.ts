@@ -58,6 +58,7 @@ export interface DashboardSummaryResponse {
   today_hours: number;
   week_hours: number;
   week_daily: WeekDailyEntry[];
+  week_daily_by_subject?: Array<{ date_key: string; subjects: Record<string, number> }>;
   streak: StreakSummary;
   subjects: SubjectSummary[];
 }
