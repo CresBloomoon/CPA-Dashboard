@@ -8,6 +8,47 @@ from sqlalchemy.exc import ProgrammingError
 
 logger = logging.getLogger(__name__)
 
+def _has_table(db: Session, table_name: str) -> bool:
+    """
+    現DBに指定テーブルが存在するかを返す（PostgreSQL想定）。
+    VIEW / table の判別まではしない（存在チェックのみ）。
+    """
+    try:
+        exists = db.execute(
+            sa.text(
+                """
+                SELECT 1
+                FROM information_schema.tables
+                WHERE table_schema = 'public' AND table_name = :t
+                LIMIT 1
+                """
+            ),
+            {"t": table_name},
+        ).scalar()
+        if exists:
+            return True
+    except Exception:
+        # information_schema が読めない環境でも落とさない
+        pass
+    # fallback: SQLAlchemy inspector
+    try:
+        insp = sa.inspect(db.get_bind())
+        return table_name in insp.get_table_names(schema="public")
+    except Exception:
+        return False
+
+
+def _study_progress_write_model(db: Session):
+    """
+    書き込み先の StudyProgress モデルを返す。
+    - migration適用後: `study_progress_legacy`（実体テーブル）
+    - 適用前: `study_progress`（実体テーブル）
+    """
+    if hasattr(models, "StudyProgressLegacy") and _has_table(db, "study_progress_legacy"):
+        return models.StudyProgressLegacy
+    return models.StudyProgress
+
+
 def _get_bool_setting(db: Session, key: str, default: bool) -> bool:
     """
     settings(key-value) に保存された boolean フラグを読む。
@@ -48,7 +89,8 @@ def get_study_progress_by_subject(db: Session, subject: str):
 
 def create_study_progress(db: Session, progress: schemas.StudyProgressCreate):
     """新しい進捗を作成"""
-    db_progress = models.StudyProgress(**progress.dict())
+    WriteModel = _study_progress_write_model(db)
+    db_progress = WriteModel(**progress.dict())
     db.add(db_progress)
     db.commit()
     db.refresh(db_progress)
@@ -56,7 +98,9 @@ def create_study_progress(db: Session, progress: schemas.StudyProgressCreate):
 
 def update_study_progress(db: Session, progress_id: int, progress_update: schemas.StudyProgressUpdate):
     """進捗を更新"""
-    db_progress = get_study_progress(db, progress_id)
+    # VIEW (study_progress) 経由だと書き込み不可になるため、legacyに寄せる
+    WriteModel = _study_progress_write_model(db)
+    db_progress = db.query(WriteModel).filter(WriteModel.id == progress_id).first()
     if db_progress is None:
         return None
     
@@ -70,7 +114,8 @@ def update_study_progress(db: Session, progress_id: int, progress_update: schema
 
 def delete_study_progress(db: Session, progress_id: int):
     """進捗を削除"""
-    db_progress = get_study_progress(db, progress_id)
+    WriteModel = _study_progress_write_model(db)
+    db_progress = db.query(WriteModel).filter(WriteModel.id == progress_id).first()
     if db_progress is None:
         return None
     
@@ -81,22 +126,47 @@ def delete_study_progress(db: Session, progress_id: int):
 def get_subjects_summary(db: Session):
     """科目ごとの集計を取得"""
     from sqlalchemy import func
-    
-    results = db.query(
-        models.StudyProgress.subject,
-        func.count(models.StudyProgress.id).label('count'),
-        func.sum(models.StudyProgress.study_hours).label('total_hours'),
-        func.avg(models.StudyProgress.progress_percent).label('avg_progress')
-    ).group_by(models.StudyProgress.subject).all()
-    
+
+    user_id = "default"
+
+    # 1) 進捗系（学習時間以外）は study_progress VIEW（= legacy + time互換行）から取得
+    #    time互換行は progress_percent が NULL なので avg を汚しにくい
+    progress_rows = (
+        db.query(
+            models.StudyProgress.subject.label("subject"),
+            func.count(models.StudyProgress.id).label("count"),
+            func.avg(models.StudyProgress.progress_percent).label("avg_progress"),
+        )
+        .filter(models.StudyProgress.topic != "学習時間")
+        .group_by(models.StudyProgress.subject)
+        .all()
+    )
+    progress_map = {
+        r.subject: {"count": int(r.count or 0), "avg_progress": float(r.avg_progress or 0.0)}
+        for r in progress_rows
+    }
+
+    # 2) 学習時間は study_time_sync_sessions のみを正として集計する（UTCズレ回避）
+    time_rows = (
+        db.query(
+            models.StudyTimeSyncSession.subject.label("subject"),
+            func.sum(models.StudyTimeSyncSession.last_total_ms).label("total_ms"),
+        )
+        .filter(models.StudyTimeSyncSession.user_id == user_id)
+        .group_by(models.StudyTimeSyncSession.subject)
+        .all()
+    )
+    time_map = {r.subject: float(r.total_ms or 0.0) / 3_600_000.0 for r in time_rows}
+
+    subjects = sorted(set(progress_map.keys()) | set(time_map.keys()))
     return [
         {
-            "subject": result.subject,
-            "count": result.count,
-            "total_hours": float(result.total_hours or 0),
-            "avg_progress": float(result.avg_progress or 0)
+            "subject": subject,
+            "count": progress_map.get(subject, {}).get("count", 0),
+            "total_hours": float(time_map.get(subject, 0.0)),
+            "avg_progress": progress_map.get(subject, {}).get("avg_progress", 0.0),
         }
-        for result in results
+        for subject in subjects
     ]
 
 # ----------------------------
@@ -160,7 +230,11 @@ def apply_study_time_total_ms(
     total_ms: int,
 ):
     """
-    クライアントから送られる累計(total_ms)を基に、差分だけをStudyProgressへ加算する。
+    クライアントから送られる累計(total_ms)を基に、差分(delta_ms)を返す（冪等）。
+
+    方針:
+    - 学習時間の正は study_time_sync_sessions (last_total_ms) とする
+    - 旧: StudyProgress(topic='学習時間') へ加算していたが、UTC日付境界ズレ/二重管理の原因になるため廃止
 
     冪等性:
       同一 (user_id, date_key, subject, client_session_id) で last_total_ms を保持し、
@@ -189,45 +263,45 @@ def apply_study_time_total_ms(
     last_ms = int(sess.last_total_ms or 0)
     delta_ms = max(int(total_ms) - last_ms, 0)
 
-    # 進捗へ加算（差分があるときだけ）
-    if delta_ms > 0:
-        progress = _get_or_create_daily_study_progress(db, subject=subject, date_key=date_key)
-        progress.study_hours = float(progress.study_hours or 0.0) + (delta_ms / 3_600_000.0)
+    # 正は study_time_sync_sessions で管理する（StudyProgressへの加算は廃止）
+    if int(total_ms) > last_ms:
         sess.last_total_ms = int(total_ms)
         db.commit()
-        db.refresh(progress)
         db.refresh(sess)
-    else:
-        # 差分なしでも last_total_ms は最大値で維持
-        if int(total_ms) > last_ms:
-            sess.last_total_ms = int(total_ms)
-            db.commit()
-            db.refresh(sess)
 
     return int(delta_ms)
 
 def get_study_time_summary_ms(db: Session, user_id: str, date_key: str):
     """
-    server(DB)を正として、topic='学習時間' のStudyProgressから今日/今週の合計(ms)を返す。
+    server(DB)を正として、study_time_sync_sessions から今日/今週の合計(ms)を返す。
+    - date_key (yyyy-MM-dd) を日付基準として扱うため、UTC日付境界ズレを回避できる
     """
-    day_start, day_end = _date_key_to_range(date_key)
-    week_start, week_end = _get_week_range(date_key)
+    from sqlalchemy import func
 
-    def _sum_hours(start: datetime, end: datetime) -> float:
-        from sqlalchemy import func
-        hours = (
-            db.query(func.sum(models.StudyProgress.study_hours))
-            .filter(models.StudyProgress.topic == "学習時間")
-            .filter(models.StudyProgress.created_at >= start)
-            .filter(models.StudyProgress.created_at < end)
-            .scalar()
-        )
-        return float(hours or 0.0)
+    # today
+    today_ms = (
+        db.query(func.sum(models.StudyTimeSyncSession.last_total_ms))
+        .filter(models.StudyTimeSyncSession.user_id == user_id)
+        .filter(models.StudyTimeSyncSession.date_key == date_key)
+        .scalar()
+    )
 
-    today_hours = _sum_hours(day_start, day_end)
-    week_hours = _sum_hours(week_start, week_end)
+    # week (Mon..Sun) range on date_key strings
+    day = datetime.strptime(date_key, "%Y-%m-%d").date()
+    week_start = day - timedelta(days=day.weekday())
+    week_end = week_start + timedelta(days=7)
+    week_start_key = week_start.isoformat()
+    week_end_key = week_end.isoformat()
 
-    return int(round(today_hours * 3_600_000.0)), int(round(week_hours * 3_600_000.0))
+    week_ms = (
+        db.query(func.sum(models.StudyTimeSyncSession.last_total_ms))
+        .filter(models.StudyTimeSyncSession.user_id == user_id)
+        .filter(models.StudyTimeSyncSession.date_key >= week_start_key)
+        .filter(models.StudyTimeSyncSession.date_key < week_end_key)
+        .scalar()
+    )
+
+    return int(today_ms or 0), int(week_ms or 0)
 
 # ToDo CRUD操作
 def get_todo(db: Session, todo_id: int):
@@ -346,8 +420,9 @@ def update_subject_name(db: Session, old_name: str, new_name: str):
     for todo in todos:
         todo.subject = new_name
     
-    # StudyProgressの科目名を更新
-    progress_list = db.query(models.StudyProgress).filter(models.StudyProgress.subject == old_name).all()
+    # StudyProgressの科目名を更新（VIEWだと書き込み不可になるため legacy テーブルへ）
+    WriteModel = _study_progress_write_model(db)
+    progress_list = db.query(WriteModel).filter(WriteModel.subject == old_name).all()
     for progress in progress_list:
         progress.subject = new_name
     
