@@ -28,6 +28,37 @@ body {
   animation: fadeIn 0.2s ease-out;
 }
 
+/* メインパネルのスライド＋フェードアニメーション */
+@keyframes panelSlideFadeInRight {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes panelSlideFadeInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.panel-slide-fade-in-right {
+  animation: panelSlideFadeInRight 0.2s ease-out;
+}
+
+.panel-slide-fade-in-left {
+  animation: panelSlideFadeInLeft 0.2s ease-out;
+}
+
 /* モーダルアニメーション - 統一されたフェードイン/アウト */
 @keyframes modalFadeIn {
   from {

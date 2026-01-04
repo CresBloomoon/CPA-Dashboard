@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Tabs from './features/shared/components/Tabs';
 import AppHeader from './features/shared/components/AppHeader';
 import TabContent from './features/shared/components/TabContent';
@@ -58,6 +58,40 @@ function App() {
   } = useTabNavigation();
 
   const [isTrophyModalOpen, setIsTrophyModalOpen] = useState(false);
+  
+  // 遅延ローディング（200ms以上続いた場合のみ表示）
+  const [showLoading, setShowLoading] = useState(false);
+  const loadingTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  useEffect(() => {
+    const isCurrentlyLoading = isLoading || isLoadingSettings;
+    
+    // タイマーをクリア
+    if (loadingTimerRef.current) {
+      clearTimeout(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+    
+    if (isCurrentlyLoading) {
+      // 200ms後にまだローディング中なら表示
+      loadingTimerRef.current = setTimeout(() => {
+        if (isLoading || isLoadingSettings) {
+          setShowLoading(true);
+        }
+      }, 200);
+    } else {
+      // ローディング終了時は即座に非表示
+      setShowLoading(false);
+    }
+    
+    // クリーンアップ
+    return () => {
+      if (loadingTimerRef.current) {
+        clearTimeout(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+    };
+  }, [isLoading, isLoadingSettings]);
 
   const tabs = [
     { id: 'timer', label: '学習時間' },
@@ -113,15 +147,15 @@ function App() {
           />
         </div>
 
-        {isLoading || isLoadingSettings ? (
-          <div className="text-center py-12">
-            <div 
-              className="inline-block animate-spin rounded-full h-12 w-12 border-b-2"
-              style={{ borderColor: colors.accent }}
-            ></div>
-            <p className="mt-4" style={{ color: colors.textSecondary }}>読み込み中...</p>
-          </div>
-        ) : (
+        {/* メインパネル: 常にTabContentを表示し、スライド＋フェードアニメーションを適用 */}
+        <div
+          key={activeTab}
+          className={`relative ${
+            slideDirection === 'right'
+              ? 'panel-slide-fade-in-right'
+              : 'panel-slide-fade-in-left'
+          }`}
+        >
           <TabContent
             activeTab={activeTab}
             slideDirection={slideDirection}
@@ -140,7 +174,26 @@ function App() {
             onSettingsUpdate={loadSettings}
             onTodoFilterClick={handleTodoFilterClick}
           />
-        )}
+          
+          {/* ローディングオーバーレイ（200ms以上続いた場合のみ表示） */}
+          {showLoading && (
+            <div
+              className="absolute inset-0 flex flex-col items-center justify-center z-10"
+              style={{
+                backgroundColor: `rgba(${theme === 'light' ? '239, 246, 255' : '15, 23, 42'}, 0.7)`,
+                backdropFilter: 'blur(2px)',
+              }}
+            >
+              <div
+                className="inline-block animate-spin rounded-full h-8 w-8 border-b-2"
+                style={{ borderColor: colors.accent }}
+              ></div>
+              <p className="mt-3 text-sm" style={{ color: colors.textSecondary }}>
+                読み込み中...
+              </p>
+            </div>
+          )}
+        </div>
       </div>
       {import.meta.env.DEV && <TrophyTestButton />}
       <AchievementsModal isOpen={isTrophyModalOpen} onClose={() => setIsTrophyModalOpen(false)} />
