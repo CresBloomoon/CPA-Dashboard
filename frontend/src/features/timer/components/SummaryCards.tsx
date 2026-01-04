@@ -41,6 +41,7 @@ interface SummaryCardsProps {
   todos?: Todo[];
   subjectsWithColors?: Subject[];
   reportStartDay?: number;
+  chartAnimationKey?: number;
 }
 
 export default function SummaryCards({ 
@@ -53,9 +54,9 @@ export default function SummaryCards({
   onCompletedTodosClick,
   dashboardSummary = null,
   todos = [],
-  subjectsWithColors = []
-  ,
-  reportStartDay = 1
+  subjectsWithColors = [],
+  reportStartDay = 1,
+  chartAnimationKey = 0
 }: SummaryCardsProps) {
   // 「今日」が日付跨ぎでも更新されるように、定期的にnowを更新（軽量：1分間隔）
   const [now, setNow] = useState(() => new Date());
@@ -171,6 +172,10 @@ export default function SummaryCards({
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    animation: {
+      duration: 450,
+      easing: 'easeOutQuart' as const,
+    },
     plugins: {
       legend: {
         display: false, // 凡例を非表示
@@ -250,7 +255,7 @@ export default function SummaryCards({
 
         {/* 棒グラフ */}
         <div className="h-64">
-          <Bar data={chartData} options={options} />
+          <Bar key={`weekly-bar-${chartAnimationKey}`} data={chartData} options={options} />
         </div>
       </div>
 

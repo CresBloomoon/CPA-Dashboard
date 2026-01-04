@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { calculateTodoCounts } from '../../../utils/todoCounts';
 import type { StudyProgress, Subject, Project, Todo, DashboardSummaryResponse } from '../../../api/types';
 import SummaryCards from '../../timer/components/SummaryCards';
@@ -44,6 +45,16 @@ export default function TabContent({
   onSettingsUpdate,
   onTodoFilterClick,
 }: TabContentProps) {
+  // ダッシュボード入場カウンタ（棒グラフアニメーション用）
+  const [dashboardEnterCount, setDashboardEnterCount] = useState(0);
+  
+  // ダッシュボードタブに入ったらカウンタを+1
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      setDashboardEnterCount((c) => c + 1);
+    }
+  }, [activeTab]);
+  
   const todoCounts = calculateTodoCounts(todos);
   const { today: todayDueTodos, all: totalTodos, completed: completedTodos } = todoCounts;
 
@@ -65,6 +76,7 @@ export default function TabContent({
             todos={todos}
             subjectsWithColors={subjectsWithColors}
             reportStartDay={reportStartDay}
+            chartAnimationKey={dashboardEnterCount}
             onTodayDueClick={() => onTodoFilterClick('today')}
             onTotalTodosClick={() => onTodoFilterClick('all')}
             onCompletedTodosClick={() => onTodoFilterClick('completed')}
