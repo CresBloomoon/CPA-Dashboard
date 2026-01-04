@@ -1,27 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ComponentType } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { Trophy, Zap, Sparkle, ScrollText, Clock, Flame, Lock, Moon, CheckCircle2, XCircle } from 'lucide-react';
 import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
+import { ToastStack, type ToastStackItem } from '../../../components/ui/ToastStack';
 import { TROPHY_CONFIG } from '../config/trophyConfig';
-
-const itemVariants = {
-  // 右端から「にゅっ」と入ってくる距離だけを調整（spring設定は維持）
-  initial: { opacity: 1, x: 56, scale: 0.98 },
-  animate: {
-    opacity: 1,
-    // 入場：少し出すぎて右に戻る（フェードなし）
-    x: [56, -6, 0],
-    scale: [0.98, 1, 1],
-    transition: { duration: 0.28, times: [0, 0.7, 1], ease: [0.16, 1, 0.3, 1] },
-  },
-  exit: {
-    // 退場：少し左に引いてから右へ「にゅっ」（フェードなし）
-    opacity: 1,
-    x: [0, -6, 56],
-    scale: [1, 1, 0.98],
-    transition: { duration: 0.22, times: [0, 0.35, 1], ease: [0.16, 1, 0.3, 1] },
-  },
-};
 
 // アイコン名からLucideアイコンコンポーネントを取得
 const getIconComponent = (iconName: string) => {
@@ -43,16 +24,30 @@ const generateInstanceId = (trophyId: string): string => {
   return `${trophyId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 };
 
+type VisibleItemBase = {
+  instanceId: string;
+  exiting: boolean;
+};
+
+type TrophyVisibleItem = VisibleItemBase & {
+  kind: 'trophy';
+  trophyId: string;
+};
+
+type ToastVisibleItem = VisibleItemBase & {
+  kind: 'toast';
+  variant: 'success' | 'error' | 'achievement';
+  message: string;
+  subMessage?: string;
+};
+
+type VisibleItem = TrophyVisibleItem | ToastVisibleItem;
+
 export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number }) {
   const { trophies, fxQueue, dequeueFx, toastQueue, dequeueToast } = useTrophySystemContext();
   const trophyById = useMemo(() => new Map(trophies.map((t) => [t.id, t])), [trophies]);
 
-  const [visibleItems, setVisibleItems] = useState<
-    Array<
-      | { instanceId: string; kind: 'trophy'; trophyId: string }
-      | { instanceId: string; kind: 'toast'; variant: 'success' | 'error' | 'achievement'; message: string; subMessage?: string }
-    >
-  >([]);
+  const [visibleItems, setVisibleItems] = useState<VisibleItem[]>([]);
   const timersRef = useRef<{ start?: number; interval?: number }>({});
 
   // fxQueue から一括で取り込み（ディレイなしで全員表示）
@@ -84,7 +79,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
       const toAdd = combined.slice(0, availableSlots);
       for (const ev of toAdd) {
         if (ev.kind === 'trophy') {
-          next.push({ instanceId: generateInstanceId(ev.trophyId), kind: 'trophy', trophyId: ev.trophyId });
+          next.push({ instanceId: generateInstanceId(ev.trophyId), kind: 'trophy', trophyId: ev.trophyId, exiting: false });
         } else {
           next.push({
             instanceId: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -92,6 +87,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
             variant: ev.variant,
             message: ev.message,
             subMessage: ev.subMessage,
+            exiting: false,
           });
         }
       }
@@ -111,8 +107,15 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
 
     timersRef.current.start = window.setTimeout(() => {
       timersRef.current.interval = window.setInterval(() => {
-        // 関数型アップデートで競合を避ける
-        setVisibleItems((prev) => (prev.length ? prev.slice(1) : prev));
+        // 先頭から順に exit を開始（exit完了後にDOM削除する＝最後の1個もカットアウトしない）
+        setVisibleItems((prev) => {
+          if (!prev.length) return prev;
+          const idx = prev.findIndex((x) => !x.exiting);
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = { ...next[idx], exiting: true };
+          return next;
+        });
       }, TROPHY_CONFIG.STEP_MS);
     }, TROPHY_CONFIG.WAIT_MS);
 
@@ -123,104 +126,103 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
     };
   }, [visibleItems.length]);
 
-  return (
-    <div className="fixed right-4 z-[70] w-[280px] pointer-events-none" style={{ top: topOffsetPx }}>
-      <div className="flex flex-col gap-3">
-        <AnimatePresence mode="popLayout">
-          {visibleItems.map((item) => {
-            if (item.kind === 'trophy') {
-              const t = trophyById.get(item.trophyId);
-              const title = t?.title ?? item.trophyId;
-              const Icon = getIconComponent(t?.icon ?? 'Trophy');
-              return (
-                <motion.div key={item.instanceId} layout="position">
-                  <motion.div
-                    variants={itemVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    className="rounded-xl border border-white/10 border-l-4 border-l-[#FFB800] shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
-                    style={{
-                      backgroundColor: 'rgba(8, 14, 28, 0.95)',
-                      backgroundImage:
-                        'radial-gradient(120px 60px at 18% 30%, rgba(255,184,0,0.14), rgba(255,184,0,0.00) 65%)',
-                    }}
-                  >
-                    <div className="px-3 py-3 flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center border"
-                        style={{
-                          borderColor: 'rgba(255,184,0,0.35)',
-                          backgroundColor: 'rgba(255,184,0,0.08)',
-                          color: '#FFB800',
-                        }}
-                        aria-hidden="true"
-                      >
-                        <Icon size={18} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
-                            {title}
-                          </p>
-                        </div>
-                        <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
-                          実績獲得！
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                </motion.div>
-              );
-            }
-
-            const isSuccess = item.variant === 'success';
-            const accent = isSuccess ? '#22c55e' : '#ef4444';
-            const Icon = isSuccess ? CheckCircle2 : XCircle;
-            const defaultSub = isSuccess ? '保存しました' : '保存に失敗しました';
-            const sub = item.subMessage ?? defaultSub;
-            return (
-              <motion.div key={item.instanceId} layout="position">
-                <motion.div
-                  variants={itemVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="rounded-xl border border-white/10 border-l-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+  const stackItems: ToastStackItem[] = useMemo(() => {
+    return visibleItems.map((item) => {
+      if (item.kind === 'trophy') {
+        const t = trophyById.get(item.trophyId);
+        const title = t?.title ?? item.trophyId;
+        const Icon = getIconComponent(t?.icon ?? 'Trophy');
+        return {
+          id: item.instanceId,
+          exiting: Boolean(item.exiting),
+          node: (
+            <div
+              className="rounded-xl border border-white/10 border-l-4 border-l-[#FFB800] shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+              style={{
+                backgroundColor: 'rgba(8, 14, 28, 0.95)',
+                backgroundImage: 'radial-gradient(120px 60px at 18% 30%, rgba(255,184,0,0.14), rgba(255,184,0,0.00) 65%)',
+              }}
+            >
+              <div className="px-3 py-3 flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center border"
                   style={{
-                    borderLeftColor: accent,
-                    backgroundColor: 'rgba(8, 14, 28, 0.95)',
-                    backgroundImage: `radial-gradient(120px 60px at 18% 30%, ${accent}26, rgba(0,0,0,0.00) 65%)`,
+                    borderColor: 'rgba(255,184,0,0.35)',
+                    backgroundColor: 'rgba(255,184,0,0.08)',
+                    color: '#FFB800',
                   }}
+                  aria-hidden="true"
                 >
-                  <div className="px-3 py-3 flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center border"
-                      style={{
-                        borderColor: `${accent}59`,
-                        backgroundColor: `${accent}1A`,
-                        color: accent,
-                      }}
-                      aria-hidden="true"
-                    >
-                      <Icon size={18} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
-                        {item.message}
-                      </p>
-                      <p className="text-[11px] font-extrabold mt-0.5" style={{ color: `${accent}E6` }}>
-                        {sub}
-                      </p>
-                    </div>
+                  <Icon size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
+                      {title}
+                    </p>
                   </div>
-                </motion.div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
-      </div>
-    </div>
+                  <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
+                    実績獲得！
+                  </p>
+                </div>
+              </div>
+            </div>
+          ),
+        };
+      }
+
+      const isSuccess = item.variant === 'success';
+      const accent = isSuccess ? '#22c55e' : '#ef4444';
+      const Icon = isSuccess ? CheckCircle2 : XCircle;
+      const defaultSub = isSuccess ? '保存しました' : '保存に失敗しました';
+      const sub = item.subMessage ?? defaultSub;
+      return {
+        id: item.instanceId,
+        exiting: Boolean(item.exiting),
+        node: (
+          <div
+            className="rounded-xl border border-white/10 border-l-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+            style={{
+              borderLeftColor: accent,
+              backgroundColor: 'rgba(8, 14, 28, 0.95)',
+              backgroundImage: `radial-gradient(120px 60px at 18% 30%, ${accent}26, rgba(0,0,0,0.00) 65%)`,
+            }}
+          >
+            <div className="px-3 py-3 flex items-center gap-3">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                style={{
+                  borderColor: `${accent}59`,
+                  backgroundColor: `${accent}1A`,
+                  color: accent,
+                }}
+                aria-hidden="true"
+              >
+                <Icon size={18} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
+                  {item.message}
+                </p>
+                <p className="text-[11px] font-extrabold mt-0.5" style={{ color: `${accent}E6` }}>
+                  {sub}
+                </p>
+              </div>
+            </div>
+          </div>
+        ),
+      };
+    });
+  }, [trophyById, visibleItems]);
+
+  return (
+    <ToastStack
+      topOffsetPx={topOffsetPx}
+      items={stackItems}
+      onExited={(id) => {
+        setVisibleItems((prev) => prev.filter((x) => x.instanceId !== id));
+      }}
+    />
   );
 }
 
