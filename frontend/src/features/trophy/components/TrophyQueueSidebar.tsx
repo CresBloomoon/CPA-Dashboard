@@ -19,11 +19,6 @@ const getIconComponent = (iconName: string) => {
   return iconMap[iconName] || Trophy;
 };
 
-// インスタンスIDを生成（trophyId + タイムスタンプ + ランダム値）
-const generateInstanceId = (trophyId: string): string => {
-  return `${trophyId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-};
-
 type VisibleItemBase = {
   instanceId: string;
   exiting: boolean;
@@ -44,45 +39,87 @@ type ToastVisibleItem = VisibleItemBase & {
 type VisibleItem = TrophyVisibleItem | ToastVisibleItem;
 
 export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number }) {
-  const { trophies, fxQueue, dequeueFx, toastQueue, dequeueToast } = useTrophySystemContext();
+  const { trophies, fxQueue, toastQueue } = useTrophySystemContext();
   const trophyById = useMemo(() => new Map(trophies.map((t) => [t.id, t])), [trophies]);
 
   const [visibleItems, setVisibleItems] = useState<VisibleItem[]>([]);
   const timersRef = useRef<{ start?: number; interval?: number }>({});
 
-  // fxQueue から一括で取り込み（ディレイなしで全員表示）
-  // 各トロフィーIDに対してユニークなインスタンスIDを生成して追加
+  // dequeueFx/dequeueToast は使わない（取りこぼし防止のためイベントログ扱いにする）
+  // StrictMode/連打でも「処理済み」をrefで追跡し、二重処理を防ぐ
+  const processedFxKeysRef = useRef<Set<string>>(new Set());
+  const processedToastIdsRef = useRef<Set<string>>(new Set());
+
+  // fxQueue/toastQueue を走査し、未処理のみ visibleItems に追加する（dequeueしない）
   useEffect(() => {
     if (!fxQueue.length && !toastQueue.length) return;
 
-    const incomingTrophies = fxQueue.slice(0, TROPHY_CONFIG.MAX_VISIBLE);
-    const incomingToasts = toastQueue.slice(0, TROPHY_CONFIG.MAX_VISIBLE);
-    if (incomingTrophies.length) dequeueFx(incomingTrophies.length);
-    if (incomingToasts.length) dequeueToast(incomingToasts.length);
+    const availableSlots = Math.max(0, TROPHY_CONFIG.MAX_VISIBLE - visibleItems.length);
+    if (availableSlots <= 0) return;
 
-    const combined = [
-      ...incomingTrophies.map((t) => ({ kind: 'trophy' as const, createdAtMs: t.createdAtMs, trophyId: t.id })),
-      ...incomingToasts.map((t) => ({
-        kind: 'toast' as const,
+    const combined: Array<
+      | { kind: 'trophy'; createdAtMs: number; trophyId: string; key: string }
+      | {
+          kind: 'toast';
+          createdAtMs: number;
+          toastId: string;
+          variant: 'success' | 'error' | 'achievement';
+          message: string;
+          subMessage?: string;
+        }
+    > = [];
+
+    for (const t of fxQueue) {
+      // fxQueue は { id: trophyId, createdAtMs } なので、(id, createdAtMs) をキーにする
+      const key = `${t.id}::${t.createdAtMs}`;
+      if (processedFxKeysRef.current.has(key)) continue;
+      combined.push({ kind: 'trophy', createdAtMs: t.createdAtMs, trophyId: t.id, key });
+    }
+
+    for (const t of toastQueue) {
+      // toastQueue は event.id がインスタンスID
+      if (processedToastIdsRef.current.has(t.id)) continue;
+      combined.push({
+        kind: 'toast',
         createdAtMs: t.createdAtMs,
+        toastId: t.id,
         variant: t.variant,
         message: t.message,
         subMessage: t.subMessage,
-      })),
-    ].sort((a, b) => a.createdAtMs - b.createdAtMs);
+      });
+    }
+
+    if (!combined.length) return;
+
+    combined.sort((a, b) => a.createdAtMs - b.createdAtMs);
+
+    const picked = combined.slice(0, availableSlots);
+    if (!picked.length) return;
+
+    // ここで processed を先に更新（StrictModeの二重effectでも重複追加しない）
+    for (const ev of picked) {
+      if (ev.kind === 'trophy') processedFxKeysRef.current.add(ev.key);
+      else processedToastIdsRef.current.add(ev.toastId);
+    }
 
     setVisibleItems((prev) => {
       const next = [...prev];
-      const availableSlots = TROPHY_CONFIG.MAX_VISIBLE - next.length;
-      if (availableSlots <= 0) return prev;
+      const slots = TROPHY_CONFIG.MAX_VISIBLE - next.length;
+      if (slots <= 0) return prev;
 
-      const toAdd = combined.slice(0, availableSlots);
-      for (const ev of toAdd) {
+      for (const ev of picked.slice(0, slots)) {
         if (ev.kind === 'trophy') {
-          next.push({ instanceId: generateInstanceId(ev.trophyId), kind: 'trophy', trophyId: ev.trophyId, exiting: false });
-        } else {
+          // fxQueueは同一トロフィーが基本一度だけだが、createdAtMsを入れてユニーク性を確保
           next.push({
-            instanceId: `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+            instanceId: `trophy-${ev.trophyId}-${ev.createdAtMs}`,
+            kind: 'trophy',
+            trophyId: ev.trophyId,
+            exiting: false,
+          });
+        } else {
+          // toastQueueは event.id をそのまま instanceId として使う（処理済みキーとも一致）
+          next.push({
+            instanceId: ev.toastId,
             kind: 'toast',
             variant: ev.variant,
             message: ev.message,
@@ -93,7 +130,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
       }
       return next;
     });
-  }, [dequeueFx, dequeueToast, fxQueue, toastQueue]);
+  }, [fxQueue, toastQueue, visibleItems.length]);
 
   // 表示後：一定待機→上から順に一定間隔で消滅
   useEffect(() => {
