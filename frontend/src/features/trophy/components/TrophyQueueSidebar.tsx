@@ -121,8 +121,6 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
     };
   }, [visibleItems.length]);
 
-  if (!visibleItems.length) return null;
-
   return (
     <div className="fixed right-4 z-[70] w-[280px] pointer-events-none" style={{ top: topOffsetPx }}>
       <div className="flex flex-col gap-3">
