@@ -327,7 +327,7 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     setPomodoroSets,
     saveRecord,
   } = useTimer();
-  const { handleTrophyEvent, pushToast } = useTrophySystemContext();
+  const { handleTrophyEvent } = useTrophySystemContext();
 
   const [isSubjectDropdownOpen, setIsSubjectDropdownOpen] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -390,15 +390,8 @@ export default function StudyTimer({ onRecorded, subjects, subjectsWithColors = 
     setIsRecording(true);
     const result = await saveRecord(onRecorded);
     setIsRecording(false);
-
-    // 共通トースト（トロフィーと同じUI/アニメ）を表示
-    // - 成功: 緑 / 文言は「記録完了！」のみ（2行目は空文字でレイアウトだけ維持）
-    // - 失敗: 赤 / 文言は「保存失敗」のみ（2行目は空文字）
-    if (result.success) {
-      pushToast({ variant: 'success', message: '記録完了！', subMessage: '' });
-    } else {
-      pushToast({ variant: 'error', message: '保存失敗', subMessage: '' });
-    }
+    // トースト通知は廃止（記録処理のみ維持）
+    void result;
   };
 
   // ドメインロジックを使用

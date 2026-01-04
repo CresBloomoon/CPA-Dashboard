@@ -45,7 +45,6 @@ export default function ReportWizard({
 
   // Step1..Step4 を 0..3 で管理（Welcomeは本体の外に分離）
   const [stepIndex, setStepIndex] = useState(0); // 0..3（表示は+1）
-  const [toast, setToast] = useState<string | null>(null);
   const [isCopying, setIsCopying] = useState(false);
   const [isCopySuccess, setIsCopySuccess] = useState(false);
   const [finalDraftText, setFinalDraftText] = useState<string>('');
@@ -359,11 +358,6 @@ export default function ReportWizard({
   const displayStep = stepIndex + 1;
   const progressPct = STEP_COUNT <= 1 ? 100 : (stepIndex / (STEP_COUNT - 1)) * 100;
 
-  const showToast = (message: string) => {
-    setToast(message);
-    window.setTimeout(() => setToast(null), 1500);
-  };
-
   /**
    * 週次報告書生成完了時のトロフィー判定ロジック
    * - 統計データに基づいて条件を満たすトロフィーを解放
@@ -428,7 +422,6 @@ export default function ReportWizard({
       }
     } catch (e) {
       console.error('[ReportWizard] Failed to copy:', e);
-      showToast('コピーに失敗しました（ブラウザ権限を確認してください）');
     } finally {
       setIsCopying(false);
     }
@@ -623,13 +616,6 @@ export default function ReportWizard({
             </div>
           </div>
 
-          {toast && (
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 px-4 py-2 rounded-lg shadow-lg"
-              style={{ backgroundColor: theme === 'modern' ? 'rgba(239,68,68,0.90)' : '#ef4444', color: '#fff' }}
-            >
-              {toast}
-            </div>
-          )}
       </div>
     </div>
   );

@@ -7,7 +7,6 @@ import { useAppSettings } from './hooks/useAppSettings';
 import { useTabNavigation } from './hooks/useTabNavigation';
 import { useTheme } from './contexts/ThemeContext';
 import { getThemeColors } from './styles/theme';
-import { TrophyQueueSidebar } from './features/trophy/components/TrophyQueueSidebar';
 import { AchievementsModal } from './features/trophy/components/AchievementsModal';
 import { useTrophySystemContext } from './contexts/TrophySystemContext';
 
@@ -120,7 +119,6 @@ function App() {
 
   return (
     <div className="min-h-screen" style={backgroundStyle}>
-      <TrophyQueueSidebar />
       <div className="container mx-auto px-4 py-8">
         <AppHeader
           onHomeClick={handleHomeClick}

@@ -30,22 +30,6 @@ function nowIso() {
   return new Date().toISOString();
 }
 
-export type AppToastVariant = 'achievement' | 'success' | 'error';
-
-export type AppToastEvent = {
-  id: string;
-  kind: 'toast';
-  variant: AppToastVariant;
-  message: string;
-  /**
-   * 2行目（小さめの強調テキスト）。
-   * - 未指定なら UI 側で variant に応じた既定文言を表示（後方互換）
-   * - 空文字を指定すると「文言なし（ただしレイアウトは維持）」にできる
-   */
-  subMessage?: string;
-  createdAtMs: number;
-};
-
 type Options = {
   /** マスター定義（condition含む） */
   trophies: Trophy[];
@@ -54,7 +38,6 @@ type Options = {
   /**
    * テスト用：既に獲得済みでも「再アンロック」できるようにする
    * - unlockedAt を更新
-   * - 通知（fxQueue）も再発火
    */
   allowRepeatUnlock?: boolean;
 };
@@ -73,12 +56,6 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
     const rawV1 = window.localStorage.getItem(STORAGE_KEY_V1);
     return safeParsePersisted(rawV1);
   });
-
-  // UI演出用キュー（獲得トースト）
-  const [fxQueue, setFxQueue] = useState<Array<{ id: string; kind: 'unlock'; createdAtMs: number }>>([]);
-
-  // 汎用トースト（成功/失敗など）: 既存のトロフィートーストと同じ描画/アニメーション機構を再利用する
-  const [toastQueue, setToastQueue] = useState<AppToastEvent[]>([]);
 
   // コンボ管理用の状態（トロフィーIDごとに最後のイベント時刻とカウントを保持）
   const comboStateRef = useRef<Record<string, { lastEventMs: number | null; count: number }>>({});
@@ -104,32 +81,12 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
     });
   }, [persistedById, trophies]);
 
-  const pushToast = useCallback((payload: { variant: AppToastVariant; message: string; subMessage?: string }) => {
-    const instanceId = `toast-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
-    setToastQueue((prev) => [
-      ...prev,
-      {
-        id: instanceId,
-        kind: 'toast' as const,
-        variant: payload.variant,
-        message: payload.message,
-        subMessage: payload.subMessage,
-        createdAtMs: Date.now(),
-      },
-    ]);
-  }, []);
-
   const unlockTrophy = useCallback(
     (id: string, patch?: { metadata?: Record<string, any>; unlockedAt?: string }) => {
       const master = trophies.find((t) => t.id === id);
-      // マスター未定義でも沈黙しない（フォールバックで必ず通知を出す）
-      const toastTitle = master?.title ?? '実績を獲得しました';
-      const toastSub = master ? '実績獲得！' : id;
+      if (!master) return;
 
       const already = Boolean(persistedById[id]?.unlockedAt ?? master?.unlockedAt);
-      // 最重要：条件に関わらず、トロフィー取得イベントが来たら最低1回はトーストを生成する
-      // - 既に獲得済みでも沈黙させない（Dev/Prodでの診断性も担保）
-      pushToast({ variant: 'achievement', message: toastTitle, subMessage: toastSub });
       if (already && !allowRepeatUnlock) return;
 
       const unlockedAt = patch?.unlockedAt ?? nowIso();
@@ -147,18 +104,8 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
         },
       }));
     },
-    [allowRepeatUnlock, persistedById, pushToast, trophies]
+    [allowRepeatUnlock, persistedById, trophies]
   );
-
-  const dequeueFx = useCallback((count: number) => {
-    if (count <= 0) return;
-    setFxQueue((prev) => prev.slice(count));
-  }, []);
-
-  const dequeueToast = useCallback((count: number) => {
-    if (count <= 0) return;
-    setToastQueue((prev) => prev.slice(count));
-  }, []);
 
   /**
    * 判定エンジン：
@@ -242,7 +189,6 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
 
   const resetTrophies = useCallback(() => {
     setPersistedById({});
-    setFxQueue([]);
     comboStateRef.current = {};
   }, []);
 
@@ -251,12 +197,6 @@ export function useTrophySystem({ trophies, storageKey = STORAGE_KEY_V2, allowRe
     trophies: trophiesWithStatus,
     /** 獲得情報（永続化される領域） */
     persistedById,
-    /** 演出用キュー（UI側で利用可能） */
-    fxQueue,
-    dequeueFx,
-    toastQueue,
-    pushToast,
-    dequeueToast,
     unlockTrophy,
     checkTrophies,
     handleTrophyEvent,

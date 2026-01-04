@@ -15,7 +15,6 @@ import { APP_LIMITS } from '../../../config/appConfig';
 import { DEFAULT_SUBJECTS, SUBJECT_COLOR_PALETTE } from '../../../config/subjects';
 import { SUBJECT_SETTINGS_TIP } from '../../../constants/tips';
 import { useTheme } from '../../../contexts/ThemeContext';
-import { useTrophySystemContext } from '../../../contexts/TrophySystemContext';
 import { getThemeColors } from '../../../styles/theme';
 
 interface SettingsViewProps {
@@ -204,7 +203,6 @@ function SortableSubjectItem({
 export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsChange, onDataUpdate, onSettingsUpdate }: SettingsViewProps) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
-  const { pushToast } = useTrophySystemContext();
   const [activeMenu, setActiveMenu] = useState<SettingsMenu>('subjects');
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1037,9 +1035,7 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                           setNewSetListName('');
                           setNewSetListOffsets('1,3,7');
                           await loadReviewSetLists();
-                          pushToast({ variant: 'success', message: '保存しました' });
                         } catch (e: any) {
-                          pushToast({ variant: 'error', message: e.userMessage || '保存に失敗しました' });
                         } finally {
                           setIsSaving(false);
                         }
@@ -1315,14 +1311,12 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                                         setUseLegacyReviewSets(false);
 
                                         await loadReviewSetLists();
-                                        pushToast({ variant: 'success', message: '保存しました' });
                                       } catch (e: any) {
                                         const msg = e?.userMessage || e?.message || '保存に失敗しました';
                                         setReviewSetEdits((prev) => ({
                                           ...prev,
                                           [list.id]: { ...prev[list.id], error: msg },
                                         }));
-                                        pushToast({ variant: 'error', message: msg });
                                       } finally {
                                         setReviewSetEdits((prev) => ({
                                           ...prev,
@@ -1353,7 +1347,6 @@ export default function SettingsView({ onSubjectsChange, onSubjectsWithColorsCha
                                           setUseLegacyReviewSets(false);
                                         }
                                       } catch (err: any) {
-                                        pushToast({ variant: 'error', message: err.userMessage || '削除に失敗しました' });
                                       } finally {
                                         setReviewSetEdits((prev) => ({
                                           ...prev,
