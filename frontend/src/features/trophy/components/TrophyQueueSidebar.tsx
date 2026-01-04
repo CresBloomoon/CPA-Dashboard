@@ -6,7 +6,7 @@ import { TROPHY_CONFIG } from '../config/trophyConfig';
 
 const itemVariants = {
   // 右端から「にゅっ」と入ってくる距離だけを調整（spring設定は維持）
-  initial: { opacity: 0, x: '56px' as const, scale: 0.9 },
+  initial: { opacity: 1, x: '56px' as const, scale: 0.98 },
   animate: {
     opacity: 1,
     x: 0,
@@ -14,7 +14,7 @@ const itemVariants = {
     transition: { type: 'spring', stiffness: 420, damping: 34 },
   },
   exit: {
-    opacity: 0,
+    opacity: 1,
     x: '56px' as const,
     scale: 0.98,
     transition: { duration: TROPHY_CONFIG.EXIT_S, ease: [0.16, 1, 0.3, 1] },
