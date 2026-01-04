@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Dialog } from '@headlessui/react';
 import {
   DndContext,
@@ -1057,38 +1058,42 @@ export default function KanbanBoard({
             })}
           </div>
         </div>
-        <DragOverlay>
-          {activeId ? (() => {
-            const todo = optimisticTodos.find(t => t.id === activeId);
-            if (!todo) return null;
-            const todoColor = getSubjectColor(todo.subject || null);
-            return (
-              <div
-                className="p-3 rounded-lg border-l-4 transform scale-95 transition-transform"
-                style={{
-                  borderLeftColor: todoColor,
-                  width: '320px',
-                  backgroundColor: colors.card,
-                  boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
-                }}
-              >
-                <div className="flex items-start gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div 
-                      className="text-sm font-medium truncate"
-                      style={{ color: colors.textPrimary }}
-                    >
-                      {(() => {
-                        const match = todo.title.match(/^【(.+?)】(.+)$/);
-                        return match ? match[2] : todo.title;
-                      })()}
+        {typeof document !== 'undefined' && createPortal(
+          <DragOverlay>
+            {activeId ? (() => {
+              const todo = optimisticTodos.find(t => t.id === activeId);
+              if (!todo) return null;
+              const todoColor = getSubjectColor(todo.subject || null);
+              return (
+                <div
+                  className="p-3 rounded-lg border-l-4 transform scale-95 transition-transform"
+                  style={{
+                    borderLeftColor: todoColor,
+                    width: '320px',
+                    backgroundColor: colors.card,
+                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
+                    zIndex: 9999,
+                  }}
+                >
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div 
+                        className="text-sm font-medium truncate"
+                        style={{ color: colors.textPrimary }}
+                      >
+                        {(() => {
+                          const match = todo.title.match(/^【(.+?)】(.+)$/);
+                          return match ? match[2] : todo.title;
+                        })()}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            );
-          })() : null}
-        </DragOverlay>
+              );
+            })() : null}
+          </DragOverlay>,
+          document.body
+        )}
       </DndContext>
 
       {/* リマインダ作成モーダル */}
