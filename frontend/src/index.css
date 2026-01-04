@@ -434,3 +434,13 @@ body {
   scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
+/* プロジェクト列のドロップゾーン（フェードイン/フェードアウト） */
+.project-dropzone {
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out;
+}
+
+.project-dropzone--over {
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.35), 0 0 20px rgba(59, 130, 246, 0.15);
+}
+

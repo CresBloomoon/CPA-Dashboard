@@ -264,13 +264,15 @@ function DroppableProjectColumn({
 
   const isProjectCompleted = project.id !== 'unassigned' && 'completed' in project && (project as Project).completed;
   
+  const isOverState = isDragOver || isOver;
+  
   return (
     <div
       ref={setNodeRef}
-      className="project-column flex-shrink-0 w-80 rounded-lg p-4"
+      className={`project-column project-dropzone flex-shrink-0 w-80 rounded-lg p-4 ${isOverState ? 'project-dropzone--over' : ''}`}
       style={{
-        backgroundColor: (isDragOver || isOver) ? colors.accentLight : colors.backgroundSecondary,
-        border: (isDragOver || isOver) ? `2px solid ${colors.accent}` : 'none',
+        backgroundColor: isOverState ? colors.accentLight : colors.backgroundSecondary,
+        borderColor: isOverState ? colors.accent : 'transparent',
       }}
     >
       {/* プロジェクトヘッダー */}
