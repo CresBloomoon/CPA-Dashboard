@@ -126,50 +126,50 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
   return (
     <div className="fixed right-4 z-[70] w-[280px] pointer-events-none" style={{ top: topOffsetPx }}>
       <div className="flex flex-col gap-3">
-        <AnimatePresence>
+        <AnimatePresence mode="popLayout">
           {visibleItems.map((item) => {
             if (item.kind === 'trophy') {
               const t = trophyById.get(item.trophyId);
               const title = t?.title ?? item.trophyId;
               const Icon = getIconComponent(t?.icon ?? 'Trophy');
               return (
-                <motion.div
-                  key={item.instanceId}
-                  layout
-                  variants={itemVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="rounded-xl border border-white/10 border-l-4 border-l-[#FFB800] shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
-                  style={{
-                    backgroundColor: 'rgba(8, 14, 28, 0.95)',
-                    backgroundImage:
-                      'radial-gradient(120px 60px at 18% 30%, rgba(255,184,0,0.14), rgba(255,184,0,0.00) 65%)',
-                  }}
-                >
-                  <div className="px-3 py-3 flex items-center gap-3">
-                    <div
-                      className="w-8 h-8 rounded-lg flex items-center justify-center border"
-                      style={{
-                        borderColor: 'rgba(255,184,0,0.35)',
-                        backgroundColor: 'rgba(255,184,0,0.08)',
-                        color: '#FFB800',
-                      }}
-                      aria-hidden="true"
-                    >
-                      <Icon size={18} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
-                          {title}
+                <motion.div key={item.instanceId} layout="position">
+                  <motion.div
+                    variants={itemVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    className="rounded-xl border border-white/10 border-l-4 border-l-[#FFB800] shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+                    style={{
+                      backgroundColor: 'rgba(8, 14, 28, 0.95)',
+                      backgroundImage:
+                        'radial-gradient(120px 60px at 18% 30%, rgba(255,184,0,0.14), rgba(255,184,0,0.00) 65%)',
+                    }}
+                  >
+                    <div className="px-3 py-3 flex items-center gap-3">
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                        style={{
+                          borderColor: 'rgba(255,184,0,0.35)',
+                          backgroundColor: 'rgba(255,184,0,0.08)',
+                          color: '#FFB800',
+                        }}
+                        aria-hidden="true"
+                      >
+                        <Icon size={18} />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
+                            {title}
+                          </p>
+                        </div>
+                        <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
+                          実績獲得！
                         </p>
                       </div>
-                      <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
-                        実績獲得！
-                      </p>
                     </div>
-                  </div>
+                  </motion.div>
                 </motion.div>
               );
             }
@@ -180,41 +180,41 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
             const defaultSub = isSuccess ? '保存しました' : '保存に失敗しました';
             const sub = item.subMessage ?? defaultSub;
             return (
-              <motion.div
-                key={item.instanceId}
-                layout
-                variants={itemVariants}
-                initial="initial"
-                animate="animate"
-                exit="exit"
-                className="rounded-xl border border-white/10 border-l-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
-                style={{
-                  borderLeftColor: accent,
-                  backgroundColor: 'rgba(8, 14, 28, 0.95)',
-                  backgroundImage: `radial-gradient(120px 60px at 18% 30%, ${accent}26, rgba(0,0,0,0.00) 65%)`,
-                }}
-              >
-                <div className="px-3 py-3 flex items-center gap-3">
-                  <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center border"
-                    style={{
-                      borderColor: `${accent}59`,
-                      backgroundColor: `${accent}1A`,
-                      color: accent,
-                    }}
-                    aria-hidden="true"
-                  >
-                    <Icon size={18} />
+              <motion.div key={item.instanceId} layout="position">
+                <motion.div
+                  variants={itemVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  className="rounded-xl border border-white/10 border-l-4 shadow-[0_18px_50px_rgba(0,0,0,0.35)] overflow-hidden"
+                  style={{
+                    borderLeftColor: accent,
+                    backgroundColor: 'rgba(8, 14, 28, 0.95)',
+                    backgroundImage: `radial-gradient(120px 60px at 18% 30%, ${accent}26, rgba(0,0,0,0.00) 65%)`,
+                  }}
+                >
+                  <div className="px-3 py-3 flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-lg flex items-center justify-center border"
+                      style={{
+                        borderColor: `${accent}59`,
+                        backgroundColor: `${accent}1A`,
+                        color: accent,
+                      }}
+                      aria-hidden="true"
+                    >
+                      <Icon size={18} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
+                        {item.message}
+                      </p>
+                      <p className="text-[11px] font-extrabold mt-0.5" style={{ color: `${accent}E6` }}>
+                        {sub}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-black truncate" style={{ color: 'rgba(226,232,240,0.94)' }}>
-                      {item.message}
-                    </p>
-                    <p className="text-[11px] font-extrabold mt-0.5" style={{ color: `${accent}E6` }}>
-                      {sub}
-                    </p>
-                  </div>
-                </div>
+                </motion.div>
               </motion.div>
             );
           })}
