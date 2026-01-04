@@ -167,7 +167,9 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
     return visibleItems.map((item) => {
       if (item.kind === 'trophy') {
         const t = trophyById.get(item.trophyId);
-        const title = t?.title ?? item.trophyId;
+        // 保険：マスター未定義でも沈黙しない（フォールバック表示）
+        const title = t?.title ?? '実績を獲得しました';
+        const subtitle = t ? '実績獲得！' : item.trophyId;
         const Icon = getIconComponent(t?.icon ?? 'Trophy');
         return {
           id: item.instanceId,
@@ -199,7 +201,7 @@ export function TrophyQueueSidebar({ topOffsetPx = 96 }: { topOffsetPx?: number 
                     </p>
                   </div>
                   <p className="text-[11px] font-extrabold mt-0.5" style={{ color: 'rgba(255,184,0,0.92)' }}>
-                    実績獲得！
+                    {subtitle}
                   </p>
                 </div>
               </div>

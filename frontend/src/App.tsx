@@ -202,7 +202,7 @@ function App() {
 }
 
 function TrophyTestButton() {
-  const { checkTrophies, unlockTrophy, resetTrophies } = useTrophySystemContext();
+  const { trophies, unlockTrophy, resetTrophies } = useTrophySystemContext();
   return (
     <div className="fixed right-4 bottom-4 z-[80] flex items-center gap-2">
       <button
@@ -211,7 +211,10 @@ function TrophyTestButton() {
         style={{ backgroundColor: '#FFB800', color: '#111827' }}
         onClick={() => {
           // 「一気に10個獲得」をシミュレート
-          checkTrophies({ __testBatch10: true }, { trigger: 'immediate' });
+          // - 存在しないID（test_batch_XX等）を発行しない
+          // - 現在ロードされているマスター（trophies）から最大10件を選んでunlockする
+          const ids = trophies.slice(0, 10).map((t) => t.id);
+          for (const id of ids) unlockTrophy(id);
         }}
       >
         トロフィー10個テスト
