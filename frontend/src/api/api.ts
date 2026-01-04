@@ -194,8 +194,10 @@ export const settingsApi = {
 
 export const projectApi = {
   // すべてのプロジェクトを取得
-  getAll: async (): Promise<Project[]> => {
-    const response = await api.get<Project[]>('/projects');
+  getAll: async (opts?: { includeCompleted?: boolean }): Promise<Project[]> => {
+    const response = await api.get<Project[]>('/projects', {
+      params: opts?.includeCompleted ? { include_completed: true } : undefined,
+    });
     return response.data;
   },
 
@@ -225,6 +227,12 @@ export const projectApi = {
   // プロジェクトを完了（紐づく未完了ToDoも一括で完了）
   complete: async (id: number): Promise<{ project: Project; updated_todos: number }> => {
     const response = await api.post<{ project: Project; updated_todos: number }>(`/projects/${id}/complete`);
+    return response.data;
+  },
+
+  // プロジェクトの完了状態を設定（完了↔未完了の双方向トグル用）
+  setCompleted: async (id: number, completed: boolean): Promise<Project> => {
+    const response = await api.put<Project>(`/projects/${id}`, { completed });
     return response.data;
   },
 };

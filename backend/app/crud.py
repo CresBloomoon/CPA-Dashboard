@@ -639,9 +639,12 @@ def get_project(db: Session, project_id: int):
     """IDでプロジェクトを取得"""
     return db.query(models.Project).filter(models.Project.id == project_id).first()
 
-def get_all_projects(db: Session, skip: int = 0, limit: int = 100):
+def get_all_projects(db: Session, skip: int = 0, limit: int = 100, include_completed: bool = False):
     """すべてのプロジェクトを取得（期限日の昇順）"""
-    return db.query(models.Project).order_by(
+    q = db.query(models.Project)
+    if not include_completed:
+        q = q.filter(models.Project.completed.is_(False))
+    return q.order_by(
         models.Project.due_date.asc().nulls_last(),
         models.Project.created_at.desc()
     ).offset(skip).limit(limit).all()

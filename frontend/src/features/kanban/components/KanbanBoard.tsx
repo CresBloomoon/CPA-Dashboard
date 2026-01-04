@@ -471,6 +471,10 @@ export default function KanbanBoard({
   const [openMenuProjectId, setOpenMenuProjectId] = useState<number | 'unassigned' | null>(null);
   const [optimisticProjects, setOptimisticProjects] = useState<Project[]>(projects);
   
+  // 完了プロジェクト表示トグル
+  const [showCompletedProjects, setShowCompletedProjects] = useState(false);
+  const [isLoadingCompletedProjects, setIsLoadingCompletedProjects] = useState(false);
+  
   // リマインダ作成モーダル用のstate
   const [isTodoModalOpen, setIsTodoModalOpen] = useState(false);
   const [selectedProjectIdForTodo, setSelectedProjectIdForTodo] = useState<number | 'unassigned' | null>(null);
@@ -535,11 +539,15 @@ export default function KanbanBoard({
     }
   };
 
-  // プロジェクトの完了状態を切り替え
+  // プロジェクトの完了状態を切り替え（双方向トグル）
   const handleToggleProject = async (project: Project) => {
-    // 本タスクでは「完了」方向の操作を主に扱う（未完了へ戻すはメニュー/チェックからは不可）
-    if (project.completed) return;
-    await handleCompleteProject(project);
+    if (project.completed) {
+      // 完了→未完了
+      await performUncompleteProject(project);
+    } else {
+      // 未完了→完了
+      await handleCompleteProject(project);
+    }
   };
 
   const handleCompleteProject = async (project: Project) => {
@@ -568,11 +576,49 @@ export default function KanbanBoard({
       // 全体データを同期（他タブも反映される）
       onProjectsUpdate();
       onTodosUpdate();
+      
+      // 完了プロジェクト表示中なら全件再取得
+      if (showCompletedProjects) {
+        const allProjects = await projectApi.getAll({ includeCompleted: true });
+        setOptimisticProjects(allProjects);
+      } else {
+        // 表示OFFなら未完了一覧に戻す
+        const incompleteProjects = await projectApi.getAll();
+        setOptimisticProjects(incompleteProjects);
+      }
     } catch (error) {
       console.error('Error completing project:', error);
       // 失敗時はロールバック
       setOptimisticProjects(prevProjects);
       setOptimisticTodos(prevTodos);
+    }
+  };
+
+  // 完了→未完了に戻す
+  const performUncompleteProject = async (project: Project) => {
+    const prevProjects = optimisticProjects;
+
+    setOpenMenuProjectId(null);
+    setOptimisticProjects((ps) => ps.map((p) => (p.id === project.id ? { ...p, completed: false } : p)));
+
+    try {
+      await projectApi.setCompleted(project.id, false);
+      
+      // 全体データを同期（他タブも反映される）
+      onProjectsUpdate();
+      
+      // 完了プロジェクト表示中なら全件再取得
+      if (showCompletedProjects) {
+        const allProjects = await projectApi.getAll({ includeCompleted: true });
+        setOptimisticProjects(allProjects);
+      } else {
+        // 表示OFFなら未完了一覧に戻す（propsから取得）
+        setOptimisticProjects(projects);
+      }
+    } catch (error) {
+      console.error('Error uncompleting project:', error);
+      // 失敗時はロールバック
+      setOptimisticProjects(prevProjects);
     }
   };
 
@@ -815,9 +861,37 @@ export default function KanbanBoard({
     }
   };
 
+  // 完了プロジェクト表示トグルの変更ハンドラ
+  const handleToggleShowCompleted = async (checked: boolean) => {
+    setShowCompletedProjects(checked);
+    
+    if (checked) {
+      // ON: 全件（完了含む）を取得
+      setIsLoadingCompletedProjects(true);
+      try {
+        const allProjects = await projectApi.getAll({ includeCompleted: true });
+        setOptimisticProjects(allProjects);
+      } catch (error) {
+        console.error('Error fetching completed projects:', error);
+        setShowCompletedProjects(false); // 失敗時はOFFに戻す
+      } finally {
+        setIsLoadingCompletedProjects(false);
+      }
+    } else {
+      // OFF: 未完了一覧に戻す
+      setOptimisticProjects(projects);
+    }
+  };
+
+  // 表示用プロジェクトリスト（未完了のみ）
+  const projectsToRender = optimisticProjects.filter(p => !p.completed);
+  
+  // 完了プロジェクトリスト（表示ONのときのみ使用）
+  const completedProjects = showCompletedProjects ? optimisticProjects.filter(p => p.completed) : [];
+  
   // プロジェクトリスト（未分類を含む）
   const allProjects: (Project | { id: 'unassigned'; name: string; due_date: null; description: null })[] = [
-    ...optimisticProjects,
+    ...projectsToRender,
     { id: 'unassigned' as const, name: '未分類', due_date: null, description: null },
   ];
 
@@ -837,25 +911,50 @@ export default function KanbanBoard({
         >
           プロジェクト
         </h2>
-        <button
-          onClick={openProjectModal}
-          className="w-10 h-10 rounded-lg transition-colors flex items-center justify-center"
-          style={{
-            backgroundColor: colors.accent,
-            color: colors.textInverse,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = colors.accentHover;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = colors.accent;
-          }}
-          title="プロジェクトを追加"
-        >
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-3">
+          {/* 完了プロジェクト表示トグル */}
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showCompletedProjects}
+              onChange={(e) => handleToggleShowCompleted(e.target.checked)}
+              disabled={isLoadingCompletedProjects}
+              className="w-4 h-4 rounded"
+              style={{
+                accentColor: colors.accent,
+                cursor: isLoadingCompletedProjects ? 'not-allowed' : 'pointer',
+                opacity: isLoadingCompletedProjects ? 0.5 : 1,
+              }}
+            />
+            <span 
+              className="text-sm"
+              style={{ 
+                color: isLoadingCompletedProjects ? colors.textTertiary : colors.textSecondary,
+              }}
+            >
+              完了を表示
+            </span>
+          </label>
+          <button
+            onClick={openProjectModal}
+            className="w-10 h-10 rounded-lg transition-colors flex items-center justify-center"
+            style={{
+              backgroundColor: colors.accent,
+              color: colors.textInverse,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = colors.accentHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = colors.accent;
+            }}
+            title="プロジェクトを追加"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* プロジェクト編集モーダル */}
@@ -1030,6 +1129,7 @@ export default function KanbanBoard({
       >
         <div className="overflow-x-auto">
           <div className="flex gap-4 min-w-max pb-4">
+            {/* 未完了プロジェクト列 */}
             {allProjects.map((project) => {
               const projectTodos = todosByProject[project.id] || [];
               const isDragOver = overId === project.id;
@@ -1056,6 +1156,75 @@ export default function KanbanBoard({
                 />
               );
             })}
+            
+            {/* 完了プロジェクト列（表示ONのときのみ） */}
+            {showCompletedProjects && completedProjects.length > 0 && (
+              <div
+                className="project-column flex-shrink-0 w-80 rounded-lg p-4"
+                style={{
+                  backgroundColor: colors.backgroundSecondary,
+                  border: `1px solid ${colors.border}`,
+                  opacity: 0.7,
+                }}
+              >
+                {/* 完了列ヘッダー */}
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 
+                    className="font-semibold flex-1"
+                    style={{ color: colors.textTertiary }}
+                  >
+                    完了
+                  </h3>
+                  <span 
+                    className="text-sm px-2 py-1 rounded"
+                    style={{
+                      color: colors.textTertiary,
+                      backgroundColor: colors.card,
+                    }}
+                  >
+                    {completedProjects.length}
+                  </span>
+                </div>
+
+                {/* 完了プロジェクトリスト（DND不可） */}
+                <div 
+                  className="project-column-scroll space-y-3 max-h-[480px] overflow-y-auto px-1 py-1 pr-2"
+                  style={{
+                    scrollBehavior: 'smooth',
+                  }}
+                >
+                  {completedProjects.map((project) => {
+                    const projectTodos = todosByProject[project.id] || [];
+                    return (
+                      <div
+                        key={project.id}
+                        className="p-3 rounded-lg shadow-sm border-l-4"
+                        style={{
+                          borderLeftColor: getSubjectColor(null),
+                          backgroundColor: colors.card,
+                          opacity: 0.8,
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <AnimatedProjectCheckbox
+                            project={project}
+                            onToggle={() => handleToggleProject(project)}
+                          />
+                          <div className="flex-1 min-w-0">
+                            <div 
+                              className="text-sm font-medium truncate line-through"
+                              style={{ color: colors.textTertiary }}
+                            >
+                              {project.name}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         </div>
         {typeof document !== 'undefined' && createPortal(

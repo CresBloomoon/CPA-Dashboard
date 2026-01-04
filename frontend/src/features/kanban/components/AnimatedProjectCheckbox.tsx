@@ -23,8 +23,7 @@ export default function AnimatedProjectCheckbox({
   const handleToggle = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     if (isSaving) return;
-    // プロジェクトは「完了」方向の操作に限定（誤操作防止）
-    if (project.completed) return;
+    // 完了↔未完了の双方向トグルを許可
     try {
       setIsSaving(true);
       await onToggle();
@@ -42,7 +41,7 @@ export default function AnimatedProjectCheckbox({
         className="ui-checkbox"
         checked={project.completed}
         onChange={() => {}}
-        disabled={isSaving || project.completed}
+        disabled={isSaving}
         style={{
           '--primary-color': color,
           '--secondary-color': '#fff',
@@ -52,8 +51,8 @@ export default function AnimatedProjectCheckbox({
           '--checkbox-border-color': color,
           '--checkbox-border-width': '1px',
           '--checkbox-border-style': 'solid',
-          opacity: (isSaving || project.completed) ? 0.6 : 1,
-          cursor: (isSaving || project.completed) ? 'not-allowed' : 'pointer',
+          opacity: isSaving ? 0.6 : 1,
+          cursor: isSaving ? 'not-allowed' : 'pointer',
         } as CSSProperties}
       />
     </div>

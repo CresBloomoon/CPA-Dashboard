@@ -232,9 +232,14 @@ async def update_subject_name(
 
 # プロジェクトのCRUDエンドポイント
 @app.get("/api/projects", response_model=List[schemas.ProjectResponse])
-async def get_all_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+async def get_all_projects(
+    skip: int = 0,
+    limit: int = 100,
+    include_completed: bool = False,
+    db: Session = Depends(get_db)
+):
     """すべてのプロジェクトを取得"""
-    return crud.get_all_projects(db, skip=skip, limit=limit)
+    return crud.get_all_projects(db, skip=skip, limit=limit, include_completed=include_completed)
 
 @app.get("/api/projects/{project_id}", response_model=schemas.ProjectResponse)
 async def get_project(project_id: int, db: Session = Depends(get_db)):
