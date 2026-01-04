@@ -23,7 +23,9 @@ import { getThemeColors } from '../../../styles/theme';
 import { toLocalDateKey, toLocalDateKeyFromApi } from '../../../utils/dateKey';
 
 interface CompactStreakCalendarProps {
-  progressList: StudyProgress[];
+  progressList?: StudyProgress[];
+  achievedDateKeys?: string[]; // yyyy-MM-dd（/api/summary由来）
+  hoursByDateKey?: Record<string, number>; // tooltip用（/api/summary由来）
   compact?: boolean; // コンパクトモード（日付非表示、最小サイズ）
 }
 
@@ -146,7 +148,12 @@ function getStreakConnections(
   return connections;
 }
 
-export default function CompactStreakCalendar({ progressList, compact = true }: CompactStreakCalendarProps) {
+export default function CompactStreakCalendar({
+  progressList = [],
+  achievedDateKeys,
+  hoursByDateKey,
+  compact = true,
+}: CompactStreakCalendarProps) {
   const { theme } = useTheme();
   const colors = getThemeColors(theme);
   const [tooltip, setTooltip] = useState<{ visible: boolean; text: string; x: number; y: number } | null>(null);
@@ -164,7 +171,10 @@ export default function CompactStreakCalendar({ progressList, compact = true }: 
     return () => window.clearInterval(t);
   }, []);
 
-  const achievedDates = useMemo(() => getAchievedDates(progressList), [progressList]);
+  const achievedDates = useMemo(() => {
+    if (achievedDateKeys && achievedDateKeys.length > 0) return new Set<string>(achievedDateKeys);
+    return getAchievedDates(progressList);
+  }, [achievedDateKeys, progressList]);
 
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -215,9 +225,13 @@ export default function CompactStreakCalendar({ progressList, compact = true }: 
     const isAchieved = achievedDates.has(dateKey);
     
     if (isAchieved) {
-      const hours = progressList
-        .filter(p => toLocalDateKeyFromApi(p.created_at) === dateKey)
-        .reduce((sum, p) => sum + p.study_hours, 0);
+      const fromMap = hoursByDateKey ? Number(hoursByDateKey[dateKey] || 0) : null;
+      const hours =
+        fromMap != null
+          ? fromMap
+          : progressList
+              .filter(p => toLocalDateKeyFromApi(p.created_at) === dateKey)
+              .reduce((sum, p) => sum + p.study_hours, 0);
       return `${month}月${day}日(${weekdayShort}) ${hours.toFixed(1)}時間`;
     } else if (dateKey === toLocalDateKey(now)) {
       return `${month}月${day}日(${weekdayShort}) まだ学習していません`;

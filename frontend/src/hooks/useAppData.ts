@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { studyProgressApi, todoApi, projectApi } from '../api/api';
-import type { StudyProgress, SubjectSummary, Todo, Project } from '../api/types';
+import type { StudyProgress, DashboardSummaryResponse, Todo, Project } from '../api/types';
 
 /**
  * アプリのデータ取得ロジック
  */
 export const useAppData = () => {
   const [progressList, setProgressList] = useState<StudyProgress[]>([]);
-  const [summary, setSummary] = useState<SubjectSummary[]>([]);
+  const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
   const [todos, setTodos] = useState<Todo[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -17,15 +17,11 @@ export const useAppData = () => {
       setIsLoading(true);
       
       // 各APIを個別に呼び出してエラーハンドリング
-      try {
-        const progress = await studyProgressApi.getAll();
-        setProgressList(progress);
-      } catch (error) {
-        console.error('Error fetching progress:', error);
-      }
+      // NOTE: /api/progress は段階移行によりフロントからは参照しない（CORS/500起点の不具合回避）
+      setProgressList([]);
       
       try {
-        const summaryData = await studyProgressApi.getSummary();
+        const summaryData = await studyProgressApi.getSummary('default');
         setSummary(summaryData);
       } catch (error) {
         console.error('Error fetching summary:', error);

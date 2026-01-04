@@ -27,6 +27,7 @@ app.add_middleware(
         "http://homepi:5173",
         "http://homepi.local:5173",
         "http://localhost:5173",
+        "http://127.0.0.1:5173",
         # ポート無しアクセス（httpのデフォルト80）を許可したい場合
         "http://homepi",
         "http://homepi.local",
@@ -130,10 +131,20 @@ async def get_progress_by_subject(subject: str, db: Session = Depends(get_db)):
     """科目で進捗を取得"""
     return crud.get_study_progress_by_subject(db, subject)
 
-@app.get("/api/summary")
-async def get_summary(db: Session = Depends(get_db)):
-    """科目ごとの集計を取得"""
-    return crud.get_subjects_summary(db)
+@app.get("/api/summary", response_model=schemas.DashboardSummaryResponse)
+async def get_summary(
+    user_id: str = "default",
+    date_key: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    ダッシュボード用の統一サマリー。
+    - 今日/今週（study_time_sync_sessions.date_key ベース）
+    - 週の日別配列（棒グラフ）
+    - ストリーク（連続学習日数/最長/達成日）
+    - 科目別集計（互換）
+    """
+    return crud.get_dashboard_summary(db, user_id=user_id, date_key=date_key)
 
 # ToDoのCRUDエンドポイント
 @app.get("/api/todos", response_model=List[schemas.TodoResponse])

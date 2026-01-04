@@ -36,6 +36,32 @@ export interface SubjectSummary {
   avg_progress: number;
 }
 
+// ----------------------------
+// Dashboard summary (/api/summary)
+// ----------------------------
+
+export interface WeekDailyEntry {
+  date_key: string; // yyyy-MM-dd
+  hours: number;
+}
+
+export interface StreakSummary {
+  current: number;
+  longest: number;
+  active_dates: string[]; // yyyy-MM-dd
+  active_hours_by_date?: Record<string, number>; // date_key -> hours
+}
+
+export interface DashboardSummaryResponse {
+  user_id: string;
+  date_key: string; // yyyy-MM-dd
+  today_hours: number;
+  week_hours: number;
+  week_daily: WeekDailyEntry[];
+  streak: StreakSummary;
+  subjects: SubjectSummary[];
+}
+
 export interface Todo {
   id: number;
   title: string;

@@ -289,19 +289,9 @@ export function useTimerController(): UseTimerControllerResult {
 
   const syncToServerLatest = (reason: string) => syncToServer(reason, latestTimerStateRef.current, latestSyncStateRef.current);
 
-  // 起動時にサーバ正の集計を取得（progressListが空の間に0表示にならないため）
-  useEffect(() => {
-    const dateKey = toLocalDateKey(new Date());
-    (async () => {
-      try {
-        const { studyTimeApi } = await import('../../../api/api');
-        const summary = await studyTimeApi.summary(dateKey, 'default');
-        setStudyTimeServerSummary({ dateKey, todayTotalMs: summary.today_total_ms, weekTotalMs: summary.week_total_ms });
-      } catch (e) {
-        // noop
-      }
-    })();
-  }, []);
+  // NOTE:
+  // 以前は /api/study-time/summary を起動時に叩いていたが、
+  // ダッシュボードの情報源は /api/summary に統一する方針のため、ここでは呼ばない。
 
   // 一定間隔（60秒）で同期（毎秒は禁止）
   useEffect(() => {
@@ -424,41 +414,24 @@ export function useTimerController(): UseTimerControllerResult {
     if (hours === 0) return { success: false, message: '記録する時間がありません' };
 
     try {
-      const todayJst = new Date().toLocaleDateString('sv-SE');
-      const { studyProgressApi } = await import('../../../api/api');
-      const typeModule = await import('../../../api/types');
+      // /api/progress は段階移行でフロントから参照しない
+      // 学習時間の正は /api/study-time/sync (study_time_sync_sessions) に統一する
+      const dateKey = new Date().toLocaleDateString('sv-SE'); // yyyy-MM-dd (JST)
+      const totalMs = Math.max(0, Math.round(hours * 3_600_000));
+      const sessionSuffix =
+        (globalThis.crypto && 'randomUUID' in globalThis.crypto && typeof globalThis.crypto.randomUUID === 'function')
+          ? globalThis.crypto.randomUUID()
+          : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      const clientSessionId = `manual_${sessionSuffix}`;
 
-      const allProgress = await studyProgressApi.getAll();
-      const existingProgress = allProgress.find((p) =>
-        p.subject === timerState.selectedSubject &&
-      　p.topic === '学習時間' &&
-        p.date == todayJst
-      );
-
-      if (existingProgress) {
-        const updatedHours = existingProgress.study_hours + hours;
-        await studyProgressApi.update(existingProgress.id, { study_hours: updatedHours });
-      } else {
-        const focusSeconds = timerState.pomodoroFocusMinutes * 60;
-        const newProgress: typeModule.StudyProgressCreate = {
-          subject: timerState.selectedSubject,
-          topic: '学習時間',
-          date: todayJst, // ★ここを追加！ステップ1で作った変数を入れる
-          progress_percent: 0,
-          study_hours: hours,
-          notes:
-            timerState.mode === 'stopwatch'
-              ? `ストップウォッチで記録: ${formatClockFromSeconds(timerState.elapsedTime)}`
-              : timerState.mode === 'pomodoro'
-                ? `ポモドーロで記録: ${formatClockFromSeconds(
-                    timerState.pomodoroPhase === 'break'
-                      ? focusSeconds
-                      : Math.max(focusSeconds - timerState.pomodoroRemainingSeconds, 0)
-                  )}`
-                : `手動記録: ${timerState.manualHours > 0 ? `${timerState.manualHours}時間` : ''}${timerState.manualMinutes}分`,
-        };
-        await studyProgressApi.create(newProgress);
-      }
+      const { studyTimeApi } = await import('../../../api/api');
+      await studyTimeApi.sync({
+        user_id: 'default',
+        date_key: dateKey,
+        subject: timerState.selectedSubject,
+        client_session_id: clientSessionId,
+        total_ms: totalMs,
+      });
 
       // 保存後にタイマーをリセット
       resetTimer();

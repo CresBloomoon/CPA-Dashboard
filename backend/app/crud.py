@@ -123,11 +123,9 @@ def delete_study_progress(db: Session, progress_id: int):
     db.commit()
     return db_progress
 
-def get_subjects_summary(db: Session):
+def get_subjects_summary(db: Session, user_id: str = "default"):
     """科目ごとの集計を取得"""
     from sqlalchemy import func
-
-    user_id = "default"
 
     # 1) 進捗系（学習時間以外）は study_progress VIEW（= legacy + time互換行）から取得
     #    time互換行は progress_percent が NULL なので avg を汚しにくい
@@ -168,6 +166,123 @@ def get_subjects_summary(db: Session):
         }
         for subject in subjects
     ]
+
+
+def _jst_today_date_key() -> str:
+    """
+    JST の「今日」を yyyy-MM-dd で返す。
+    （DB集計は date_key を正とするため、サーバ側でもJST基準で合わせる）
+    """
+    jst_now = datetime.now(timezone.utc) + timedelta(hours=9)
+    return jst_now.date().isoformat()
+
+
+def get_dashboard_summary(
+    db: Session,
+    user_id: str = "default",
+    date_key: str | None = None,
+    streak_days: int = 365,
+):
+    """
+    /api/summary の統一レスポンスを生成する。
+    - 学習時間の正は study_time_sync_sessions(date_key) のみ
+    - 棒グラフ用: 今週(Mon..Sun)の日別 hours
+    - ストリーク: date_key 連続判定（hours > 0）
+    """
+    from sqlalchemy import func
+
+    base_key = date_key or _jst_today_date_key()
+    base_day = datetime.strptime(base_key, "%Y-%m-%d").date()
+
+    # 1) 週範囲（Mon..Sun）
+    week_start = base_day - timedelta(days=base_day.weekday())
+    week_end = week_start + timedelta(days=7)
+    week_start_key = week_start.isoformat()
+    week_end_key = week_end.isoformat()
+
+    week_rows = (
+        db.query(
+            models.StudyTimeSyncSession.date_key.label("date_key"),
+            func.sum(models.StudyTimeSyncSession.last_total_ms).label("total_ms"),
+        )
+        .filter(models.StudyTimeSyncSession.user_id == user_id)
+        .filter(models.StudyTimeSyncSession.date_key >= week_start_key)
+        .filter(models.StudyTimeSyncSession.date_key < week_end_key)
+        .group_by(models.StudyTimeSyncSession.date_key)
+        .all()
+    )
+    week_hours_by_date = {r.date_key: float(r.total_ms or 0.0) / 3_600_000.0 for r in week_rows}
+    week_daily = []
+    for i in range(7):
+        k = (week_start + timedelta(days=i)).isoformat()
+        week_daily.append({"date_key": k, "hours": float(week_hours_by_date.get(k, 0.0))})
+
+    today_hours = float(week_hours_by_date.get(base_key, 0.0))
+    week_hours = float(sum(d["hours"] for d in week_daily))
+
+    # 2) ストリーク（直近N日）
+    if streak_days < 1:
+        streak_days = 1
+    streak_start = base_day - timedelta(days=streak_days - 1)
+    streak_start_key = streak_start.isoformat()
+    streak_end_key = (base_day + timedelta(days=1)).isoformat()
+
+    streak_rows = (
+        db.query(
+            models.StudyTimeSyncSession.date_key.label("date_key"),
+            func.sum(models.StudyTimeSyncSession.last_total_ms).label("total_ms"),
+        )
+        .filter(models.StudyTimeSyncSession.user_id == user_id)
+        .filter(models.StudyTimeSyncSession.date_key >= streak_start_key)
+        .filter(models.StudyTimeSyncSession.date_key < streak_end_key)
+        .group_by(models.StudyTimeSyncSession.date_key)
+        .all()
+    )
+    streak_hours_by_date = {r.date_key: float(r.total_ms or 0.0) / 3_600_000.0 for r in streak_rows}
+    active_dates = sorted([k for k, h in streak_hours_by_date.items() if h > 0.0])
+    active_hours_by_date = {k: float(h) for k, h in streak_hours_by_date.items() if float(h) > 0.0}
+
+    # current streak（今日から遡る）
+    current = 0
+    cur = base_day
+    while cur >= streak_start:
+        k = cur.isoformat()
+        if float(streak_hours_by_date.get(k, 0.0)) > 0.0:
+            current += 1
+            cur = cur - timedelta(days=1)
+        else:
+            break
+
+    # longest streak（直近N日での最長）
+    longest = 0
+    run = 0
+    d = streak_start
+    while d <= base_day:
+        k = d.isoformat()
+        if float(streak_hours_by_date.get(k, 0.0)) > 0.0:
+            run += 1
+            if run > longest:
+                longest = run
+        else:
+            run = 0
+        d = d + timedelta(days=1)
+
+    subjects = get_subjects_summary(db, user_id=user_id)
+
+    return {
+        "user_id": user_id,
+        "date_key": base_key,
+        "today_hours": today_hours,
+        "week_hours": week_hours,
+        "week_daily": week_daily,
+        "streak": {
+            "current": int(current),
+            "longest": int(longest),
+            "active_dates": active_dates,
+            "active_hours_by_date": active_hours_by_date,
+        },
+        "subjects": subjects,
+    }
 
 # ----------------------------
 # Study time sync (timer)

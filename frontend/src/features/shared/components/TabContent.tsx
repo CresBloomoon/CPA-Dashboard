@@ -1,5 +1,5 @@
 import { calculateTodoCounts } from '../../../utils/todoCounts';
-import type { StudyProgress, Subject, Project, Todo } from '../../../api/types';
+import type { StudyProgress, Subject, Project, Todo, DashboardSummaryResponse } from '../../../api/types';
 import SummaryCards from '../../timer/components/SummaryCards';
 import StudyTimer from '../../timer/components/StudyTimer';
 import TodoList from '../../kanban/components/TodoList';
@@ -11,7 +11,7 @@ interface TabContentProps {
   activeTab: string;
   slideDirection: 'left' | 'right';
   progressList: StudyProgress[];
-  summary: any[];
+  summary: DashboardSummaryResponse | null;
   todos: Todo[];
   projects: Project[];
   subjects: string[];
@@ -47,7 +47,7 @@ export default function TabContent({
   const todoCounts = calculateTodoCounts(todos);
   const { today: todayDueTodos, all: totalTodos, completed: completedTodos } = todoCounts;
 
-  const totalHours = summary.reduce((sum, s) => sum + s.total_hours, 0);
+  const totalHours = summary?.subjects?.reduce((sum, s) => sum + (s.total_hours || 0), 0) ?? 0;
   const totalProgress = progressList.length > 0
     ? progressList.reduce((sum, p) => sum + p.progress_percent, 0) / progressList.length
     : 0;
@@ -61,7 +61,7 @@ export default function TabContent({
             totalTodos={totalTodos}
             completedTodos={completedTodos}
             todayDueTodos={todayDueTodos}
-            progressList={progressList}
+            dashboardSummary={summary}
             todos={todos}
             subjectsWithColors={subjectsWithColors}
             reportStartDay={reportStartDay}

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor, waitForElementToBeRemoved, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Settings, Subject, Todo } from '../../api/types';
+import type { DashboardSummaryResponse, Settings, Subject, Todo } from '../../api/types';
 import { TimerProvider } from '../../features/timer/hooks/TimerContext';
 import App from '../../App';
 import { DEFAULT_SUBJECTS } from '../../config/subjects';
@@ -84,6 +84,19 @@ async function renderApp() {
   return { user };
 }
 
+function makeDashboardSummary(): DashboardSummaryResponse {
+  const today = new Date().toLocaleDateString('sv-SE');
+  return {
+    user_id: 'default',
+    date_key: today,
+    today_hours: 0,
+    week_hours: 0,
+    week_daily: [],
+    streak: { current: 0, longest: 0, active_dates: [], active_hours_by_date: {} },
+    subjects: [],
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   localStorage.clear();
@@ -102,7 +115,7 @@ describe('科目（id/name/color）の統合反映', () => {
 
     vi.mocked(settingsApi.getAll).mockResolvedValue(makeSettingsSubjects(subjects));
     vi.mocked(studyProgressApi.getAll).mockResolvedValue([]);
-    vi.mocked(studyProgressApi.getSummary).mockResolvedValue([]);
+    vi.mocked(studyProgressApi.getSummary).mockResolvedValue(makeDashboardSummary());
     vi.mocked(projectApi.getAll).mockResolvedValue([]);
     vi.mocked(todoApi.getAll).mockResolvedValue([makeTodo({ subject: subjects[0].name })]);
 
@@ -161,7 +174,7 @@ describe('科目（id/name/color）の統合反映', () => {
   it('ボリューム削除後（subjects設定なし）でもデフォルト科目が表示され、旧科目名（LocalStorage）も自動で正規化される', async () => {
     vi.mocked(settingsApi.getAll).mockResolvedValue([]); // settingsが空（初期状態）
     vi.mocked(studyProgressApi.getAll).mockResolvedValue([]);
-    vi.mocked(studyProgressApi.getSummary).mockResolvedValue([]);
+    vi.mocked(studyProgressApi.getSummary).mockResolvedValue(makeDashboardSummary());
     vi.mocked(projectApi.getAll).mockResolvedValue([]);
     vi.mocked(todoApi.getAll).mockResolvedValue([]);
 

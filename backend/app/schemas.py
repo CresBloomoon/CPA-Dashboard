@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 
 class StudyProgressBase(BaseModel):
@@ -141,6 +141,39 @@ class StudyTimeSummaryResponse(BaseModel):
     date_key: str = Field(..., description="基準日（yyyy-MM-dd）")
     today_total_ms: int = Field(..., ge=0, description="今日の学習合計(ms)")
     week_total_ms: int = Field(..., ge=0, description="今週の学習合計(ms)")
+
+# ----------------------------
+# Summary (dashboard source of truth)
+# ----------------------------
+
+class SubjectSummaryResponse(BaseModel):
+    subject: str
+    count: int = Field(0, ge=0, description="進捗（学習時間以外）の件数")
+    total_hours: float = Field(0.0, ge=0.0, description="学習時間合計（時間）")
+    avg_progress: float = Field(0.0, ge=0.0, le=100.0, description="平均進捗率")
+
+
+class WeekDailyEntry(BaseModel):
+    date_key: str = Field(..., description="yyyy-MM-dd")
+    hours: float = Field(0.0, ge=0.0, description="当日の学習時間（時間）")
+
+
+class StreakSummary(BaseModel):
+    current: int = Field(0, ge=0, description="今日から遡った連続学習日数")
+    longest: int = Field(0, ge=0, description="最長連続学習日数")
+    active_dates: List[str] = Field(default_factory=list, description="学習した日（yyyy-MM-dd）の配列")
+    # 互換/UX: カレンダーのツールチップ用（必要な範囲だけ返す）
+    active_hours_by_date: Dict[str, float] = Field(default_factory=dict, description="date_key -> hours")
+
+
+class DashboardSummaryResponse(BaseModel):
+    user_id: str = Field("default", description="ユーザーID")
+    date_key: str = Field(..., description="基準日（yyyy-MM-dd）")
+    today_hours: float = Field(0.0, ge=0.0, description="今日の学習時間（時間）")
+    week_hours: float = Field(0.0, ge=0.0, description="今週の学習時間（時間）")
+    week_daily: List[WeekDailyEntry] = Field(default_factory=list, description="今週の日別学習時間")
+    streak: StreakSummary = Field(default_factory=StreakSummary)
+    subjects: List[SubjectSummaryResponse] = Field(default_factory=list, description="科目ごとの集計（既存互換）")
 
 # ----------------------------
 # Review set list (復習セットリスト)

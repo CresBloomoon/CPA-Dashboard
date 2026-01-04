@@ -3,6 +3,7 @@ import type {
   StudyProgress,
   StudyProgressCreate,
   SubjectSummary,
+  DashboardSummaryResponse,
   Todo,
   TodoCreate,
   Settings,
@@ -123,8 +124,10 @@ export const studyProgressApi = {
   },
 
   // 科目ごとの集計を取得
-  getSummary: async (): Promise<SubjectSummary[]> => {
-    const response = await api.get<SubjectSummary[]>('/summary');
+  getSummary: async (userId = 'default', dateKey?: string): Promise<DashboardSummaryResponse> => {
+    const response = await api.get<DashboardSummaryResponse>('/summary', {
+      params: { user_id: userId, ...(dateKey ? { date_key: dateKey } : {}) },
+    });
     return response.data;
   },
 };

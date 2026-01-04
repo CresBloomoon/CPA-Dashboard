@@ -9,8 +9,8 @@ import {
   Legend,
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
-import { addDays, endOfDay, format, parseISO, startOfDay, subDays, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns';
-import type { StudyProgress, Subject, Todo } from '../../../api/types';
+import { startOfWeek, endOfWeek, eachDayOfInterval, parseISO } from 'date-fns';
+import type { DashboardSummaryResponse, Subject, Todo } from '../../../api/types';
 import { SUBJECT_COLOR_FALLBACK } from '../../../config/subjects';
 import { getSubjectColor as resolveSubjectColor } from '../../../utils/todoHelpers';
 import { toLocalDateKey, toLocalDateKeyFromApi } from '../../../utils/dateKey';
@@ -37,7 +37,7 @@ interface SummaryCardsProps {
   onTodayDueClick?: () => void;
   onTotalTodosClick?: () => void;
   onCompletedTodosClick?: () => void;
-  progressList?: StudyProgress[];
+  dashboardSummary?: DashboardSummaryResponse | null;
   todos?: Todo[];
   subjectsWithColors?: Subject[];
   reportStartDay?: number;
@@ -51,7 +51,7 @@ export default function SummaryCards({
   onTodayDueClick,
   onTotalTodosClick,
   onCompletedTodosClick,
-  progressList = [],
+  dashboardSummary = null,
   todos = [],
   subjectsWithColors = []
   ,
@@ -85,96 +85,59 @@ export default function SummaryCards({
     // 英語の曜日略語マッピング（getDay()の0(日)〜6(土)に対応）
     const dayAbbreviations = ['Sun.', 'Mon.', 'Tue.', 'Wed.', 'Thu.', 'Fri.', 'Sat.'];
     
-    // 各日のデータを初期化（daysは[月, 火, 水, 木, 金, 土, 日]の順）
-    const dailyData = days.map(day => {
-      const dayOfWeek = day.getDay(); // 0 (Sunday) から 6 (Saturday)
-      const dayLabel = dayAbbreviations[dayOfWeek];
-      return {
-        label: dayLabel,
-        dateObj: day,
-        dateKey: toLocalDateKey(day), // ローカル日付キー（yyyy-MM-dd）
-        subjects: {} as Record<string, number>,
-        total: 0
-      };
+    // /api/summary の week_daily（date_key基準）を使って日別合計の棒グラフを描画
+    const weekDailyMap = new Map<string, number>(
+      (dashboardSummary?.week_daily ?? []).map((d) => [d.date_key, Number(d.hours || 0)])
+    );
+
+    const labels = days.map((day) => {
+      const dayOfWeek = day.getDay();
+      return dayAbbreviations[dayOfWeek];
+    });
+    const values = days.map((day) => {
+      const key = toLocalDateKey(day);
+      return weekDailyMap.get(key) ?? 0;
     });
 
-    // 進捗データを日付ごとに集計（JSTで日付を比較）
-    progressList.forEach(progress => {
-      // parseISOを使用してタイムゾーン情報を考慮してパース
-      // その後、formatでローカルタイムゾーンの日付としてフォーマット
-      // API由来の日時はUTC扱い→ローカル日付キーへ
-      const progressDateKey = toLocalDateKeyFromApi(progress.created_at);
-      // dateKeyで直接検索（事前計算済み）
-      const dayIndex = dailyData.findIndex(d => d.dateKey === progressDateKey);
-      
-      if (dayIndex >= 0) {
-        const subject = progress.subject;
-        if (!dailyData[dayIndex].subjects[subject]) {
-          dailyData[dayIndex].subjects[subject] = 0;
-        }
-        dailyData[dayIndex].subjects[subject] += progress.study_hours;
-        dailyData[dayIndex].total += progress.study_hours;
-      }
-    });
-
-    // 科目リストに含まれる科目のみを取得
-    const validSubjects = subjectsWithColors.filter((s) => s.visible !== false).map((s) => s.name);
-    const allSubjects = Array.from(new Set(progressList.map(p => p.subject)))
-      .filter(subject => validSubjects.includes(subject));
-
-    // ラベル（曜日）を取得 - dailyDataの順序のまま（[Mon., Tue., ..., Sun.]）
-    const labels = dailyData.map(day => day.label);
-
-    // 各科目のデータセットを作成 - dailyDataの順序のまま
-    const datasets = allSubjects.map(subject => ({
-      label: subject,
-      data: dailyData.map(day => day.subjects[subject] || 0),
-      backgroundColor: getSubjectColor(subject),
-      borderRadius: 4, // 角を丸くする
-      borderSkipped: false, // すべての角を丸くする
-    }));
+    const barColor = colors.accent;
+    const datasets = [
+      {
+        label: '学習時間',
+        data: values,
+        backgroundColor: barColor,
+        borderRadius: 4,
+        borderSkipped: false,
+      },
+    ];
 
     return {
       labels,
       datasets,
     };
-  }, [progressList, subjectsWithColors, now]);
+  }, [dashboardSummary, now, colors.accent]);
 
   // 今日と今週の学習時間を計算（JSTで日付を比較）
   const todayHours = useMemo(() => {
     const today = now;
     const todayKey = toLocalDateKey(today);
-    const fromProgress = progressList
-      .filter(p => {
-        const progressDateKey = toLocalDateKeyFromApi(p.created_at);
-        return progressDateKey === todayKey;
-      })
-      .reduce((sum, p) => sum + p.study_hours, 0);
+    const fromSummary = dashboardSummary?.date_key === todayKey ? Number(dashboardSummary.today_hours || 0) : 0;
     const fromServerFallback =
-      fromProgress === 0 && studyTimeServerSummary?.dateKey === todayKey
+      fromSummary === 0 && studyTimeServerSummary?.dateKey === todayKey
         ? studyTimeServerSummary.todayTotalMs / 3_600_000
-        : fromProgress;
+        : fromSummary;
     return fromServerFallback + (unsyncedTodayMs / 3_600_000);
-  }, [progressList, now]);
+  }, [dashboardSummary, now, studyTimeServerSummary, unsyncedTodayMs]);
 
   const thisWeekHours = useMemo(() => {
     const today = now;
-    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // 月曜日から
-    const weekStartKey = toLocalDateKey(weekStart);
     const todayKey = toLocalDateKey(today);
-    const fromProgress = progressList
-      .filter(p => {
-        const progressDateKey = toLocalDateKeyFromApi(p.created_at);
-        return progressDateKey >= weekStartKey && progressDateKey <= todayKey;
-      })
-      .reduce((sum, p) => sum + p.study_hours, 0);
+    const fromSummary = dashboardSummary?.date_key === todayKey ? Number(dashboardSummary.week_hours || 0) : 0;
     const fromServerFallback =
-      fromProgress === 0 && studyTimeServerSummary?.dateKey === todayKey
+      fromSummary === 0 && studyTimeServerSummary?.dateKey === todayKey
         ? studyTimeServerSummary.weekTotalMs / 3_600_000
-        : fromProgress;
-    // 未同期分は今日の分として週にも加算
+        : fromSummary;
     return fromServerFallback + (unsyncedTodayMs / 3_600_000);
-  }, [progressList, now]);
+  }, [dashboardSummary, now, studyTimeServerSummary, unsyncedTodayMs]);
 
   const options = {
     responsive: true,
@@ -465,7 +428,11 @@ export default function SummaryCards({
             border: theme === 'modern' ? '1px solid rgba(255, 255, 255, 0.1)' : `1px solid ${colors.border}`,
           }}
         >
-          <CompactStreakCalendar progressList={progressList} compact={false} />
+          <CompactStreakCalendar
+            achievedDateKeys={dashboardSummary?.streak?.active_dates ?? []}
+            hoursByDateKey={dashboardSummary?.streak?.active_hours_by_date ?? {}}
+            compact={false}
+          />
         </div>
       </div>
 
